@@ -12,7 +12,7 @@
     "@neondatabase/serverless": "1.2.0"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.5.10",
+    "@electric-sql/pglite": "0.5.11",
     "@types/node": "^26.6.5",
     "tsx": "^4.23.15",
     "typescript": "6.0.3",
