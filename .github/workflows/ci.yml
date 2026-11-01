@@ -16,7 +16,7 @@ jobs:
           # The whole history, for the gitleaks scan below.
           fetch-depth: 0
 
-      - uses: jdx/mise-action@v5.2.2
+      - uses: jdx/mise-action@v5.2.4
 
       - name: Get pnpm store directory
         id: pnpm-store
