@@ -8,7 +8,7 @@
     "description": "Do not translate. The brand name alone, shown in the page header and the browser tab title."
   },
   "extDescription": {
-    "message": "ワンクリックですべてのタブを並べ替えてグループ化し、ウィンドウ全体をセッションとして保存・復元できます。オフライン、アカウント不要、データは端末内に保存。",
+    "message": "ワンクリックですべてのタブを並べ替えてグループ化し、ウィンドウ全体をセッションとして保存・復元できます。オフラインで動作、同期は任意で暗号化。",
     "description": "The store summary and the line under the name at chrome://extensions. At most 132 characters."
   },
   "localeCode": {
@@ -968,7 +968,7 @@
     "description": "Title of the import dialog."
   },
   "expImportDescription": {
-    "message": "Tabinet の JSON エクスポート、ブックマーク HTML ファイル、Markdown、またはリンクの一覧を読み込めます。インポートしたセッションはこの端末の保存済みリストに追加されます。アップロードされることはありません。",
+    "message": "Tabinet の JSON エクスポート、ブックマーク HTML ファイル、Markdown、またはリンクの一覧を読み込めます。インポートしたセッションはこの端末の保存済みリストに追加されます。",
     "description": "Explanation under the import dialog's title."
   },
   "expChooseFile": {

@@ -72,14 +72,16 @@ export interface CloudSyncConfig {
 }
 
 /**
- * Cloud sync (sign-in, the sync passphrase and the server client in `src/lib/cloud-*.ts`). The
- * Google client is filled in; the server is not, so the feature stays dormant: until both values
- * are set the manifest asks for no `identity` permission and carries no `oauth2` key, and
- * Settings shows no Account section, so a build is exactly what it was without it. Tests switch
- * it on through `overrideCloudSyncConfig()` in `src/lib/cloud-config.ts`.
+ * Cloud sync (sign-in, the sync passphrase and the server client in `src/lib/cloud-*.ts`). Both
+ * values are set, so the feature is switched on: the manifest asks for the `identity` permission
+ * and carries the `oauth2` key, and Settings shows the Account section. It stays opt-in for each
+ * person: nothing is sent until they press Sign in with Google there. The server is the
+ * `server/` package, deployed on Vercel. Clearing `apiBase` makes a build dormant again (no
+ * permission, no `oauth2`, no Account section). Tests switch it off or point it elsewhere through
+ * `overrideCloudSyncConfig()` in `src/lib/cloud-config.ts`.
  */
 export const CLOUD_SYNC: CloudSyncConfig = {
-  apiBase: '',
+  apiBase: 'https://tabinet-server.vercel.app',
   googleClientId: '477192612081-m62eg92tq0l6gc6isjcpjbguhoom9kr6.apps.googleusercontent.com',
 };
 

@@ -22,19 +22,24 @@ import {
   validateDescription,
   validateSummary,
 } from '../../scripts/store-listing';
-import { YOUTUBE_ORIGINS } from '../constants';
+import { cloudSyncPermissions, YOUTUBE_ORIGINS } from '../constants';
 
 const ROOT = path.resolve(LOCALES_SOURCE, '..', '..');
 const LONG_DASH = new RegExp(`[${String.fromCodePoint(0x2013, 0x2014)}]`);
 
-/** The `permissions` array of the manifest in vite.config.ts, read as text (no plugins loaded). */
+/**
+ * The `permissions` array of the manifest in vite.config.ts, read as text (no plugins loaded),
+ * plus what its `...cloudSyncPermissions()` spread adds (`identity` while cloud sync is configured).
+ */
 function manifestPermissions(): string[] {
   const config = readFileSync(path.join(ROOT, 'vite.config.ts'), 'utf-8');
   const block = /^\s*permissions:\s*\[([^\]]*)\]/m.exec(config);
   if (block === null) {
     throw new Error('No permissions array in vite.config.ts');
   }
-  return [...block[1].matchAll(/'([^']+)'/g)].map((match) => match[1]);
+  const literal = [...block[1].matchAll(/'([^']+)'/g)].map((match) => match[1]);
+  const spreads = block[1].includes('...cloudSyncPermissions()') ? cloudSyncPermissions() : [];
+  return [...literal, ...spreads];
 }
 
 describe('validateDescription', () => {

@@ -8,7 +8,7 @@
     "description": "Do not translate. The brand name alone, shown in the page header and the browser tab title."
   },
   "extDescription": {
-    "message": "Sort and group every tab in one click, then save and restore whole windows as sessions. Offline, no account, stays on your device.",
+    "message": "Sort and group every tab in one click, then save and restore whole windows as sessions. Works offline; sync is optional, encrypted.",
     "description": "The store summary and the line under the name at chrome://extensions. At most 132 characters."
   },
   "localeCode": {
@@ -1008,7 +1008,7 @@
     "description": "Title of the import dialog."
   },
   "expImportDescription": {
-    "message": "A Tabinet JSON export, a bookmarks HTML file, Markdown or a plain list of links. Imported sessions are added to the saved list on this device; nothing is uploaded.",
+    "message": "A Tabinet JSON export, a bookmarks HTML file, Markdown or a plain list of links. Imported sessions are added to the saved list on this device.",
     "description": "Explanation under the import dialog's title."
   },
   "expChooseFile": {

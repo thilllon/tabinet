@@ -103,6 +103,11 @@ afterEach(() => {
 });
 
 describe('dormant while cloud sync is unconfigured', () => {
+  beforeEach(() => {
+    // The shipped build names a server, so the unconfigured case is set up explicitly.
+    overrideCloudSyncConfig(() => ({ apiBase: '', googleClientId: 'cid' }));
+  });
+
   it('session writes track nothing and read no account', async () => {
     signIn();
     startTracking();

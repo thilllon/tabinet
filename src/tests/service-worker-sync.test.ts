@@ -31,9 +31,10 @@ function signIn(): void {
 async function loadWorker(configured: boolean) {
   vi.resetModules();
   const config = await import('@/lib/cloud-config');
-  if (configured) {
-    config.overrideCloudSyncConfig(() => ({ apiBase: 'https://sync.test', googleClientId: 'cid' }));
-  }
+  config.overrideCloudSyncConfig(() => ({
+    apiBase: configured ? 'https://sync.test' : '',
+    googleClientId: 'cid',
+  }));
   await import('@/service-worker');
   const { sessionRepo } = await import('@/lib/session-repo');
   return { sessionRepo, config };

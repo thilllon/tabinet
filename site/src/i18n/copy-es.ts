@@ -4,13 +4,13 @@ export const es: SiteCopy = {
   meta: {
     homeTitle: 'Tabinet - ordena, agrupa y guarda tus pestañas de Chrome',
     homeDescription:
-      'Una extensión de Chrome que ordena y agrupa todas tus pestañas con un clic, se ocupa de las duplicadas y guarda ventanas enteras como sesiones para recuperarlas después. Gratis, sin cuenta y sin que nada salga de tu equipo.',
+      'Una extensión de Chrome que ordena y agrupa todas tus pestañas con un clic, se ocupa de las duplicadas y guarda ventanas enteras como sesiones para recuperarlas después. Gratis, sin rastreo y sin que nada salga de tu equipo salvo que actives la sincronización cifrada opcional.',
     supportTitle: 'Ayuda - Tabinet',
     supportDescription:
       'Respuestas a las dudas más comunes sobre Tabinet y cómo avisar de un problema o proponer una mejora.',
     privacyTitle: 'Política de privacidad - Tabinet',
     privacyDescription:
-      'Tabinet no recopila nada ni hace peticiones de red. Qué guarda, dónde y durante cuánto tiempo.',
+      'Tabinet no hace peticiones de red salvo que inicies sesión en su sincronización opcional, cifrada de extremo a extremo. Qué guarda, dónde y durante cuánto tiempo.',
     ogImageAlt:
       'La página de Tabinet con una sesión guardada de dos ventanas y sus grupos de pestañas',
   },
@@ -26,13 +26,13 @@ export const es: SiteCopy = {
   },
   cta: {
     addToChrome: 'Agregar a Chrome',
-    note: 'Gratis · Sin cuenta · Funciona sin conexión',
+    note: 'Gratis · Sin rastreo · Funciona sin conexión',
     seeFeatures: 'Ver qué hace',
   },
   hero: {
     eyebrow: 'Extensión para Chrome',
     title: 'Un clic y cada pestaña vuelve a su sitio.',
-    lead: 'Tabinet ordena y agrupa las pestañas de tu ventana, elimina las duplicadas y guarda ventanas completas como sesiones que puedes recuperar cuando quieras. Todo se queda en tu equipo.',
+    lead: 'Tabinet ordena y agrupa las pestañas de tu ventana, elimina las duplicadas y guarda ventanas completas como sesiones que puedes recuperar cuando quieras. Todo se queda en tu equipo salvo que actives la sincronización.',
     imageAlt:
       'La página de Tabinet: las sesiones guardadas en la columna izquierda y, a la derecha, una sesión de dos ventanas con sus pestañas fijadas y grupos de pestañas',
     languages:
@@ -131,20 +131,20 @@ export const es: SiteCopy = {
     ],
   },
   promise: {
-    title: 'Tus pestañas no salen de tu equipo',
-    lead: 'Tabinet no tiene ningún servidor al que enviar nada. Funciona igual sin conexión.',
+    title: 'Tus pestañas son solo tuyas',
+    lead: 'Sin sincronización, Tabinet no envía nada a ningún sitio y funciona igual sin conexión. Con ella, solo tú puedes leer lo que se envía.',
     points: [
       {
         title: 'Se queda en el equipo',
-        body: 'Las sesiones y las instantáneas viven en el almacenamiento local de extensiones de Chrome. No se sincronizan ni se suben a ningún sitio.',
+        body: 'Las sesiones y las instantáneas viven en el almacenamiento local de extensiones de Chrome. Las instantáneas nunca salen de ahí; las sesiones guardadas, solo si activas la sincronización.',
       },
       {
-        title: 'Sin cuenta',
-        body: 'No hay nada en lo que registrarse ni con lo que iniciar sesión. Instala y haz clic.',
+        title: 'Sin cuenta obligatoria',
+        body: 'Instala y haz clic. Iniciar sesión con Google solo hace falta para la sincronización opcional, y tus sesiones se cifran en tu equipo con una frase de contraseña que solo tú conoces antes de salir de él.',
       },
       {
-        title: 'Sin red',
-        body: 'Sin analíticas, sin rastreo, sin peticiones de ningún tipo. No lee el contenido de las páginas que visitas; lo único que ejecuta en una página es la pausa de los vídeos de YouTube, si lo permites.',
+        title: 'Sin rastreo',
+        body: 'Sin analíticas, sin rastreo y sin ninguna petición salvo que inicies sesión en la sincronización. No lee el contenido de las páginas que visitas; lo único que ejecuta en una página es la pausa de los vídeos de YouTube, si lo permites.',
       },
     ],
     link: 'Leer la política de privacidad',
@@ -188,11 +188,11 @@ export const es: SiteCopy = {
       },
       {
         q: '¿Envía mis datos de navegación a algún sitio?',
-        a: 'No. Tabinet no hace ninguna petición de red. Todo ocurre dentro de tu navegador.',
+        a: 'No, salvo que inicies sesión en la sincronización. Sin ella, Tabinet no hace ninguna petición de red y todo ocurre dentro de tu navegador. Con la sincronización activada, tus sesiones guardadas y tu configuración van cifradas al servidor de sincronización de Tabinet, así que solo tú puedes leerlas; las instantáneas automáticas nunca salen del equipo.',
       },
       {
         q: '¿Dónde se guardan mis sesiones?',
-        a: 'Solo en el almacenamiento local de extensiones de Chrome de este equipo. Nunca se sincronizan, se suben ni se comparten con páginas web. Puedes borrar una sesión, o todos los datos de sesiones, cuando quieras, y al desinstalar se elimina todo. Exporta a JSON si quieres tu propia copia de seguridad.',
+        a: 'En el almacenamiento local de extensiones de Chrome de este equipo. Nunca se comparten con páginas web y solo se suben si activas la sincronización, cifradas de extremo a extremo. Puedes borrar una sesión, o todos los datos de sesiones, cuando quieras, y al desinstalar se elimina todo. Exporta a JSON si quieres tu propia copia de seguridad.',
       },
       {
         q: '¿Qué guardan las instantáneas automáticas? ¿Puedo desactivarlas?',
@@ -204,7 +204,11 @@ export const es: SiteCopy = {
       },
       {
         q: '¿Puedo llevar mis sesiones a otro equipo?',
-        a: 'Sí. Exporta todo como JSON e impórtalo en el otro equipo, o exporta como HTML e impórtalo en los marcadores de Chrome.',
+        a: 'Sí. Activa la sincronización en los dos equipos y tus sesiones guardadas te acompañan. También puedes exportar todo como JSON e importarlo en el otro equipo, o exportar como HTML e importarlo en los marcadores de Chrome.',
+      },
+      {
+        q: '¿Cómo funciona la sincronización? ¿Puede el servidor leer mis pestañas?',
+        a: 'La sincronización es opcional y está desactivada hasta que haces clic en Iniciar sesión con Google en Configuración, Cuenta. Luego creas una frase de contraseña de sincronización: tus sesiones guardadas y tu configuración se cifran con ella en tu equipo antes de enviarse, y la frase nunca se envía, así que el servidor solo guarda datos que no puede leer. Las instantáneas nunca se sincronizan. Si olvidas la frase, nadie puede recuperar la copia de la nube, pero las sesiones de tus equipos se conservan. Eliminar datos de la nube, en el mismo sitio, borra todo del servidor. El inicio de sesión usa el de Google integrado en Chrome, así que puede no funcionar en otros navegadores Chromium.',
       },
       {
         q: '¿Y si no me gusta cómo queda?',
@@ -226,7 +230,7 @@ export const es: SiteCopy = {
     englishLink: 'Ver el original en inglés',
   },
   footer: {
-    tagline: 'Ordena, agrupa y guarda tus pestañas. Nada sale de tu equipo.',
+    tagline: 'Ordena, agrupa y guarda tus pestañas. Nada sale de tu equipo si no sincronizas.',
     languages: 'Idiomas',
   },
 };

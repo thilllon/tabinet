@@ -8,7 +8,7 @@
     "description": "Do not translate. The brand name alone, shown in the page header and the browser tab title."
   },
   "extDescription": {
-    "message": "Ordena y agrupa todas las pestañas en un clic; guarda y restaura ventanas enteras como sesiones. Sin conexión ni cuenta, todo local.",
+    "message": "Ordena y agrupa tus pestañas en un clic; guarda y restaura ventanas como sesiones. Sin conexión; sincronización cifrada opcional.",
     "description": "The store summary and the line under the name at chrome://extensions. At most 132 characters."
   },
   "localeCode": {
@@ -1008,7 +1008,7 @@
     "description": "Title of the import dialog."
   },
   "expImportDescription": {
-    "message": "Una exportación JSON de Tabinet, un archivo HTML de marcadores, Markdown o una lista de enlaces sin formato. Las sesiones importadas se añaden a la lista de guardadas en este dispositivo; no se sube nada.",
+    "message": "Una exportación JSON de Tabinet, un archivo HTML de marcadores, Markdown o una lista de enlaces sin formato. Las sesiones importadas se añaden a la lista de guardadas en este dispositivo.",
     "description": "Explanation under the import dialog's title."
   },
   "expChooseFile": {

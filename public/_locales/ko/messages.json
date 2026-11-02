@@ -8,7 +8,7 @@
     "description": "Do not translate. The brand name alone, shown in the page header and the browser tab title."
   },
   "extDescription": {
-    "message": "클릭 한 번으로 모든 탭을 정렬하고 그룹으로 묶은 뒤, 창 전체를 세션으로 저장하고 복원합니다. 오프라인, 계정 불필요, 데이터는 기기에만 저장됩니다.",
+    "message": "클릭 한 번으로 모든 탭을 정렬하고 그룹으로 묶은 뒤, 창 전체를 세션으로 저장하고 복원합니다. 오프라인에서 동작하며, 동기화는 선택이고 암호화됩니다.",
     "description": "The store summary and the line under the name at chrome://extensions. At most 132 characters."
   },
   "localeCode": {
@@ -960,7 +960,7 @@
     "description": "Title of the import dialog."
   },
   "expImportDescription": {
-    "message": "Tabinet JSON 내보내기, 북마크 HTML 파일, Markdown 또는 일반 링크 목록을 가져옵니다. 가져온 세션은 이 기기의 저장된 목록에 추가되며, 아무것도 업로드되지 않습니다.",
+    "message": "Tabinet JSON 내보내기, 북마크 HTML 파일, Markdown 또는 일반 링크 목록을 가져옵니다. 가져온 세션은 이 기기의 저장된 목록에 추가됩니다.",
     "description": "Explanation under the import dialog's title."
   },
   "expChooseFile": {

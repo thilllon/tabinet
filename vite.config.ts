@@ -62,8 +62,8 @@ const manifest = defineManifest((env) => {
     // src/service-worker.ts), so it must ship with that listener - see AGENTS.md. `scripting` is
     // only called inside a handler ("Pause all YouTube videos", src/lib/pause-youtube.ts) and is
     // useless without the optional YouTube host permission below. `identity` (cloud sync sign-in)
-    // joins only once CLOUD_SYNC in src/constants.ts is filled in; until then the list is exactly
-    // the one below.
+    // is added while CLOUD_SYNC in src/constants.ts names both the server and the Google client, as
+    // it does now; nothing touches chrome.identity at load, only Sign in with Google in Settings.
     permissions: [
       'tabs',
       'tabGroups',
@@ -75,8 +75,8 @@ const manifest = defineManifest((env) => {
       'scripting',
       ...cloudSyncPermissions(),
     ],
-    // The Google OAuth client `chrome.identity.getAuthToken` signs in with (cloud sync): no `oauth2`
-    // key at all until CLOUD_SYNC is configured, so an unconfigured manifest is unchanged.
+    // The Google OAuth client `chrome.identity.getAuthToken` signs in with (cloud sync): present
+    // while CLOUD_SYNC is configured (it is); a build with an empty apiBase carries no `oauth2` key.
     ...cloudSyncOauth2(),
     // No `host_permissions` and no `content_scripts`: access to YouTube is asked for in Settings,
     // when the person first wants to pause YouTube (chrome.permissions.request needs a click in a

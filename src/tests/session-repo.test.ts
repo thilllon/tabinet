@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { overrideCloudSyncConfig } from '@/lib/cloud-config';
 import { UnknownSchemaVersionError } from '@/lib/session-migrate';
 import {
   HISTORY_META_KEY,
@@ -70,8 +71,14 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  overrideCloudSyncConfig();
   vi.useRealTimers();
 });
+
+/** Without a sync server an edit keeps updatedAt; with one it moves forward (cloud-sync-state.test.ts). */
+function withoutCloudSync(): void {
+  overrideCloudSyncConfig(() => ({ apiBase: '', googleClientId: 'cid' }));
+}
 
 describe('sessionKey', () => {
   it('prefixes the id', () => {
@@ -389,6 +396,7 @@ describe('sessionRepo migration error propagation', () => {
 
 describe('sessionRepo.rename', () => {
   it('updates the name in the body and the index without changing order', async () => {
+    withoutCloudSync();
     await sessionRepo.put(makeSession({ id: 'id-a', name: 'A' }));
     vi.setSystemTime(6_000);
     await sessionRepo.put(makeSession({ id: 'id-b', name: 'B' }));
@@ -431,6 +439,7 @@ describe('sessionRepo.update', () => {
   });
 
   it('leaves updatedAt to the mutate function, keeping the list order', async () => {
+    withoutCloudSync();
     await sessionRepo.put(makeSession({ id: 'id-a', name: 'A' }));
     vi.setSystemTime(6_000);
     await sessionRepo.put(makeSession({ id: 'id-b', name: 'B' }));
