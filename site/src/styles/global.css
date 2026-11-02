@@ -4,7 +4,7 @@
  * Keep the two palettes in step when either changes.
  *
  * Inter is bundled and served from this site, never fetched from a font CDN: the product
- * promises zero network requests and its website should not be the exception. Only the latin
+ * makes no network requests except the optional, signed-in sync, and its website should not be the exception. Only the latin
  * subset is declared; Korean and Japanese text falls through to the system fonts in --font-sans.
  */
 @font-face {

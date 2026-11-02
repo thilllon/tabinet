@@ -619,6 +619,10 @@
     "message": "“$1” will be removed from this device. This cannot be undone.",
     "description": "Body of the delete confirmation dialog. $1 is the session name or the snapshot's date; use the language's quotation marks around it."
   },
+  "sessionDeleteBodySynced": {
+    "message": "“$1” will be removed from this device and, if you use sync, from the sync server and your other devices at the next sync. This cannot be undone.",
+    "description": "Shown instead of sessionDeleteBody for a saved session when cloud sync is available in this build. $1 is the session name; use the language's quotation marks around it."
+  },
   "sessionRestoreTitle_one": {
     "message": "Restore $1 tab?",
     "description": "Title of the dialog that confirms opening a large session. $1 is the formatted tab count."
@@ -1703,6 +1707,10 @@
     "message": "$1 and $2 ($3) will be removed from this device. Your snapshot and restore settings are kept, and open windows and tabs are not touched.",
     "description": "Body of step one of the 'Delete all session data' dialog. $1 is the counted phrase storageSavedSessionCount (e.g. '3 saved sessions'), $2 the counted phrase storageSnapshotCount (e.g. '12 snapshots'), $3 the total size such as '4.6 MB'."
   },
+  "storageDeleteAllBodySynced": {
+    "message": "$1 and $2 ($3) will be removed from this device. If you use sync, the saved sessions are also deleted from the sync server and your other devices at the next sync. Your snapshot and restore settings are kept, and open windows and tabs are not touched.",
+    "description": "Shown instead of storageDeleteAllBody when cloud sync is available in this build. $1 is the counted phrase storageSavedSessionCount (e.g. '3 saved sessions'), $2 the counted phrase storageSnapshotCount (e.g. '12 snapshots'), $3 the total size such as '4.6 MB'."
+  },
   "storageContinue": {
     "message": "Continue",
     "description": "Button on step one of the 'Delete all session data' dialog that goes to the final confirmation. Button, keep short."
@@ -1714,6 +1722,10 @@
   "storageDeleteAllFinalBody": {
     "message": "Every saved session and every automatic snapshot on this device will be deleted. Unless you exported a backup first, they cannot be recovered.",
     "description": "Body of step two (final confirmation) of the 'Delete all session data' dialog."
+  },
+  "storageDeleteAllFinalBodySynced": {
+    "message": "Every saved session and every automatic snapshot on this device will be deleted, and, if you use sync, every saved session on the sync server and your other devices too. Unless you exported a backup first, they cannot be recovered.",
+    "description": "Shown instead of storageDeleteAllFinalBody when cloud sync is available in this build."
   },
   "storageBack": {
     "message": "Back",

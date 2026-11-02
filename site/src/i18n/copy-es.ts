@@ -140,7 +140,7 @@ export const es: SiteCopy = {
       },
       {
         title: 'Sin cuenta obligatoria',
-        body: 'Instala y haz clic. Iniciar sesión con Google solo hace falta para la sincronización opcional, y tus sesiones se cifran en tu equipo con una frase de contraseña que solo tú conoces antes de salir de él.',
+        body: 'Instala y haz clic. Iniciar sesión con Google solo hace falta para la sincronización opcional, y, antes de salir de tu equipo, tus sesiones se cifran en él con una frase de contraseña que solo tú conoces.',
       },
       {
         title: 'Sin rastreo',

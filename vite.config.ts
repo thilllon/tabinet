@@ -118,7 +118,7 @@ export default defineConfig(() => {
       emptyOutDir: true,
       // Chrome has supported `<link rel="modulepreload">` natively since long before the
       // `minimum_chrome_version` this extension declares, so the polyfill is dead code - and it
-      // ships a bare `fetch()` that a store reviewer auditing our "no network requests" claim
+      // ships a bare `fetch()` that a store reviewer auditing our "no network requests without sync" claim
       // would have to rule out by hand. Drop it.
       modulePreload: { polyfill: false },
       rollupOptions: {

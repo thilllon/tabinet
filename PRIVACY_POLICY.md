@@ -44,7 +44,7 @@ Cloud sync keeps your saved sessions and your settings in step across the comput
 
 **Signing in.** Chrome asks for your permission and then gives the extension a Google access token for the Google account Chrome is signed in to, limited to the `openid` and `email` scopes: your email address and Google's stable account id, nothing else from your Google account. The extension sends that token once to Tabinet's sync server, which checks it with Google and then forgets it; the extension drops it from Chrome's cache right after. The server then gives your browser its own session token, valid for 90 days, which the extension keeps in local extension storage.
 
-**What is sent, and how it is protected.** Before anything leaves your device you create a sync passphrase. A key is derived from it on your device (PBKDF2 with SHA-256, 600,000 rounds, a random salt) and everything synced is encrypted with that key using AES-GCM (256-bit). The passphrase and the key are never sent anywhere. What is sent, encrypted:
+**What is sent, and how it is protected.** Before any session or setting is sent, you create a sync passphrase. A key is derived from it on your device (PBKDF2 with SHA-256, 600,000 rounds, a random salt) and everything synced is encrypted with that key using AES-GCM (256-bit). The passphrase and the key are never sent anywhere. What is sent, encrypted:
 
 - your saved sessions, with their tab URLs and titles, tab groups and window layout, and deletions of saved sessions
 - your settings: sorting preferences, session settings and the language you chose
@@ -55,7 +55,7 @@ Automatic snapshots are **never** synced. Because the server never has your pass
 
 **Where.** The sync server runs on Vercel and its database on Neon, both in the Singapore region (Asia Pacific). They act as our hosting providers and process this data only to run the service; as part of serving requests, Vercel may record standard request information such as IP addresses in its logs. Signing in also involves Google, which checks the access token.
 
-**Retention and deletion.** Synced data is kept until you delete it. "Delete cloud data" in Settings, Account, deletes your account and everything stored for it on the server, at once and for good; the sessions on your devices stay. "Sign out" stops syncing on that device and forgets its session token and key, but leaves your data on the server for your other devices. A session token that is not used expires after 90 days.
+**Retention and deletion.** Synced data is kept until you delete it. "Delete cloud data" in Settings, Account, deletes your account and everything stored for it on the server, at once and for good; the sessions on your devices stay. "Sign out" stops syncing on that device and forgets its session token and key, but leaves your data on the server for your other devices. A session token expires 90 days after sign-in; sign in again to continue.
 
 **Use.** Synced data is used only to sync your own devices. It is never sold, never used for advertising, analytics or profiling, and never shared with anyone except the hosting providers above, to run the service.
 

@@ -619,6 +619,10 @@
     "message": "«$1» se eliminará de este dispositivo. No se puede deshacer.",
     "description": "Body of the delete confirmation dialog. $1 is the session name or the snapshot's date; use the language's quotation marks around it."
   },
+  "sessionDeleteBodySynced": {
+    "message": "«$1» se eliminará de este dispositivo y, si usas la sincronización, también del servidor de sincronización y de tus otros dispositivos en la próxima sincronización. No se puede deshacer.",
+    "description": "Shown instead of sessionDeleteBody for a saved session when cloud sync is available in this build. $1 is the session name; use the language's quotation marks around it."
+  },
   "sessionRestoreTitle_one": {
     "message": "¿Restaurar $1 pestaña?",
     "description": "Title of the dialog that confirms opening a large session. $1 is the formatted tab count."
@@ -1703,6 +1707,10 @@
     "message": "Se eliminarán de este dispositivo $1 y $2 ($3). Tu configuración de instantáneas y restauración se conserva, y las ventanas y pestañas abiertas no se tocan.",
     "description": "Body of step one of the 'Delete all session data' dialog. $1 is the counted phrase storageSavedSessionCount (e.g. '3 saved sessions'), $2 the counted phrase storageSnapshotCount (e.g. '12 snapshots'), $3 the total size such as '4.6 MB'."
   },
+  "storageDeleteAllBodySynced": {
+    "message": "Se eliminarán de este dispositivo $1 y $2 ($3). Si usas la sincronización, las sesiones guardadas también se eliminarán del servidor de sincronización y de tus otros dispositivos en la próxima sincronización. Tu configuración de instantáneas y restauración se conserva, y las ventanas y pestañas abiertas no se tocan.",
+    "description": "Shown instead of storageDeleteAllBody when cloud sync is available in this build. $1 is the counted phrase storageSavedSessionCount (e.g. '3 saved sessions'), $2 the counted phrase storageSnapshotCount (e.g. '12 snapshots'), $3 the total size such as '4.6 MB'."
+  },
   "storageContinue": {
     "message": "Continuar",
     "description": "Button on step one of the 'Delete all session data' dialog that goes to the final confirmation. Button, keep short."
@@ -1714,6 +1722,10 @@
   "storageDeleteAllFinalBody": {
     "message": "Se eliminarán todas las sesiones guardadas y todas las instantáneas automáticas de este dispositivo. Si no exportaste antes una copia de seguridad, no se podrán recuperar.",
     "description": "Body of step two (final confirmation) of the 'Delete all session data' dialog."
+  },
+  "storageDeleteAllFinalBodySynced": {
+    "message": "Se eliminarán todas las sesiones guardadas y todas las instantáneas automáticas de este dispositivo y, si usas la sincronización, también todas las sesiones guardadas del servidor de sincronización y de tus otros dispositivos. Si no exportaste antes una copia de seguridad, no se podrán recuperar.",
+    "description": "Shown instead of storageDeleteAllFinalBody when cloud sync is available in this build."
   },
   "storageBack": {
     "message": "Atrás",

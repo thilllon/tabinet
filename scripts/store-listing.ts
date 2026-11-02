@@ -38,19 +38,19 @@ Guide and FAQ: https://thilllon.github.io/tabinet/support/`,
 • 모두 모으기로 여러 창을 한 창에
 • 세션 검색, 가져오기, 내보내기
 
-추적은 없습니다. 탭 정보는 이 기기에만 저장되며, 원할 때만 Google 계정으로 로그인해 동기화를 켤 수 있습니다. 동기화 데이터는 나만 아는 암호 문구로 종단 간 암호화됩니다.
+추적은 없습니다. 동기화는 선택 기능이며 나만 아는 암호 문구로 종단 간 암호화됩니다. 동기화를 켜지 않으면 데이터는 기기 밖으로 나가지 않습니다.
 
 사용법과 FAQ: https://thilllon.github.io/tabinet/ko/support/`,
-  es: `Un clic en el icono ordena todas las pestañas de la ventana por sitio, título o URL, las agrupa y quita duplicados.
+  es: `Un clic en el icono ordena las pestañas de la ventana por sitio, título o URL, las agrupa y quita duplicados.
 
 • Guarda ventanas como sesiones y restáuralas con sus grupos y pestañas fijadas
 • Las instantáneas automáticas recuperan tus pestañas tras un fallo
 • ¡Reunir! junta todas las ventanas en una
 • Busca, importa y exporta sesiones
 
-Sin rastreo. Sincronización cifrada opcional; si no, nada sale de tu equipo.
+Sin rastreo. Sincronización opcional cifrada de extremo a extremo; sin ella, nada sale del equipo.
 
-Guía y preguntas frecuentes: https://thilllon.github.io/tabinet/es/support/`,
+Ayuda y guía: https://thilllon.github.io/tabinet/es/support/`,
   ja: `アイコンをクリックするだけで、ウィンドウ内のすべてのタブをサイト、タイトル、URL 順に並べ替え、グループにまとめ、重複タブを整理します。
 
 • ウィンドウをセッションとして保存し、タブグループや固定タブごと復元
