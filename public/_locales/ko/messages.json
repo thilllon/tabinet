@@ -8,7 +8,7 @@
     "description": "Do not translate. The brand name alone, shown in the page header and the browser tab title."
   },
   "extDescription": {
-    "message": "클릭 한 번으로 모든 탭을 정렬하고 그룹으로 묶은 뒤, 창 전체를 세션으로 저장하고 복원합니다. 오프라인, 계정 불필요, 데이터는 기기에만 저장됩니다.",
+    "message": "클릭 한 번으로 모든 탭을 정렬하고 그룹으로 묶은 뒤, 창 전체를 세션으로 저장하고 복원합니다. 오프라인에서 동작하며, 동기화는 선택 사항이며 암호화됩니다.",
     "description": "The store summary and the line under the name at chrome://extensions. At most 132 characters."
   },
   "localeCode": {
@@ -607,6 +607,10 @@
     "message": "“$1”이(가) 이 기기에서 삭제됩니다. 되돌릴 수 없습니다.",
     "description": "Body of the delete confirmation dialog. $1 is the session name or the snapshot's date; use the language's quotation marks around it."
   },
+  "sessionDeleteBodySynced": {
+    "message": "“$1”이(가) 이 기기에서 삭제되며, 동기화를 쓰고 있다면 다음 동기화 때 동기화 서버와 다른 기기에서도 삭제됩니다. 되돌릴 수 없습니다.",
+    "description": "Shown instead of sessionDeleteBody for a saved session when cloud sync is available in this build. $1 is the session name; use the language's quotation marks around it."
+  },
   "sessionRestoreTitle_other": {
     "message": "탭 $1개를 복원할까요?",
     "description": "Title of the dialog that confirms opening a large session. $1 is the formatted tab count."
@@ -960,7 +964,7 @@
     "description": "Title of the import dialog."
   },
   "expImportDescription": {
-    "message": "Tabinet JSON 내보내기, 북마크 HTML 파일, Markdown 또는 일반 링크 목록을 가져옵니다. 가져온 세션은 이 기기의 저장된 목록에 추가되며, 아무것도 업로드되지 않습니다.",
+    "message": "Tabinet JSON 내보내기, 북마크 HTML 파일, Markdown 또는 일반 링크 목록을 가져옵니다. 가져온 세션은 이 기기의 저장된 목록에 추가됩니다.",
     "description": "Explanation under the import dialog's title."
   },
   "expChooseFile": {
@@ -1571,6 +1575,10 @@
     "message": "이 기기에서 $1와 $2($3)를 삭제합니다. 스냅샷 및 복원 설정은 유지되며, 열린 창과 탭은 영향을 받지 않습니다.",
     "description": "Body of step one of the 'Delete all session data' dialog. $1 is the counted phrase storageSavedSessionCount (e.g. '3 saved sessions'), $2 the counted phrase storageSnapshotCount (e.g. '12 snapshots'), $3 the total size such as '4.6 MB'."
   },
+  "storageDeleteAllBodySynced": {
+    "message": "이 기기에서 $1와 $2($3)를 삭제합니다. 동기화를 쓰고 있다면 저장된 세션은 다음 동기화 때 동기화 서버와 다른 기기에서도 삭제됩니다. 스냅샷 및 복원 설정은 유지되며, 열린 창과 탭은 영향을 받지 않습니다.",
+    "description": "Shown instead of storageDeleteAllBody when cloud sync is available in this build. $1 is the counted phrase storageSavedSessionCount (e.g. '3 saved sessions'), $2 the counted phrase storageSnapshotCount (e.g. '12 snapshots'), $3 the total size such as '4.6 MB'."
+  },
   "storageContinue": {
     "message": "계속",
     "description": "Button on step one of the 'Delete all session data' dialog that goes to the final confirmation. Button, keep short."
@@ -1582,6 +1590,10 @@
   "storageDeleteAllFinalBody": {
     "message": "이 기기의 모든 저장된 세션과 자동 스냅샷이 삭제됩니다. 미리 백업을 내보내지 않았다면 복구할 수 없습니다.",
     "description": "Body of step two (final confirmation) of the 'Delete all session data' dialog."
+  },
+  "storageDeleteAllFinalBodySynced": {
+    "message": "이 기기의 모든 저장된 세션과 자동 스냅샷이 삭제되며, 동기화를 쓰고 있다면 동기화 서버와 다른 기기의 저장된 세션도 모두 삭제됩니다. 미리 백업을 내보내지 않았다면 복구할 수 없습니다.",
+    "description": "Shown instead of storageDeleteAllFinalBody when cloud sync is available in this build."
   },
   "storageBack": {
     "message": "뒤로",

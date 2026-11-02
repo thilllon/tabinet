@@ -1,7 +1,7 @@
 /**
  * The cloud sync configuration as the running code reads it. Production reads `CLOUD_SYNC` from
- * `src/constants.ts` (empty, so the feature is dormant); tests swap the getter to switch it on
- * without touching the constant the manifest is built from.
+ * `src/constants.ts` (configured, so the feature is on); tests swap the getter to switch it off or
+ * point it at a fake server without touching the constant the manifest is built from.
  */
 import { CLOUD_SYNC, type CloudSyncConfig, cloudSyncConfigured } from '@/constants';
 

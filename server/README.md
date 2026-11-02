@@ -6,9 +6,10 @@ user's passphrase before it is sent, so the server holds `{kind, id, updatedAt, 
 ciphertext}` and never a session name, url or title. Sign-in is with Google; the server keeps the
 Google account id (`sub`) and the email, nothing else about the person.
 
-The extension calls it once `CLOUD_SYNC.apiBase` is set in `src/constants.ts` (sign-in with
-`chrome.identity.getAuthToken`, then the sync engine in `src/lib/cloud-sync.ts`); until then it is
-dormant.
+The extension calls it at `CLOUD_SYNC.apiBase` in `src/constants.ts`, set to
+`https://tabinet-server.vercel.app` since #178 (sign-in with `chrome.identity.getAuthToken`, then
+the sync engine in `src/lib/cloud-sync.ts`); clearing `apiBase` makes the extension dormant again.
+The functions run in Vercel region `sin1` (Singapore), pinned in `vercel.json`.
 
 ## Layout
 

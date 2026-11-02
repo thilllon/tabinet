@@ -8,7 +8,7 @@
 
 <p align="center">
   <strong>One click. Every tab sorted, grouped, and de-duplicated, plus sessions you can save and restore.</strong><br />
-  No popup, no account, no data ever leaves your browser.
+  No popup, no tracking, and no data leaves your browser unless you turn on the optional, end-to-end encrypted sync.
 </p>
 
 <p align="center">
@@ -57,6 +57,7 @@ Pin the icon, click it, and you're done. Every tab in the window is sorted and g
 | **▸ Pause YouTube**           | Right-click the icon → **Pause all YouTube videos** (or its keyboard shortcut: Alt+Shift+P on a new install, Option+Shift+P on a Mac; set or change it at `chrome://extensions/shortcuts`) pauses the video in every YouTube tab of every window, each where it was. Running it again resumes nothing. The first time, Settings opens at its YouTube section to ask you to allow access to YouTube; then choose it again. |
 | **▸ Pinned & suspended tabs** | Pinned tabs stay put unless you say otherwise; tabs suspended by The Marvellous Suspender or a similar suspender sort by their real URL.                                                                                                                                                                                                                                                                                  |
 | **▸ Sessions**                | Right-click the icon → save all windows, or press Save on the app page. One page lists your open tabs, saved sessions and snapshots in the left column, restores exactly (order, pinned, groups, active tab, window state) into new windows or the current one, searches every tab, and imports/exports JSON, Markdown, text, HTML bookmarks or CSV.                                                                      |
+| **▸ Optional sync**           | Sign in with Google in Settings → Account to keep saved sessions and settings in step across computers. Everything is encrypted on the device with a passphrase only you know (AES-GCM, key from PBKDF2), so the server stores only ciphertext; snapshots never leave the device. Off until you sign in; **Delete cloud data** removes everything on the server.                                                          |
 | **▸ Snapshots & recovery**    | Every 5 minutes (only when something changed) a snapshot of all open windows is kept locally: the 20 most recent by default, and you choose the interval and how many to keep. **Keep** moves one into your saved sessions for good. After a crash the recovered snapshot is marked in the sidebar. On by default, off in one click.                                                                                      |
 
 ## The app page
@@ -83,7 +84,7 @@ The left column is what you have; the rest of the page is whatever you picked. E
 
 Restores run in batches with progress and Cancel; more than 10 tabs load lazily, more than 100 ask first; unopenable URLs are skipped and reported. Export is per group / window / session: JSON (round-trips exactly), Markdown, plain text, Netscape HTML (imports into Chrome bookmarks) or CSV, plus _Copy links_ and _Copy as Markdown_; import takes a file or pasted text with a preview. Light and dark follow your system setting.
 
-Everything lives in `chrome.storage.local` on the device, never synced, never uploaded.
+Everything lives in `chrome.storage.local` on the device, never in Chrome sync. Only if you sign in to the optional cloud sync are saved sessions and settings uploaded, end-to-end encrypted; snapshots never are.
 
 ## Languages
 
@@ -91,8 +92,8 @@ English, Korean (한국어), Spanish (Español) and Japanese (日本語). By def
 
 ## Privacy
 
-- **Zero network requests**: works entirely offline, no analytics, no telemetry.
-- **Eight permissions, no host permissions at install**: `tabs`, `tabGroups`, `storage` (settings via Chrome sync; sessions in local storage on this device only), `contextMenus` (icon menu), `unlimitedStorage` (large sessions), `favicon` (site icons from Chrome's local cache), `alarms` (snapshot timer; none exists when snapshots are off), `scripting` (pausing YouTube). Plus one optional host permission, `https://*.youtube.com/*`, asked for only when you click **Allow access** in Settings and removable there. Requires Chrome 123 or newer.
+- **No network requests unless you sign in to sync**: works entirely offline, no analytics, no telemetry. The optional cloud sync (off until you click **Sign in with Google** in Settings) sends your Google email and account id to Tabinet's sync server (Vercel and Neon, Singapore) and your saved sessions and settings encrypted with a passphrase that never leaves the device; the server cannot read them, and snapshots never sync.
+- **Nine permissions, no host permissions at install**: `tabs`, `tabGroups`, `storage` (settings via Chrome sync; sessions in local storage on this device), `contextMenus` (icon menu), `unlimitedStorage` (large sessions), `favicon` (site icons from Chrome's local cache), `alarms` (snapshot and sync timers; none exists when snapshots are off and you are not signed in), `scripting` (pausing YouTube), `identity` (Sign in with Google for the optional sync, `openid` and `email` scopes only; never used unless you sign in). Plus one optional host permission, `https://*.youtube.com/*`, asked for only when you click **Allow access** in Settings and removable there. Requires Chrome 123 or newer.
 - **No content scripts**: nothing is injected into a web page, except that **Pause all YouTube videos**, once you allowed it, runs one packaged function in your YouTube tabs that presses pause and reads nothing.
 - Full policy: [PRIVACY_POLICY.md](PRIVACY_POLICY.md), also on the [website](https://thilllon.github.io/tabinet/privacy/) in English, Korean, Spanish and Japanese.
 

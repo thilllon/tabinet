@@ -37,12 +37,14 @@ describe('the Assemble! label', () => {
 });
 
 describe('cloud sync configuration', () => {
-  it('ships dormant: no server, so no identity permission and no oauth2 key', () => {
-    expect(CLOUD_SYNC.apiBase).toBe('');
-    expect(cloudSyncConfigured()).toBe(false);
-    expect(cloudSyncPermissions()).toEqual([]);
-    expect(cloudSyncOauth2()).toEqual({});
-    expect(isCloudSyncEnabled()).toBe(false);
+  it('ships switched on: the server and the client, so the identity permission and oauth2 key', () => {
+    expect(CLOUD_SYNC.apiBase).toBe('https://tabinet-server.vercel.app');
+    expect(cloudSyncConfigured()).toBe(true);
+    expect(cloudSyncPermissions()).toEqual(['identity']);
+    expect(cloudSyncOauth2()).toEqual({
+      oauth2: { client_id: CLOUD_SYNC.googleClientId, scopes: ['openid', 'email'] },
+    });
+    expect(isCloudSyncEnabled()).toBe(true);
   });
 
   it('names the Chrome extension OAuth client', () => {
@@ -62,11 +64,20 @@ describe('cloud sync configuration', () => {
     });
   });
 
-  it('can be switched on for a test and back', () => {
+  it('can be switched off or elsewhere for a test and back', () => {
+    overrideCloudSyncConfig(() => ({ apiBase: '', googleClientId: 'id' }));
+    expect(isCloudSyncEnabled()).toBe(false);
     overrideCloudSyncConfig(() => ({ apiBase: 'https://sync.test', googleClientId: 'id' }));
     expect(isCloudSyncEnabled()).toBe(true);
     expect(cloudSyncConfig().apiBase).toBe('https://sync.test');
     overrideCloudSyncConfig();
-    expect(isCloudSyncEnabled()).toBe(false);
+    expect(cloudSyncConfig().apiBase).toBe(CLOUD_SYNC.apiBase);
+  });
+
+  it('names an https server origin without a path, so routes are /v1 under it', () => {
+    const url = new URL(CLOUD_SYNC.apiBase);
+    expect(url.protocol).toBe('https:');
+    expect(url.pathname).toBe('/');
+    expect(CLOUD_SYNC.apiBase.endsWith('/')).toBe(false);
   });
 });

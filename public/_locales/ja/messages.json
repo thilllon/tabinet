@@ -8,7 +8,7 @@
     "description": "Do not translate. The brand name alone, shown in the page header and the browser tab title."
   },
   "extDescription": {
-    "message": "ワンクリックですべてのタブを並べ替えてグループ化し、ウィンドウ全体をセッションとして保存・復元できます。オフライン、アカウント不要、データは端末内に保存。",
+    "message": "ワンクリックですべてのタブを並べ替えてグループ化し、ウィンドウ全体をセッションとして保存・復元できます。オフラインで動作、同期は任意で暗号化。",
     "description": "The store summary and the line under the name at chrome://extensions. At most 132 characters."
   },
   "localeCode": {
@@ -615,6 +615,10 @@
     "message": "「$1」をこの端末から削除します。この操作は元に戻せません。",
     "description": "Body of the delete confirmation dialog. $1 is the session name or the snapshot's date; use the language's quotation marks around it."
   },
+  "sessionDeleteBodySynced": {
+    "message": "「$1」をこの端末から削除します。同期を使っている場合は、次の同期で同期サーバーとほかの端末からも削除されます。この操作は元に戻せません。",
+    "description": "Shown instead of sessionDeleteBody for a saved session when cloud sync is available in this build. $1 is the session name; use the language's quotation marks around it."
+  },
   "sessionRestoreTitle_other": {
     "message": "$1個のタブを復元しますか？",
     "description": "Title of the dialog that confirms opening a large session. $1 is the formatted tab count."
@@ -968,7 +972,7 @@
     "description": "Title of the import dialog."
   },
   "expImportDescription": {
-    "message": "Tabinet の JSON エクスポート、ブックマーク HTML ファイル、Markdown、またはリンクの一覧を読み込めます。インポートしたセッションはこの端末の保存済みリストに追加されます。アップロードされることはありません。",
+    "message": "Tabinet の JSON エクスポート、ブックマーク HTML ファイル、Markdown、またはリンクの一覧を読み込めます。インポートしたセッションはこの端末の保存済みリストに追加されます。",
     "description": "Explanation under the import dialog's title."
   },
   "expChooseFile": {
@@ -1579,6 +1583,10 @@
     "message": "$1と$2（$3）をこの端末から削除します。スナップショットと復元の設定は残り、開いているウィンドウやタブには影響しません。",
     "description": "Body of step one of the 'Delete all session data' dialog. $1 is the counted phrase storageSavedSessionCount (e.g. '3 saved sessions'), $2 the counted phrase storageSnapshotCount (e.g. '12 snapshots'), $3 the total size such as '4.6 MB'."
   },
+  "storageDeleteAllBodySynced": {
+    "message": "$1と$2（$3）をこの端末から削除します。同期を使っている場合、保存したセッションは次の同期で同期サーバーとほかの端末からも削除されます。スナップショットと復元の設定は残り、開いているウィンドウやタブには影響しません。",
+    "description": "Shown instead of storageDeleteAllBody when cloud sync is available in this build. $1 is the counted phrase storageSavedSessionCount (e.g. '3 saved sessions'), $2 the counted phrase storageSnapshotCount (e.g. '12 snapshots'), $3 the total size such as '4.6 MB'."
+  },
   "storageContinue": {
     "message": "続ける",
     "description": "Button on step one of the 'Delete all session data' dialog that goes to the final confirmation. Button, keep short."
@@ -1590,6 +1598,10 @@
   "storageDeleteAllFinalBody": {
     "message": "この端末に保存したすべてのセッションとすべての自動スナップショットが削除されます。事前にバックアップをエクスポートしていない場合、復元することはできません。",
     "description": "Body of step two (final confirmation) of the 'Delete all session data' dialog."
+  },
+  "storageDeleteAllFinalBodySynced": {
+    "message": "この端末に保存したすべてのセッションとすべての自動スナップショットが削除されます。同期を使っている場合は、同期サーバーとほかの端末の保存したセッションもすべて削除されます。事前にバックアップをエクスポートしていない場合、復元することはできません。",
+    "description": "Shown instead of storageDeleteAllFinalBody when cloud sync is available in this build."
   },
   "storageBack": {
     "message": "戻る",

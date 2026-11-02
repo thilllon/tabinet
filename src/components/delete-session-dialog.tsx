@@ -14,6 +14,11 @@ interface DeleteSessionDialogProps {
   name: string;
   /** Overridden by the snapshot view, which deletes a snapshot rather than a session. */
   title?: string;
+  /**
+   * A saved session, whose deletion reaches the sync server and the other devices once sync is in
+   * use. Snapshots never sync, so the snapshot view leaves this off.
+   */
+  synced?: boolean;
   open: boolean;
   onOpenChange(open: boolean): void;
   onConfirm(): void;
@@ -27,6 +32,7 @@ interface DeleteSessionDialogProps {
 export function DeleteSessionDialog({
   name,
   title = t('sessionDeleteTitle'),
+  synced = false,
   open,
   onOpenChange,
   onConfirm,
@@ -37,7 +43,9 @@ export function DeleteSessionDialog({
       <DialogContent showCloseButton={false} onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{t('sessionDeleteBody', name)}</DialogDescription>
+          <DialogDescription>
+            {t(synced ? 'sessionDeleteBodySynced' : 'sessionDeleteBody', name)}
+          </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

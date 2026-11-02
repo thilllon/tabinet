@@ -330,7 +330,7 @@ ${HOST_PERMISSIONS_AND_REMOTE_CODE} Minimum Chrome version: ${manifest.minimum_c
 ${DATA_USAGE}
 \`\`\`
 
-Data types: tick **${DATA_TYPES.ticked}** only, with this justification:
+Data types: tick ${DATA_TYPES.ticked.map((name) => `**${name}**`).join(', ')} only, with this justification:
 
 \`\`\`
 ${DATA_TYPES.justification}
@@ -352,7 +352,7 @@ ${PRODUCT_DETAILS.privacyPolicyUrl}
 
 ## 6. Test instructions tab
 
-Username and password: leave both empty (the extension has no account).
+Username and password: leave both empty (no test account is needed; the optional sync signs in with the reviewer's own Google account).
 
 \`\`\`
 ${TEST_INSTRUCTIONS}
@@ -378,7 +378,7 @@ ${TEST_INSTRUCTIONS}
 - [ ] Screenshots uploaded in the order above, per language.
 - [ ] Every permission has its justification filled in - a blank one is the single most common
       cause of a rejection.
-- [ ] Data types: only ${DATA_TYPES.ticked} ticked; all three certifications ticked.
+- [ ] Data types: only ${DATA_TYPES.ticked.join(', ')} ticked; all three certifications ticked.
 `;
 }
 

@@ -28,7 +28,7 @@ export const STORE_DESCRIPTIONS: Record<ListingLocale, string> = {
 • Assemble! pulls every window into one
 • Search, import and export your sessions
 
-No account, no tracking: everything stays on your device.
+No tracking. Optional sync is end-to-end encrypted; without it, nothing leaves your device.
 
 Guide and FAQ: https://thilllon.github.io/tabinet/support/`,
   ko: `아이콘을 한 번 누르면 창의 모든 탭이 사이트, 제목, URL 순으로 정렬되고 그룹으로 묶이며 중복 탭이 정리됩니다.
@@ -38,19 +38,19 @@ Guide and FAQ: https://thilllon.github.io/tabinet/support/`,
 • 모두 모으기로 여러 창을 한 창에
 • 세션 검색, 가져오기, 내보내기
 
-계정도 추적도 없습니다. 모든 데이터는 이 기기에만 저장됩니다.
+추적은 없습니다. 동기화는 선택 기능이며 나만 아는 암호 문구로 종단 간 암호화됩니다. 동기화를 켜지 않으면 데이터는 기기 밖으로 나가지 않습니다.
 
 사용법과 FAQ: https://thilllon.github.io/tabinet/ko/support/`,
-  es: `Un clic en el icono ordena todas las pestañas de la ventana por sitio, título o URL, las agrupa y elimina los duplicados.
+  es: `Un clic en el icono ordena las pestañas de la ventana por sitio, título o URL, las agrupa y quita duplicados.
 
 • Guarda ventanas como sesiones y restáuralas con sus grupos y pestañas fijadas
 • Las instantáneas automáticas recuperan tus pestañas tras un fallo
 • ¡Reunir! junta todas las ventanas en una
 • Busca, importa y exporta sesiones
 
-Sin cuenta ni rastreo: todo se queda en tu dispositivo.
+Sin rastreo. Sincronización opcional cifrada de extremo a extremo; sin ella, nada sale del equipo.
 
-Guía y preguntas frecuentes: https://thilllon.github.io/tabinet/es/support/`,
+Ayuda y guía: https://thilllon.github.io/tabinet/es/support/`,
   ja: `アイコンをクリックするだけで、ウィンドウ内のすべてのタブをサイト、タイトル、URL 順に並べ替え、グループにまとめ、重複タブを整理します。
 
 • ウィンドウをセッションとして保存し、タブグループや固定タブごと復元
@@ -58,7 +58,7 @@ Guía y preguntas frecuentes: https://thilllon.github.io/tabinet/es/support/`,
 • 集合！ですべてのウィンドウを 1 つに
 • セッションの検索、インポート、エクスポート
 
-アカウント不要、追跡なし。データはすべてこのデバイスに保存されます。
+追跡なし。タブのデータはこのデバイスに保存され、Google アカウントでログインして同期をオンにした場合だけ、あなただけが知るパスフレーズでエンドツーエンド暗号化して送信されます。同期は任意です。
 
 使い方と FAQ: https://thilllon.github.io/tabinet/ja/support/`,
 };
@@ -82,18 +82,19 @@ export const DISTRIBUTION = {
 
 /** Privacy tab > Single purpose. */
 export const SINGLE_PURPOSE =
-  'Organize browser tabs: sort and group the tabs of the current window (by URL, title or domain, optionally removing or grouping duplicates), gather every window into one, pause the videos of every YouTube tab on request, and save, restore, search, import and export sets of windows and tabs as sessions, all stored locally on the device.';
+  'Organize browser tabs: sort and group the tabs of the current window (by URL, title or domain, optionally removing or grouping duplicates), gather every window into one, pause the videos of every YouTube tab on request, and save, restore, search, import and export sets of windows and tabs as sessions, stored locally on the device and, only if the user signs in to the optional sync, kept in step across their devices end-to-end encrypted.';
 
 /** Privacy tab > one justification per manifest permission (the test keeps the two lists equal). */
 export const PERMISSION_JUSTIFICATIONS: Record<string, string> = {
-  tabs: `Required to read tab URLs and titles for sorting, for saving sessions and for the dashboard's live list of open windows, and to create tabs when restoring. Uses chrome.tabs.query()/chrome.windows.getAll() to read, chrome.tabs.move() to reorder and chrome.tabs.create()/chrome.tabs.discard() to restore. Tab data is stored only in local extension storage on the device when the user saves a session or while automatic snapshots run; it is never transmitted.`,
+  tabs: `Required to read tab URLs and titles for sorting, for saving sessions and for the dashboard's live list of open windows, and to create tabs when restoring. Uses chrome.tabs.query()/chrome.windows.getAll() to read, chrome.tabs.move() to reorder and chrome.tabs.create()/chrome.tabs.discard() to restore. Tab data is stored in local extension storage on the device when the user saves a session or while automatic snapshots run. It is transmitted only if the user signs in to the optional sync, and then only saved sessions, end-to-end encrypted on the device; automatic snapshots never leave the device.`,
   tabGroups: `Required to sort existing tab groups by title, to group duplicate tabs when the user enables that option, and to recreate a session's tab groups (title, color, collapsed state) on restore. Uses chrome.tabGroups.query(), move() and update().`,
-  storage: `Required to persist user preferences (sort method, grouping mode, duplicate handling, the extension's display language) via chrome.storage.sync, and to store saved sessions, automatic snapshots and session settings (tab URLs, titles, pinned state, group names/colors and window layout) via chrome.storage.local on this device only. Session data is never synced or transmitted; the user can delete any session, or all session data, from the dashboard.`,
+  storage: `Required to persist user preferences (sort method, grouping mode, duplicate handling, the extension's display language) via chrome.storage.sync, and to store saved sessions, automatic snapshots and session settings (tab URLs, titles, pinned state, group names/colors and window layout) via chrome.storage.local on the device, together with the optional sync's sign-in state and encryption key. Nothing is sent through Chrome's own sync (chrome.storage.sync holds preferences only). The user can delete any session, or all session data, from the dashboard.`,
   contextMenus: `Adds "Assemble!" (gather every window's tabs into the current one), "Save all windows as session" and "Pause all YouTube videos" to the extension icon's right-click menu (contexts: ['action'] only; no menu items are added to web pages).`,
-  unlimitedStorage: `Lets saved sessions and snapshots exceed the default 10 MB chrome.storage.local quota for users with thousands of tabs. Data stays in local extension storage on the device; nothing is uploaded.`,
+  unlimitedStorage: `Lets saved sessions and snapshots exceed the default 10 MB chrome.storage.local quota for users with thousands of tabs. This permission only raises the local quota; it uploads nothing (the optional sync, if the user signs in, is a separate feature described under identity).`,
   favicon: `Displays site icons next to tabs in the dashboard by reading Chrome's local favicon cache through chrome-extension://<id>/_favicon/. No favicon is fetched from the network and no favicon data is stored.`,
   scripting: `Used only by "Pause all YouTube videos", which the user chooses from the icon's right-click menu or its keyboard shortcut: chrome.scripting.executeScript() runs one function packaged with the extension in each open YouTube tab. It calls pause() on every video and audio element that is playing and returns only how many it paused; it reads nothing from the page, and nothing is stored or transmitted. It can run only on the optional host permission https://*.youtube.com/*, which the user grants in Settings and can remove there; without it no script runs anywhere.`,
-  alarms: `A chrome.alarms timer that wakes the service worker on the user's chosen interval (any whole number of minutes from 1 to 1440; 5 by default) to take an automatic local snapshot of open windows for crash recovery. When the user turns snapshots off, no alarm exists. The worker still wakes briefly at browser start, on install or update, and when a setting changes, in every case to do local bookkeeping only.`,
+  alarms: `A chrome.alarms timer that wakes the service worker on the user's chosen interval (any whole number of minutes from 1 to 1440; 5 by default) to take an automatic local snapshot of open windows for crash recovery. When the user turns snapshots off, no alarm exists. The worker still wakes briefly at browser start, on install or update, and when a setting changes, in every case to do local bookkeeping only. While the user is signed in to the optional sync, a second alarm (every 15 minutes, and once a minute after a change) runs the encrypted sync; signed out, no sync alarm exists.`,
+  identity: `Used only for the optional cloud sync of saved sessions and settings, and only when the user presses "Sign in with Google" in Settings > Account: chrome.identity.getAuthToken() asks Chrome for a Google access token for the account Chrome is signed in to, with the openid and email scopes only. The token is sent once to the extension's own sync server, which checks it with Google to learn the account's email address and stable Google account id, then the token is discarded and never stored. No other Google data is requested. Without signing in, chrome.identity is never called.`,
 };
 
 /**
@@ -108,7 +109,7 @@ export const OPTIONAL_HOST_PERMISSION_JUSTIFICATIONS: Record<string, string> = {
 export const HOST_PERMISSIONS_AND_REMOTE_CODE = `Host permissions: none at install; one optional host permission, ${YOUTUBE_ORIGINS.join(', ')}, granted only by the user in Settings (see its justification). Content scripts: none declared; on the user's command, chrome.scripting injects one function packaged with the extension into YouTube tabs to pause their videos. Remote code: not used.`;
 
 /** Privacy tab > Data usage. */
-export const DATA_USAGE = `The extension does not collect or transmit any user data. When the user saves a session, or while automatic snapshots are enabled (the default), tab URLs, titles and window/group layout are written to chrome.storage.local on the user's device only; they are never sent anywhere, and the user can delete them at any time (per session, per snapshot, or all at once with "Delete all session data"). Export creates a file or clipboard text only when the user explicitly asks for it. "Pause all YouTube videos" runs only in YouTube tabs, only after the user allowed access to YouTube, and only presses pause; it reads no page content.`;
+export const DATA_USAGE = `Without the optional sync, the extension transmits no user data: when the user saves a session, or while automatic snapshots are enabled (the default), tab URLs, titles and window/group layout are written to chrome.storage.local on the user's device, and the user can delete them at any time (per session, per snapshot, or all at once with "Delete all session data"). Sync is off until the user signs in with Google in Settings > Account. Then the extension's own server (hosted on Vercel, database on Neon, Singapore region) receives the account's email address and Google account id, and issues a session token. Saved sessions (tab URLs, titles, groups) and settings are encrypted on the device with AES-GCM under a key derived from a passphrase only the user knows, which is never sent, so the server stores ciphertext it cannot read; automatic snapshots never leave the device. The data is used only to sync the user's own devices: never sold, never used for ads or analytics, never shared except with those hosting providers to run the service. "Delete cloud data" in Settings > Account deletes the account and everything stored for it on the server. Export creates a file or clipboard text only when the user explicitly asks for it. "Pause all YouTube videos" runs only in YouTube tabs, only after the user allowed access to YouTube, and only presses pause; it reads no page content.`;
 
 /** Privacy tab > the three certifications: all apply, tick every one. */
 export const DATA_CERTIFICATIONS: readonly string[] = [
@@ -117,16 +118,28 @@ export const DATA_CERTIFICATIONS: readonly string[] = [
   'Does not use or transfer user data to determine creditworthiness or for lending purposes.',
 ];
 
-/** Privacy tab > data types: tick Web history only, with this justification. */
+/**
+ * Privacy tab > data types: tick these, with this justification. The optional sync sends the
+ * Google account email (personally identifiable information) and holds a session token
+ * (authentication information); saved sessions carry tab URLs (web history) and page titles
+ * (website content), sent only end-to-end encrypted, but declared rather than left out.
+ */
 export const DATA_TYPES = {
-  ticked: 'Web history',
-  justification: `URLs and titles of the user's open tabs are stored locally on the device when the user saves a session and by the automatic snapshot feature (on by default, can be turned off); nothing is transmitted off the device.`,
-  notCollected:
-    'personally identifiable information, health, financial, authentication, personal communications, location, user activity, website content',
+  ticked: [
+    'Personally identifiable information',
+    'Authentication information',
+    'Web history',
+    'Website content',
+  ],
+  justification: `Web history and website content: URLs and page titles of the user's tabs are stored locally on the device when the user saves a session and by the automatic snapshot feature (on by default, can be turned off). Only if the user signs in to the optional sync are saved sessions (never snapshots) sent to the extension's sync server, end-to-end encrypted with a key derived from the user's passphrase, which the server never receives and so cannot read them. Personally identifiable information: with sync, the Google account's email address (and Google's account id) is sent to the sync server to identify the account. Authentication information: with sync, the server issues a session token kept in local extension storage (the server stores only its hash; valid 90 days); the Google access token used to sign in is passed once and never stored. Nothing is sold, used for ads or analytics, or shared beyond the hosting providers.`,
+  notCollected: 'health, financial, personal communications, location, user activity',
 } as const;
 
-/** Test instructions tab, for the reviewer. There is no account: username and password stay empty. */
-export const TEST_INSTRUCTIONS = `No account, login or server is needed; leave the username and password empty. Everything runs locally.
+/**
+ * Test instructions tab, for the reviewer. No test account is needed: username and password stay
+ * empty, and the optional sync signs in with the reviewer's own Google account.
+ */
+export const TEST_INSTRUCTIONS = `No test account is needed; leave the username and password empty. Steps 1 to 7 run entirely on the device. Step 8 (optional cloud sync) signs in with whatever Google account Chrome is signed in to.
 
 1. Open a few tabs from different sites in one window, in mixed order, with one address open twice.
 2. Click the toolbar icon. There is no popup: the tabs are sorted by URL (site first) at once and the duplicate tab is closed.
@@ -135,8 +148,9 @@ export const TEST_INSTRUCTIONS = `No account, login or server is needed; leave t
 5. With two or more windows open, right-click the icon and choose "Assemble! (move every window's tabs into this one)". Every tab moves into the current window.
 6. On that page, the Settings button at the top opens Settings: set Sort by to Custom and click the toolbar icon again; tabs from the same site now sit next to each other, the first site seen first. Set Duplicate tabs to "Group them" to put duplicate tabs into a tab group instead of closing them. Automatic snapshots, the language and Backup (export, import) are there too.
 7. Open two YouTube videos, in different windows, and play both. Right-click the icon and choose "Pause all YouTube videos". The first time, Settings opens instead: in its YouTube section click "Allow access" and accept Chrome's prompt, then choose the menu item again. Both videos pause where they were; choosing it again resumes nothing. "Remove access" in the same place takes the access back.
+8. Optional sync: in Settings, the Account section, click "Sign in with Google" and approve Chrome's prompt (openid and email only). Then "Create a sync passphrase": type a passphrase of 8 or more characters twice and click "Create passphrase". Saved sessions and settings now sync, encrypted on the device; "Sync now" runs one at once. On a second Chrome profile signed in to the same Google account, "Unlock" with the same passphrase brings the saved sessions over. "Delete cloud data" removes everything stored on the server; "Sign out" stops syncing. The sessions on the device stay either way.
 
-No data leaves the device.`;
+Without step 8 no data leaves the device.`;
 
 /**
  * Limit for the Description, set by the owner: a hook, a few lines and a link to the website.

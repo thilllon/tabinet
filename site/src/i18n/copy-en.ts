@@ -4,13 +4,13 @@ export const en: SiteCopy = {
   meta: {
     homeTitle: 'Tabinet - sort, group and save your Chrome tabs',
     homeDescription:
-      'A Chrome extension that sorts and groups every tab in one click, handles duplicates, and saves whole windows as sessions you can restore. Free, no account, nothing leaves your device.',
+      'A Chrome extension that sorts and groups every tab in one click, handles duplicates, and saves whole windows as sessions you can restore. Free, no tracking, and nothing leaves your device unless you turn on the optional encrypted sync.',
     supportTitle: 'Support - Tabinet',
     supportDescription:
       'Answers to common questions about Tabinet, and how to report a problem or ask for a feature.',
     privacyTitle: 'Privacy policy - Tabinet',
     privacyDescription:
-      'Tabinet collects nothing and makes no network requests. What it stores, where, and for how long.',
+      'Tabinet makes no network requests unless you sign in to its optional, end-to-end encrypted sync. What it stores, where, and for how long.',
     ogImageAlt: 'The Tabinet page with a saved session of two windows and their tab groups',
   },
   nav: {
@@ -25,13 +25,13 @@ export const en: SiteCopy = {
   },
   cta: {
     addToChrome: 'Add to Chrome',
-    note: 'Free · No account · Works offline',
+    note: 'Free · No tracking · Works offline',
     seeFeatures: 'See what it does',
   },
   hero: {
     eyebrow: 'Extension for Chrome',
     title: 'One click, and every tab falls into place.',
-    lead: 'Tabinet sorts and groups the tabs in your window, clears out duplicates, and saves whole windows as sessions you can bring back later. Everything stays on your computer.',
+    lead: 'Tabinet sorts and groups the tabs in your window, clears out duplicates, and saves whole windows as sessions you can bring back later. Everything stays on your computer unless you turn on sync.',
     imageAlt:
       'The Tabinet page: saved sessions in the left column, and a session of two windows with its pinned tabs and tab groups on the right',
     languages:
@@ -130,20 +130,20 @@ export const en: SiteCopy = {
     ],
   },
   promise: {
-    title: 'Your tabs never leave your computer',
-    lead: 'Tabinet has no server to send anything to. It works the same with the network unplugged.',
+    title: 'Your tabs stay yours',
+    lead: 'Without sync, Tabinet sends nothing anywhere and works the same with the network unplugged. With sync, only you can read what is sent.',
     points: [
       {
         title: 'Stays on the device',
-        body: 'Sessions and snapshots live in Chrome’s local extension storage. They are not synced and not uploaded.',
+        body: 'Sessions and snapshots live in Chrome’s local extension storage. Snapshots never leave it; saved sessions do only if you turn on sync.',
       },
       {
-        title: 'No account',
-        body: 'Nothing to sign up for and nothing to sign in to. Install it and click.',
+        title: 'No account needed',
+        body: 'Install it and click. Signing in with Google is only for the optional sync, and your sessions are encrypted on the device with a passphrase only you know before they leave it.',
       },
       {
-        title: 'No network',
-        body: 'No analytics, no tracking, no requests of any kind. Nothing is read from the pages you visit; the one thing ever run in a page is pausing YouTube videos, once you allow it.',
+        title: 'No tracking',
+        body: 'No analytics, no tracking, and no requests at all unless you sign in to sync. Nothing is read from the pages you visit; the one thing ever run in a page is pausing YouTube videos, once you allow it.',
       },
     ],
     link: 'Read the privacy policy',
@@ -187,11 +187,11 @@ export const en: SiteCopy = {
       },
       {
         q: 'Does it send my browsing data anywhere?',
-        a: 'No. Tabinet makes no network requests at all. Everything happens inside your browser.',
+        a: 'Not unless you sign in to sync. Without it, Tabinet makes no network requests at all and everything happens inside your browser. With sync on, your saved sessions and settings go to Tabinet’s sync server encrypted, so only you can read them; automatic snapshots never leave the device.',
       },
       {
         q: 'Where are my saved sessions stored?',
-        a: 'In Chrome’s local extension storage on this device only. They are never synced, uploaded or shared with web pages. Delete one session, or all session data, whenever you like; uninstalling removes everything. Export to JSON to keep a backup of your own.',
+        a: 'In Chrome’s local extension storage on this device. They are never shared with web pages, and they are uploaded only if you turn on sync, end-to-end encrypted. Delete one session, or all session data, whenever you like; uninstalling removes everything. Export to JSON to keep a backup of your own.',
       },
       {
         q: 'What do automatic snapshots record, and can I turn them off?',
@@ -203,7 +203,11 @@ export const en: SiteCopy = {
       },
       {
         q: 'Can I move my sessions to another computer?',
-        a: 'Yes. Export everything as JSON and import that file on the other computer, or export as HTML and import it into Chrome’s bookmarks.',
+        a: 'Yes. Turn on sync on both computers and your saved sessions follow you. Or export everything as JSON and import that file on the other computer, or export as HTML and import it into Chrome’s bookmarks.',
+      },
+      {
+        q: 'How does sync work, and can the server read my tabs?',
+        a: 'Sync is optional and off until you click Sign in with Google in Settings, Account. You then create a sync passphrase; your saved sessions and settings are encrypted with it on your computer before they are sent, and the passphrase itself is never sent, so the server stores only data it cannot read. Snapshots never sync. If you forget the passphrase nobody can recover the copy in the cloud, but the sessions on your computers stay. Delete cloud data in the same place removes everything from the server. Sign-in uses Chrome’s own Google sign-in, so it may not work in other Chromium browsers.',
       },
       {
         q: 'What if I do not like the result of a sort?',
@@ -224,7 +228,7 @@ export const en: SiteCopy = {
     englishLink: '',
   },
   footer: {
-    tagline: 'Sort, group and save your tabs. Nothing leaves your device.',
+    tagline: 'Sort, group and save your tabs. Nothing leaves your device unless you sync.',
     languages: 'Languages',
   },
 };

@@ -14,6 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { WindowTree } from '@/components/window-tree';
 import { useSessionBody } from '@/hooks/use-session-body';
+import { isCloudSyncEnabled } from '@/lib/cloud-config';
 import { formatDateTime, formatSessionMeta } from '@/lib/display-format';
 import { copyText } from '@/lib/download-and-copy';
 import { reportError } from '@/lib/error-message';
@@ -433,6 +434,7 @@ export function SessionDetail({
 
       <DeleteSessionDialog
         name={summary.name}
+        synced={isCloudSyncEnabled()}
         open={confirmingDelete}
         onOpenChange={setConfirmingDelete}
         onConfirm={() => void handleDelete()}

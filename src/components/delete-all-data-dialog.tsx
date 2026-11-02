@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { isCloudSyncEnabled } from '@/lib/cloud-config';
 import { formatBytes } from '@/lib/display-format';
 import { t, tp } from '@/lib/i18n';
 
@@ -52,7 +53,13 @@ export function DeleteAllDataDialog({
           <>
             <DialogHeader>
               <DialogTitle>{t('storageDeleteAllFinalTitle')}</DialogTitle>
-              <DialogDescription>{t('storageDeleteAllFinalBody')}</DialogDescription>
+              <DialogDescription>
+                {t(
+                  isCloudSyncEnabled()
+                    ? 'storageDeleteAllFinalBodySynced'
+                    : 'storageDeleteAllFinalBody',
+                )}
+              </DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <Button variant="outline" onClick={() => setConfirming(false)}>
@@ -69,7 +76,7 @@ export function DeleteAllDataDialog({
               <DialogTitle>{t('storageDeleteAllTitle')}</DialogTitle>
               <DialogDescription>
                 {t(
-                  'storageDeleteAllBody',
+                  isCloudSyncEnabled() ? 'storageDeleteAllBodySynced' : 'storageDeleteAllBody',
                   tp('storageSavedSessionCount', savedCount),
                   tp('storageSnapshotCount', snapshotCount),
                   formatBytes(bytes),
