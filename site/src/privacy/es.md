@@ -36,7 +36,7 @@ Para desactivarlas, abre Tabinet (clic con el botón derecho en el icono → Opc
 
 «Pausar todos los vídeos de YouTube», en el menú contextual del icono y como combinación de teclas, pausa todos los vídeos y audios que se estén reproduciendo en tus pestañas de YouTube abiertas, en todas las ventanas. Cada vídeo conserva su posición; nada se silencia, se cierra ni se recarga.
 
-Para ello la extensión necesita acceso a youtube.com (`https://*.youtube.com/*`, que incluye www, m y music). Nunca se solicita al instalarla: Chrome te lo pregunta cuando haces clic en «Permitir acceso» en Configuración (si eliges antes el elemento del menú, se abre Configuración), y puedes quitar el acceso allí, o en chrome://extensions, cuando quieras. Con ese acceso, cada vez que lo pides, la extensión ejecuta en cada pestaña de YouTube una pequeña función que forma parte de la propia extensión: pulsa pausa y cuenta cuántos vídeos ha pausado. No lee la página, lo que ves ni nada más de YouTube, y no guarda ni transmite nada sobre YouTube. Sin ese acceso, no se ejecuta nada en ninguna página web.
+Para ello la extensión necesita acceso a youtube.com (`https://*.youtube.com/*`, que incluye www, m y music). Nunca se solicita al instalarla: Chrome te lo pregunta cuando activas «Acceso a YouTube» en Configuración (si eliges antes el elemento del menú, se abre Configuración), y puedes quitar el acceso allí, o en chrome://extensions, cuando quieras. Con ese acceso, cada vez que lo pides, la extensión ejecuta en cada pestaña de YouTube una pequeña función que forma parte de la propia extensión: pulsa pausa y cuenta cuántos vídeos ha pausado. No lee la página, lo que ves ni nada más de YouTube, y no guarda ni transmite nada sobre YouTube. Sin ese acceso, no se ejecuta nada en ninguna página web.
 
 ### Sincronización en la nube (opcional)
 
@@ -79,7 +79,7 @@ Esta extensión necesita los siguientes permisos:
 - **alarms**: se usa como temporizador de las instantáneas automáticas, con el intervalo que elijas, y, mientras tienes iniciada la sesión de sincronización en la nube, para sincronizar cada 15 minutos y poco después de cada cambio. Con las instantáneas automáticas desactivadas y sin sesión iniciada, no existe ningún temporizador.
 - **identity**: solo para la sincronización en la nube, cuando haces clic en «Iniciar sesión con Google»: pide a Chrome un token de acceso de Google con los ámbitos `openid` y `email`, como se describe en «Sincronización en la nube». Si no inicias sesión, nunca se usa.
 - **scripting**: solo para pausar los vídeos de YouTube cuando lo pides, como se describe en «Pausar los vídeos de YouTube». Solo funciona en los sitios que permitas a continuación.
-- **Acceso a youtube.com** (opcional, `https://*.youtube.com/*`): se solicita solo cuando haces clic en «Permitir acceso» en Configuración, y se puede quitar allí. Se usa solo para pausar vídeos; no se lee nada de las páginas de YouTube.
+- **Acceso a youtube.com** (opcional, `https://*.youtube.com/*`): se solicita solo cuando activas «Acceso a YouTube» en Configuración, y se puede quitar allí. Se usa solo para pausar vídeos; no se lee nada de las páginas de YouTube.
 
 La extensión no solicita permisos de host al instalarla ni declara scripts de contenido; el acceso a youtube.com es opcional y solo tú decides concederlo. Necesita Chrome 123 o posterior.
 

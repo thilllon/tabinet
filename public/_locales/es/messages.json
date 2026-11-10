@@ -149,7 +149,7 @@
   },
   "settingsYoutubeAccess": {
     "message": "Acceso a YouTube",
-    "description": "Label of the Settings row that allows or removes the extension's access to youtube.com, needed to pause videos."
+    "description": "Label of the switch in Settings that grants or removes access to YouTube (needed to pause videos)."
   },
   "settingsYoutubeAccessOffHint": {
     "message": "Aún no está permitido. Hace falta para pausar vídeos; Chrome te lo pregunta antes. Tabinet solo pulsa pausa en YouTube y no lee nada de la página.",
@@ -166,14 +166,6 @@
   "settingsYoutubeAllowed": {
     "message": "Acceso a YouTube permitido. Vuelve a elegir «$1» para pausar los vídeos.",
     "description": "Short notice after the person allowed access to youtube.com in Chrome's prompt: tells them to run the command again. $1 is the right-click menu item (cmdPauseYoutube), quoted."
-  },
-  "settingsYoutubeAllow": {
-    "message": "Permitir acceso",
-    "description": "Button in the YouTube section of Settings: asks Chrome for access to youtube.com (Chrome then shows its own prompt). Short."
-  },
-  "settingsYoutubeRemove": {
-    "message": "Quitar acceso",
-    "description": "Button in the YouTube section of Settings, shown once access is granted: gives the access to youtube.com back. Short."
   },
   "settingsYoutubeDeclined": {
     "message": "No se permitió el acceso a YouTube, así que aún no se puede pausar ningún vídeo.",
@@ -408,8 +400,8 @@
     "description": "Heading of the Settings section listing the extension's keyboard commands."
   },
   "settingsShortcutsDescription": {
-    "message": "En una instalación nueva, Chrome asigna $1 a ordenar, $3 a $2 y $4 a pausar YouTube si ninguna otra extensión usa esas teclas. Los demás comandos empiezan sin tecla.",
-    "description": "Explanation under the Keyboard shortcuts heading. $1 is the sort key (e.g. Alt + Shift + S), $2 is the name of the Assemble! action, $3 is its key (e.g. Alt + Shift + A), $4 is the key that pauses every YouTube video (e.g. Alt + Shift + P)."
+    "message": "Las teclas que Chrome tiene asignadas a cada comando.",
+    "description": "One line under the Keyboard shortcuts heading in Settings."
   },
   "settingsSortCommand": {
     "message": "Ordenar las pestañas de esta ventana (igual que hacer clic en el icono)",
@@ -2046,5 +2038,17 @@
   "commonTryAgain": {
     "message": "Reintentar",
     "description": "Button that repeats something that failed, such as reading the cloud sync account. Keep it short."
+  },
+  "settingsSortByUrlHint": {
+    "message": "Orden alfabético por dirección: las pestañas de cada sitio quedan juntas.",
+    "description": "Grey hint under \"Sort by\" in Settings while \"By URL\" is chosen."
+  },
+  "settingsSortByTitleHint": {
+    "message": "Orden alfabético por el título de la página.",
+    "description": "Grey hint under \"Sort by\" in Settings while \"By title\" is chosen."
+  },
+  "settingsSortByCustomHint": {
+    "message": "Junta las pestañas de cada sitio, con los sitios en el orden en que aparecen.",
+    "description": "Grey hint under \"Sort by\" in Settings while \"Custom\" is chosen."
   }
 }

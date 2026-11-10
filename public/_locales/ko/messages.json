@@ -141,7 +141,7 @@
   },
   "settingsYoutubeAccess": {
     "message": "YouTube 접근 권한",
-    "description": "Label of the Settings row that allows or removes the extension's access to youtube.com, needed to pause videos."
+    "description": "Label of the switch in Settings that grants or removes access to YouTube (needed to pause videos)."
   },
   "settingsYoutubeAccessOffHint": {
     "message": "아직 허용되지 않았습니다. 동영상을 일시중지하려면 필요하며, Chrome이 먼저 묻습니다. Tabinet은 YouTube에서 일시중지만 누르고 페이지의 내용은 읽지 않습니다.",
@@ -158,14 +158,6 @@
   "settingsYoutubeAllowed": {
     "message": "YouTube 접근이 허용되었습니다. “$1”를 다시 선택하면 동영상이 일시중지됩니다.",
     "description": "Short notice after the person allowed access to youtube.com in Chrome's prompt: tells them to run the command again. $1 is the right-click menu item (cmdPauseYoutube), quoted."
-  },
-  "settingsYoutubeAllow": {
-    "message": "접근 허용",
-    "description": "Button in the YouTube section of Settings: asks Chrome for access to youtube.com (Chrome then shows its own prompt). Short."
-  },
-  "settingsYoutubeRemove": {
-    "message": "접근 해제",
-    "description": "Button in the YouTube section of Settings, shown once access is granted: gives the access to youtube.com back. Short."
   },
   "settingsYoutubeDeclined": {
     "message": "YouTube 접근이 허용되지 않아 아직 동영상을 일시중지할 수 없습니다.",
@@ -396,8 +388,8 @@
     "description": "Heading of the Settings section listing the extension's keyboard commands."
   },
   "settingsShortcutsDescription": {
-    "message": "새로 설치하면 다른 확장 프로그램이 해당 키를 사용하지 않는 한 Chrome이 정렬에는 $1, $2에는 $3, YouTube 일시중지에는 $4 키를 지정합니다. 나머지 명령은 키 없이 시작합니다.",
-    "description": "Explanation under the Keyboard shortcuts heading. $1 is the sort key (e.g. Alt + Shift + S), $2 is the name of the Assemble! action, $3 is its key (e.g. Alt + Shift + A), $4 is the key that pauses every YouTube video (e.g. Alt + Shift + P)."
+    "message": "각 명령에 Chrome이 지정한 키입니다.",
+    "description": "One line under the Keyboard shortcuts heading in Settings."
   },
   "settingsSortCommand": {
     "message": "이 창의 탭 정렬(아이콘 클릭과 동일)",
@@ -1870,5 +1862,17 @@
   "commonTryAgain": {
     "message": "다시 시도",
     "description": "Button that repeats something that failed, such as reading the cloud sync account. Keep it short."
+  },
+  "settingsSortByUrlHint": {
+    "message": "주소의 알파벳순이라 같은 사이트의 탭이 나란히 모입니다.",
+    "description": "Grey hint under \"Sort by\" in Settings while \"By URL\" is chosen."
+  },
+  "settingsSortByTitleHint": {
+    "message": "페이지 제목순입니다.",
+    "description": "Grey hint under \"Sort by\" in Settings while \"By title\" is chosen."
+  },
+  "settingsSortByCustomHint": {
+    "message": "같은 사이트의 탭을 모으고, 사이트는 처음 나온 순서대로 둡니다.",
+    "description": "Grey hint under \"Sort by\" in Settings while \"Custom\" is chosen."
   }
 }

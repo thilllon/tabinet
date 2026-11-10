@@ -149,7 +149,7 @@
   },
   "settingsYoutubeAccess": {
     "message": "Access to YouTube",
-    "description": "Label of the Settings row that allows or removes the extension's access to youtube.com, needed to pause videos."
+    "description": "Label of the switch in Settings that grants or removes access to YouTube (needed to pause videos)."
   },
   "settingsYoutubeAccessOffHint": {
     "message": "Not allowed yet. Needed to pause videos; Chrome asks you first. Tabinet only presses pause on YouTube and reads nothing from the page.",
@@ -166,14 +166,6 @@
   "settingsYoutubeAllowed": {
     "message": "Access to YouTube allowed. Choose “$1” again to pause the videos.",
     "description": "Short notice after the person allowed access to youtube.com in Chrome's prompt: tells them to run the command again. $1 is the right-click menu item (cmdPauseYoutube), quoted."
-  },
-  "settingsYoutubeAllow": {
-    "message": "Allow access",
-    "description": "Button in the YouTube section of Settings: asks Chrome for access to youtube.com (Chrome then shows its own prompt). Short."
-  },
-  "settingsYoutubeRemove": {
-    "message": "Remove access",
-    "description": "Button in the YouTube section of Settings, shown once access is granted: gives the access to youtube.com back. Short."
   },
   "settingsYoutubeDeclined": {
     "message": "Access to YouTube was not allowed, so no video can be paused yet.",
@@ -408,8 +400,8 @@
     "description": "Heading of the Settings section listing the extension's keyboard commands."
   },
   "settingsShortcutsDescription": {
-    "message": "On a new install Chrome sets sorting to $1, $2 to $3 and pausing YouTube to $4 when no other extension holds those keys. The other commands start without a key.",
-    "description": "Explanation under the Keyboard shortcuts heading. $1 is the sort key (e.g. Alt + Shift + S), $2 is the name of the Assemble! action, $3 is its key (e.g. Alt + Shift + A), $4 is the key that pauses every YouTube video (e.g. Alt + Shift + P)."
+    "message": "The keys Chrome has set for each command.",
+    "description": "One line under the Keyboard shortcuts heading in Settings."
   },
   "settingsSortCommand": {
     "message": "Sort the tabs in this window (same as clicking the icon)",
@@ -2046,5 +2038,17 @@
   "commonTryAgain": {
     "message": "Try again",
     "description": "Button that repeats something that failed, such as reading the cloud sync account. Keep it short."
+  },
+  "settingsSortByUrlHint": {
+    "message": "Alphabetical by address, so each site's tabs end up together.",
+    "description": "Grey hint under \"Sort by\" in Settings while \"By URL\" is chosen."
+  },
+  "settingsSortByTitleHint": {
+    "message": "Alphabetical by page title.",
+    "description": "Grey hint under \"Sort by\" in Settings while \"By title\" is chosen."
+  },
+  "settingsSortByCustomHint": {
+    "message": "Each site's tabs are gathered together, sites in the order they first appear.",
+    "description": "Grey hint under \"Sort by\" in Settings while \"Custom\" is chosen."
   }
 }

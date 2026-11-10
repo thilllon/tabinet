@@ -39,7 +39,15 @@ export function SelectMenu({
 }: SelectMenuProps) {
   return (
     <Select value={value} disabled={disabled} onValueChange={onValueChange}>
-      <SelectTrigger id={id} title={title} aria-label={label} size="sm">
+      {/* One width for every dropdown, wide enough for the longest choice in any language, so the
+          control does not grow or shrink with the chosen text. */}
+      <SelectTrigger
+        id={id}
+        title={title}
+        aria-label={label}
+        size="sm"
+        className="w-64 justify-between"
+      >
         <SelectValue />
       </SelectTrigger>
       <SelectContent position="popper" align="start">

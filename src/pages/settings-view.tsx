@@ -22,7 +22,6 @@ import {
   commandRows,
   commandsFailed,
   commandsLoading,
-  shortcutsDescription,
 } from '@/lib/command-rows';
 import { canExportAll } from '@/lib/export-actions';
 import { appliedUiLanguage, t } from '@/lib/i18n';
@@ -38,6 +37,7 @@ import {
   isGroupingMode,
   isSortBy,
   parseSortSettings,
+  sortByHintKey,
   sortByOptions,
   SORT_SETTING_KEYS,
   showsCustomSortOptions,
@@ -189,7 +189,11 @@ export function SettingsView({
           title={t('settingsSortingTitle')}
           description={t('settingsSortingDescription')}
         >
-          <SettingsField label={t('settingsSortBy')} htmlFor="sort-by">
+          <SettingsField
+            label={t('settingsSortBy')}
+            hint={t(sortByHintKey(sort.sortBy))}
+            htmlFor="sort-by"
+          >
             <SelectMenu
               id="sort-by"
               title={t('settingsSortByTitle')}
@@ -393,7 +397,7 @@ export function SettingsView({
 
         <SettingsSection
           title={t('settingsShortcutsTitle')}
-          description={shortcutsDescription(IS_MAC)}
+          description={t('settingsShortcutsDescription')}
         >
           {commands === null && (
             <p className="text-xs text-muted-foreground">{commandsLoading()}</p>

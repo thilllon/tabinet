@@ -4,7 +4,6 @@ import {
   changeOnlyInChrome,
   commandRows,
   sortCommandLabel,
-  shortcutsDescription,
   suggestedKeyFor,
   unnamedCommand,
 } from '@/lib/command-rows';
@@ -74,20 +73,6 @@ describe('suggestedKeyFor', () => {
     expect(suggestedKeyFor('save-session')).toBeUndefined();
     expect(suggestedKeyFor('toString')).toBeUndefined();
     expect(suggestedKeyFor(undefined)).toBeUndefined();
-  });
-});
-
-describe('shortcutsDescription', () => {
-  it('names the default keys the way the platform does, without glyphs or em dashes', () => {
-    const mac = shortcutsDescription(true);
-    expect(mac).toContain('Option + Shift + S');
-    expect(mac).toContain('Option + Shift + A');
-    expect(mac).toContain('Option + Shift + P');
-    expect(mac).not.toContain('Alt');
-    expect(mac).not.toContain(' - ');
-    const other = shortcutsDescription(false);
-    expect(other).toContain('Alt + Shift + S');
-    expect(other).not.toContain('Option');
   });
 });
 

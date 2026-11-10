@@ -106,11 +106,3 @@ export function commandRows(
     };
   });
 }
-
-/** The section's explanation, with the default keys spelled the way this computer names them. */
-export function shortcutsDescription(isMac: boolean): string {
-  const sort = shortcutText(DEFAULT_SHORTCUTS._execute_action, isMac);
-  const assemble = shortcutText(DEFAULT_SHORTCUTS['assemble-tabs'], isMac);
-  const pauseYoutube = shortcutText(DEFAULT_SHORTCUTS['pause-youtube'], isMac);
-  return t('settingsShortcutsDescription', sort, t('assembleName'), assemble, pauseYoutube);
-}

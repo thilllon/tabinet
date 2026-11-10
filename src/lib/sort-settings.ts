@@ -1,4 +1,4 @@
-import { t } from '@/lib/i18n';
+import { type MessageKey, t } from '@/lib/i18n';
 import type { DuplicateTabHandling, GroupFrom, GroupingMode, SortBy, SortSettings } from '@/types';
 
 /**
@@ -62,6 +62,18 @@ interface SortOption<T extends string> {
  * value the sort engine does not read. Functions, not constants: the labels are read in the UI
  * language at the moment they are drawn.
  */
+/** The grey line under "Sort by": what the chosen mode does. */
+export function sortByHintKey(sortBy: SortBy): MessageKey {
+  switch (sortBy) {
+    case 'url':
+      return 'settingsSortByUrlHint';
+    case 'title':
+      return 'settingsSortByTitleHint';
+    case 'custom':
+      return 'settingsSortByCustomHint';
+  }
+}
+
 export function sortByOptions(): SortOption<SortBy>[] {
   return [
     { value: 'url', label: t('settingsSortByUrl') },

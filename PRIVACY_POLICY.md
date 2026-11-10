@@ -36,7 +36,7 @@ To turn snapshots off, open Tabinet (right-click the icon → Options) and switc
 
 "Pause all YouTube videos", in the icon's right-click menu and as a keyboard shortcut, pauses every video and audio that is playing in your open YouTube tabs, in every window. Each video keeps its place; nothing is muted, closed or reloaded.
 
-For this the extension needs access to youtube.com (`https://*.youtube.com/*`, which covers www, m and music). It is never requested at install: Chrome asks you when you click "Allow access" in Settings (choosing the menu item before that opens Settings), and you can remove the access there, or at chrome://extensions, at any time. With that access, each time you ask, the extension runs one small function that is part of the extension itself in each YouTube tab: it presses pause and counts how many videos it paused. It does not read the page, what you watch or anything else on YouTube, and nothing about YouTube is stored or transmitted. Without the access, nothing runs in any web page.
+For this the extension needs access to youtube.com (`https://*.youtube.com/*`, which covers www, m and music). It is never requested at install: Chrome asks you when you turn on "Access to YouTube" in Settings (choosing the menu item before that opens Settings), and you can remove the access there, or at chrome://extensions, at any time. With that access, each time you ask, the extension runs one small function that is part of the extension itself in each YouTube tab: it presses pause and counts how many videos it paused. It does not read the page, what you watch or anything else on YouTube, and nothing about YouTube is stored or transmitted. Without the access, nothing runs in any web page.
 
 ### Cloud sync (optional)
 
@@ -79,7 +79,7 @@ This extension requires the following permissions:
 - **alarms**: Used as the timer for automatic snapshots on the interval you choose, and, while you are signed in to cloud sync, to sync every 15 minutes and shortly after a change. When automatic snapshots are off and you are not signed in, no timer exists.
 - **identity**: Used only for cloud sync, when you click "Sign in with Google": it asks Chrome for a Google access token with the `openid` and `email` scopes, as described in "Cloud sync". Without signing in it is never used.
 - **scripting**: Used only to pause YouTube videos when you ask, as described in "Pausing YouTube videos". It works only on the sites you allowed below.
-- **Access to youtube.com** (optional, `https://*.youtube.com/*`): requested only when you click "Allow access" in Settings, and removable there. Used only to pause videos; nothing is read from YouTube pages.
+- **Access to youtube.com** (optional, `https://*.youtube.com/*`): requested only when you turn on "Access to YouTube" in Settings, and removable there. Used only to pause videos; nothing is read from YouTube pages.
 
 The extension requests no host permissions at install and declares no content scripts; access to youtube.com is optional and only yours to grant. It requires Chrome 123 or newer.
 

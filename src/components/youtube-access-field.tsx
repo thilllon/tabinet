@@ -1,8 +1,7 @@
-import { ShieldCheck, ShieldOff } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 
 import { SettingsField } from '@/components/settings-field';
-import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { useYoutubeAccess } from '@/hooks/use-youtube-access';
 import { t } from '@/lib/i18n';
 import {
@@ -14,7 +13,7 @@ import {
 interface YoutubeAccessFieldProps {
   /**
    * The menu item or shortcut opened Settings here (`#settings/youtube`) because the access is
-   * missing: the row is brought into view, Allow access is focused and the hint says why.
+   * missing: the row is brought into view, the switch is focused and the hint says why.
    */
   sentHere: boolean;
   onSaved(message: string): void;
@@ -23,9 +22,10 @@ interface YoutubeAccessFieldProps {
 }
 
 /**
- * The Settings row that grants or takes back access to YouTube, which "Pause all YouTube videos"
- * needs. The request is made straight from the click, before anything is awaited: Chrome only
- * shows its prompt for a user gesture. The row shows what Chrome reports, not what was asked for.
+ * The Settings switch that grants or takes back access to YouTube, which "Pause all YouTube
+ * videos" needs. Turning it on makes the request straight from the click, before anything is
+ * awaited: Chrome only shows its prompt for a user gesture. The switch shows what Chrome reports,
+ * not what was asked for, so a declined prompt leaves it off.
  */
 export function YoutubeAccessField({
   sentHere,
@@ -37,7 +37,7 @@ export function YoutubeAccessField({
   const row = useRef<HTMLDivElement>(null);
   const command = t('cmdPauseYoutube');
 
-  // Once Chrome has answered (the button is disabled until then). The dialog's own autofocus has
+  // Once Chrome has answered (the switch is disabled until then). The dialog's own autofocus has
   // already run, and it leaves alone a focus that is inside it.
   useEffect(() => {
     if (!sentHere || granted !== false) {
@@ -68,18 +68,14 @@ export function YoutubeAccessField({
       <SettingsField
         label={t('settingsYoutubeAccess')}
         hint={t(youtubeAccessHintKey(granted, sentHere), command)}
+        htmlFor="youtube-access"
       >
-        {granted === true ? (
-          <Button variant="outline" size="sm" onClick={remove}>
-            <ShieldOff />
-            {t('settingsYoutubeRemove')}
-          </Button>
-        ) : (
-          <Button variant="outline" size="sm" onClick={allow} disabled={granted === null}>
-            <ShieldCheck />
-            {t('settingsYoutubeAllow')}
-          </Button>
-        )}
+        <Switch
+          id="youtube-access"
+          checked={granted === true}
+          disabled={granted === null}
+          onCheckedChange={(on) => (on ? allow() : remove())}
+        />
       </SettingsField>
     </div>
   );
