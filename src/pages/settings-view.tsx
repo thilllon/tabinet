@@ -24,6 +24,7 @@ import {
   commandsLoading,
   shortcutsDescription,
 } from '@/lib/command-rows';
+import { canExportAll } from '@/lib/export-actions';
 import { appliedUiLanguage, t } from '@/lib/i18n';
 import { openShortcutSettings } from '@/lib/open-shortcut-settings';
 import { isMacPlatform } from '@/lib/shortcut-keys';
@@ -366,7 +367,12 @@ export function SettingsView({
             label={t('settingsExportEverything')}
             hint={t('settingsExportEverythingHint')}
           >
-            <Button variant="outline" size="sm" onClick={onExportAll} disabled={exporting}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onExportAll}
+              disabled={exporting || !canExportAll(summaries)}
+            >
               <Download />
               {t('settingsExportButton')}
             </Button>
