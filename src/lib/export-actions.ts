@@ -146,6 +146,16 @@ export function exportAllNotice(exported: number, skipped: number): string {
   return skipped === 0 ? sentence : joinSentences(sentence, tp('expUnreadable', skipped));
 }
 
+/**
+ * Whether "Export everything" has anything to put in a backup: at least one session or snapshot
+ * this version can read. Settings disables the button otherwise, so an empty store never answers
+ * a click with a "nothing to export" notice (and repeated clicks never stack them).
+ */
+export function canExportAll(summaries: readonly SessionSummary[]): boolean {
+  return summaries.some((summary) => summary.unreadable === undefined);
+}
+
+/** Every body vanished between the click and the read (deleted in another window meanwhile). */
 export function nothingToExportAllNotice(): string {
   return t('expNothingToExportAll');
 }

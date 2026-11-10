@@ -32,6 +32,7 @@ import {
   type CollectProgress,
   collectProgressNotice,
   collectSessionBodies,
+  canExportAll,
   exportAllNotice,
   nothingToExportAllNotice,
   shouldReportProgress,
@@ -240,8 +241,9 @@ export function App() {
     setExporting(true);
     try {
       const summaries = await sessionRepo.listSummaries();
-      if (summaries.length === 0) {
-        setNotice(nothingToExportAllNotice());
+      // Settings disables the button while there is nothing to export (canExportAll), so an
+      // empty store here is a race with a deletion elsewhere: there is nothing to say.
+      if (!canExportAll(summaries)) {
         return;
       }
       const onProgress = shouldReportProgress(summaries.length)

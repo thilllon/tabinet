@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   buildExportScope,
+  canExportAll,
   collectProgressNotice,
   collectSessionBodies,
   copiedLinkNotice,
@@ -213,5 +214,23 @@ describe('collectSessionBodies', () => {
       skipped: [],
     });
     expect(onProgress).not.toHaveBeenCalled();
+  });
+});
+
+describe('canExportAll', () => {
+  it('is false for an empty store, so Settings disables the button', () => {
+    expect(canExportAll([])).toBe(false);
+  });
+
+  it('is false when every row was saved by a newer version', () => {
+    const newer: SessionSummary = {
+      ...summary('a'),
+      unreadable: { reason: 'unknown-schema', version: 99 },
+    };
+    expect(canExportAll([newer])).toBe(false);
+  });
+
+  it('is true with one readable session or snapshot', () => {
+    expect(canExportAll([summary('a')])).toBe(true);
   });
 });
