@@ -15,6 +15,9 @@ export const TOAST_MS = 1000;
 /** How long a notice stays up: a sentence, sometimes with a name in it, needs reading time. */
 export const NOTICE_MS = 4000;
 
+/** How long an error stays up: it has to be read, and nothing else keeps it on screen. */
+export const ERROR_MS = 8000;
+
 /** How many may be stacked at once; a fourth pushes the oldest out. */
 export const MAX_TOASTS = 3;
 
@@ -24,6 +27,8 @@ export interface Toast {
   message: string;
   /** A notice rather than a confirmation: shown without the tick. */
   plain?: boolean;
+  /** An error: red-tinted, with a warning sign instead of the tick. */
+  tone?: 'error';
 }
 
 /**

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useCloudAccount } from '@/hooks/use-cloud-account';
 import { useCloudSync } from '@/hooks/use-cloud-sync';
+import { useErrorToast } from '@/hooks/use-toast';
 import {
   deleteCloudData,
   newPassphraseProblem,
@@ -40,6 +41,7 @@ export function AccountField({ onNotice, onError }: AccountFieldProps) {
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const syncing = useCloudSync(cloud.state === 'ready');
+  useErrorToast(syncing.lastError);
 
   const startSync = () => {
     void syncing.sync().then((synced) => {
@@ -157,11 +159,6 @@ export function AccountField({ onNotice, onError }: AccountFieldProps) {
             {t('settingsAccountDelete')}
           </Button>
         </SettingsField>
-        {syncing.lastError !== undefined && (
-          <p role="alert" className="text-xs text-destructive">
-            {syncing.lastError}
-          </p>
-        )}
         <DeleteCloudDataDialog
           open={confirmDelete}
           busy={busy}

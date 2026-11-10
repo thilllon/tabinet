@@ -14,6 +14,7 @@ import { DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/di
 import { Switch } from '@/components/ui/switch';
 import { YoutubeAccessField } from '@/components/youtube-access-field';
 import { useSessionSettings } from '@/hooks/use-session-settings';
+import { useErrorToast } from '@/hooks/use-toast';
 import type { SettingsFocus } from '@/lib/app-route';
 import { isCloudSyncEnabled } from '@/lib/cloud-config';
 import {
@@ -97,6 +98,7 @@ export function SettingsView({
   // fresh read of storage: right from the first frame, and 'auto' when the chosen one failed to load.
   const [language, setLanguage] = useState<UiLanguage>(appliedUiLanguage);
   const sessionSettings = useSessionSettings();
+  useErrorToast(sessionSettings.error);
 
   useEffect(() => {
     chrome.storage.sync.get<Partial<SortSettings>>([...SORT_SETTING_KEYS], (result) => {
@@ -354,11 +356,6 @@ export function SettingsView({
               idPrefix="settings-sessions-advanced"
             />
           </AdvancedFold>
-          {sessionSettings.error !== undefined && (
-            <p role="alert" className="text-xs text-destructive">
-              {sessionSettings.error}
-            </p>
-          )}
         </SettingsSection>
 
         <SettingsSection

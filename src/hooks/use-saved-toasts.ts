@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { dropToast, TOAST_MS, type Toast, upsertToast } from '@/lib/toast-queue';
 
-interface ToastOptions {
+export interface ToastOptions {
   /** How long it stays up. Default `TOAST_MS`. */
   ms?: number;
   /** A notice rather than a confirmation: shown without the tick. */
@@ -12,6 +12,8 @@ interface ToastOptions {
    * (and restarts its clock) instead of stacking a second.
    */
   key?: string;
+  /** An error rather than a notice. */
+  tone?: 'error';
 }
 
 interface SavedToasts {
@@ -46,14 +48,14 @@ export function useSavedToasts(): SavedToasts {
   }, []);
 
   const show = useCallback((message: string, options: ToastOptions = {}) => {
-    const { ms = TOAST_MS, plain, key } = options;
+    const { ms = TOAST_MS, plain, key, tone } = options;
     const standing = key === undefined ? undefined : keyed.current.get(key);
     const id = standing !== undefined && timers.current.has(standing) ? standing : nextId.current++;
     if (key !== undefined) {
       keyed.current.set(key, id);
     }
     clearTimeout(timers.current.get(id));
-    setToasts((list) => upsertToast(list, { id, message, plain }));
+    setToasts((list) => upsertToast(list, { id, message, plain, tone }));
     timers.current.set(
       id,
       setTimeout(() => {

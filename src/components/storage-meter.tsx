@@ -5,6 +5,7 @@ import { DeleteAllDataDialog } from '@/components/delete-all-data-dialog';
 import { DeleteAllHistoryDialog } from '@/components/delete-all-history-dialog';
 import { Button } from '@/components/ui/button';
 import { isIndexChange } from '@/hooks/use-session-index';
+import { useErrorToast } from '@/hooks/use-toast';
 import { reportError } from '@/lib/error-message';
 import { t, tp } from '@/lib/i18n';
 import { sessionRepo } from '@/lib/session-repo';
@@ -43,6 +44,7 @@ interface StorageMeterProps {
 export function StorageMeter({ summaries, onNotice }: StorageMeterProps) {
   const [bytes, setBytes] = useState<number | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
+  useErrorToast(error);
   const [confirming, setConfirming] = useState(false);
   const [confirmingHistory, setConfirmingHistory] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -178,11 +180,6 @@ export function StorageMeter({ summaries, onNotice }: StorageMeterProps) {
         </Button>
       </div>
       <p className="mt-2 text-xs text-muted-foreground">{t('storageDeleteSnapshotsNote')}</p>
-      {error !== undefined && (
-        <p role="alert" className="mt-2 text-xs text-destructive">
-          {error}
-        </p>
-      )}
 
       <DeleteAllHistoryDialog
         count={breakdown.unprotectedSnapshotCount}

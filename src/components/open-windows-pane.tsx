@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { WindowSelectAll } from '@/components/window-select-all';
 import { WindowTree } from '@/components/window-tree';
+import { useErrorToast } from '@/hooks/use-toast';
 import { formatNumber, t } from '@/lib/i18n';
 import type { OpenWindowView } from '@/lib/open-windows';
 import { selectionState, type TabSelection } from '@/lib/tab-selection';
@@ -56,6 +57,8 @@ export function OpenWindowsPane({
   // text from flashing empty while it fades out.
   const [lastClose, setLastClose] = useState<PendingClose | undefined>(undefined);
   const [actionError, setActionError] = useState<string | undefined>(undefined);
+  useErrorToast(error);
+  useErrorToast(actionError);
 
   const requestClose = (pending: PendingClose) => {
     setActionError(undefined);
@@ -97,17 +100,6 @@ export function OpenWindowsPane({
         </h2>
         <span className="text-xs text-muted-foreground">{formatNumber(windows.length)}</span>
       </div>
-
-      {error !== undefined && (
-        <p role="alert" className="mt-2 text-xs text-destructive">
-          {error}
-        </p>
-      )}
-      {actionError !== undefined && (
-        <p role="alert" className="mt-2 text-xs text-destructive">
-          {actionError}
-        </p>
-      )}
 
       {loading ? (
         <p className="mt-3 text-sm text-muted-foreground">{t('commonLoading')}</p>

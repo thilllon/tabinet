@@ -14,6 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { WindowTree } from '@/components/window-tree';
 import { useSessionBody } from '@/hooks/use-session-body';
+import { useErrorToast } from '@/hooks/use-toast';
 import { isCloudSyncEnabled } from '@/lib/cloud-config';
 import { formatDateTime, formatSessionMeta } from '@/lib/display-format';
 import { copyText } from '@/lib/download-and-copy';
@@ -56,6 +57,7 @@ export function SessionDetail({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
+  useErrorToast(error);
   const body = useSessionBody(summary.id);
   const inputRef = useRef<HTMLInputElement>(null);
   const nameButtonRef = useRef<HTMLButtonElement>(null);
@@ -330,12 +332,6 @@ export function SessionDetail({
           />
         </div>
       </header>
-
-      {error !== undefined && (
-        <p role="alert" className="mt-2 text-xs text-destructive">
-          {error}
-        </p>
-      )}
 
       <div className="mt-4">
         {body.loading && body.session === undefined && (

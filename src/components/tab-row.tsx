@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 
 import { Favicon } from '@/components/favicon';
+import { useErrorToast } from '@/hooks/use-toast';
 import { hostnameOf } from '@/lib/display-format';
 import { t } from '@/lib/i18n';
 import { ROW_ACTIONS_CLASS } from '@/lib/row-actions';
@@ -33,6 +34,7 @@ interface TabRowProps {
 
 export function TabRow({ tab, selection, onOpen, actions }: TabRowProps) {
   const [error, setError] = useState<string | undefined>(undefined);
+  useErrorToast(error);
 
   const open = () => {
     void Promise.resolve(onOpen()).then(setError);
@@ -127,11 +129,6 @@ export function TabRow({ tab, selection, onOpen, actions }: TabRowProps) {
           {actions}
         </span>
       </div>
-      {error !== undefined && (
-        <p role="alert" className="px-2 pb-1 text-xs text-destructive">
-          {error}
-        </p>
-      )}
     </li>
   );
 }

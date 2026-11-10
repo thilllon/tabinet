@@ -53,6 +53,12 @@
   --color-card: var(--card);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
+  --color-toast: var(--toast);
+  --color-toast-foreground: var(--toast-foreground);
+  --color-toast-border: var(--toast-border);
+  --color-toast-error: var(--toast-error);
+  --color-toast-error-foreground: var(--toast-error-foreground);
+  --color-toast-error-border: var(--toast-error-border);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
@@ -87,6 +93,13 @@
   --card: oklch(1 0 0); /* #FFFFFF */
   --popover: oklch(1 0 0); /* #FFFFFF */
   --popover-foreground: oklch(0.2091 0.0104 268.19); /* #16181D */
+  /* Toasts: a light blue so a notice stands out from the white page; errors a light red. */
+  --toast: oklch(0.94 0.04 255); /* #DDE9FC */
+  --toast-foreground: oklch(0.2091 0.0104 268.19); /* #16181D */
+  --toast-border: oklch(0.85 0.08 256); /* #B5CFF7 */
+  --toast-error: oklch(0.95 0.03 25); /* #FCE9E7 */
+  --toast-error-foreground: oklch(0.5318 0.1976 27.91); /* #C5221F */
+  --toast-error-border: oklch(0.86 0.07 25); /* #F2C3BE */
   --primary: oklch(0.5552 0.1914 258.46); /* #1A6DE0 */
   --primary-foreground: oklch(1 0 0); /* #FFFFFF */
   --secondary: oklch(0.966 0.0062 255.48); /* #F1F4F8 */
@@ -107,6 +120,12 @@
   --card: oklch(0.2033 0.0178 259.72); /* #12171F */
   --popover: oklch(0.2289 0.0197 258.35); /* #171D26 */
   --popover-foreground: oklch(0.94 0.0071 268.55); /* #E9EBF0 */
+  --toast: oklch(0.32 0.07 258); /* #1D3557 */
+  --toast-foreground: oklch(0.94 0.0071 268.55); /* #E9EBF0 */
+  --toast-border: oklch(0.42 0.1 258); /* #2E5288 */
+  --toast-error: oklch(0.3 0.07 25); /* #4A1F1C */
+  --toast-error-foreground: oklch(0.85 0.09 24); /* #F7B9B3 */
+  --toast-error-border: oklch(0.42 0.11 25); /* #7A2E28 */
   --primary: oklch(0.7162 0.1325 256.69); /* #6BA5F5 */
   --primary-foreground: oklch(0.1831 0.0309 263.38); /* #0B1220 */
   --secondary: oklch(0.2506 0.021 260.57); /* #1C222C */

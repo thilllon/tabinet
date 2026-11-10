@@ -1,6 +1,7 @@
-import { Check } from 'lucide-react';
+import { Check, TriangleAlert } from 'lucide-react';
 
 import type { Toast } from '@/lib/toast-queue';
+import { cn } from '@/lib/utils';
 
 interface SavedToastsProps {
   toasts: readonly Toast[];
@@ -35,9 +36,20 @@ export function SavedToasts({ toasts }: SavedToastsProps) {
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className="mx-4 flex items-center gap-2 rounded-full border bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-lg motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2"
+          className={cn(
+            'mx-4 flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm shadow-lg motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2',
+            toast.tone === 'error'
+              ? 'border-toast-error-border bg-toast-error text-toast-error-foreground'
+              : 'border-toast-border bg-toast text-toast-foreground',
+          )}
         >
-          {toast.plain !== true && <Check aria-hidden="true" className="size-3.5 text-primary" />}
+          {toast.tone === 'error' ? (
+            <TriangleAlert aria-hidden="true" className="size-3.5 shrink-0" />
+          ) : (
+            toast.plain !== true && (
+              <Check aria-hidden="true" className="size-3.5 shrink-0 text-primary" />
+            )
+          )}
           {toast.message}
         </div>
       ))}
