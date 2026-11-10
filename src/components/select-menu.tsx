@@ -50,7 +50,8 @@ export function SelectMenu({
       >
         <SelectValue />
       </SelectTrigger>
-      <SelectContent position="popper" align="start">
+      {/* Exactly as wide as the control, so the open list lines up with it. */}
+      <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width)">
         {options.map((option) => (
           <SelectItem key={option.value} value={option.value} lang={option.lang}>
             {option.label}

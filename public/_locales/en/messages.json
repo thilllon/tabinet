@@ -400,7 +400,7 @@
     "description": "Heading of the Settings section listing the extension's keyboard commands."
   },
   "settingsShortcutsDescription": {
-    "message": "The keys Chrome has set for each command.",
+    "message": "The keys Chrome has set for each command. Change them in Chrome.",
     "description": "One line under the Keyboard shortcuts heading in Settings."
   },
   "settingsSortCommand": {
@@ -416,12 +416,8 @@
     "description": "Shortcuts list: the command has no key. Short."
   },
   "settingsShortcutSuggestedHint": {
-    "message": "Suggested key: $1. Chrome has not assigned it here; you can set it on Chrome's shortcut page.",
+    "message": "Suggested key: $1",
     "description": "Grey hint under an unbound command in the shortcuts list. $1 is the key, e.g. Alt + Shift + A."
-  },
-  "settingsShortcutsChangeOnlyInChrome": {
-    "message": "These shortcuts can only be changed in Chrome's own shortcut settings.",
-    "description": "Note beside the Change in Chrome button."
   },
   "settingsShortcutsLoading": {
     "message": "Reading the shortcuts from Chrome…",

@@ -16,13 +16,7 @@ import { YoutubeAccessField } from '@/components/youtube-access-field';
 import { useSessionSettings } from '@/hooks/use-session-settings';
 import type { SettingsFocus } from '@/lib/app-route';
 import { isCloudSyncEnabled } from '@/lib/cloud-config';
-import {
-  changeOnlyInChrome,
-  type CommandRow,
-  commandRows,
-  commandsFailed,
-  commandsLoading,
-} from '@/lib/command-rows';
+import { type CommandRow, commandRows, commandsFailed, commandsLoading } from '@/lib/command-rows';
 import { canExportAll } from '@/lib/export-actions';
 import { appliedUiLanguage, t } from '@/lib/i18n';
 import { openShortcutSettings } from '@/lib/open-shortcut-settings';
@@ -398,6 +392,17 @@ export function SettingsView({
         <SettingsSection
           title={t('settingsShortcutsTitle')}
           description={t('settingsShortcutsDescription')}
+          action={
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void openShortcutSettings()}
+              title={t('settingsChangeInChromeTitle')}
+            >
+              <Keyboard />
+              {t('settingsChangeInChrome')}
+            </Button>
+          }
         >
           {commands === null && (
             <p className="text-xs text-muted-foreground">{commandsLoading()}</p>
@@ -411,19 +416,6 @@ export function SettingsView({
                 <ShortcutKeyChips keys={command.keys} />
               </SettingsField>
             ))}
-          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-            <p className="text-xs text-muted-foreground">{changeOnlyInChrome()}</p>
-            <Button
-              variant="outline"
-              size="sm"
-              className="ml-auto"
-              onClick={() => void openShortcutSettings()}
-              title={t('settingsChangeInChromeTitle')}
-            >
-              <Keyboard />
-              {t('settingsChangeInChrome')}
-            </Button>
-          </div>
         </SettingsSection>
       </div>
     </>

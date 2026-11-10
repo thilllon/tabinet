@@ -400,7 +400,7 @@
     "description": "Heading of the Settings section listing the extension's keyboard commands."
   },
   "settingsShortcutsDescription": {
-    "message": "Las teclas que Chrome tiene asignadas a cada comando.",
+    "message": "Las teclas que Chrome tiene asignadas a cada comando. Se cambian en Chrome.",
     "description": "One line under the Keyboard shortcuts heading in Settings."
   },
   "settingsSortCommand": {
@@ -416,12 +416,8 @@
     "description": "Shortcuts list: the command has no key. Short."
   },
   "settingsShortcutSuggestedHint": {
-    "message": "Tecla sugerida: $1. Chrome no la ha asignado aquí; puedes configurarla en la página de combinaciones de teclas de Chrome.",
+    "message": "Combinación sugerida: $1",
     "description": "Grey hint under an unbound command in the shortcuts list. $1 is the key, e.g. Alt + Shift + A."
-  },
-  "settingsShortcutsChangeOnlyInChrome": {
-    "message": "Estas combinaciones de teclas solo se pueden cambiar en la configuración de combinaciones de teclas de Chrome.",
-    "description": "Note beside the Change in Chrome button."
   },
   "settingsShortcutsLoading": {
     "message": "Leyendo las combinaciones de teclas de Chrome…",

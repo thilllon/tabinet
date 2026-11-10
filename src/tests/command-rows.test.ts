@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  changeOnlyInChrome,
-  commandRows,
-  sortCommandLabel,
-  suggestedKeyFor,
-  unnamedCommand,
-} from '@/lib/command-rows';
+import { commandRows, sortCommandLabel, suggestedKeyFor, unnamedCommand } from '@/lib/command-rows';
 
 describe('commandRows', () => {
   it('names the built-in icon-click command, which Chrome leaves without a description', () => {
@@ -49,7 +43,6 @@ describe('commandRows', () => {
     );
     expect(row?.keys).toEqual([]);
     expect(row?.hint).toContain('Option + Shift + A');
-    expect(row?.hint).toContain("Chrome's shortcut page");
     expect(row?.hint).not.toContain(' - ');
   });
 
@@ -73,12 +66,5 @@ describe('suggestedKeyFor', () => {
     expect(suggestedKeyFor('save-session')).toBeUndefined();
     expect(suggestedKeyFor('toString')).toBeUndefined();
     expect(suggestedKeyFor(undefined)).toBeUndefined();
-  });
-});
-
-describe('changeOnlyInChrome', () => {
-  it("says the keys are changed in Chrome's settings, without an em dash", () => {
-    expect(changeOnlyInChrome()).toContain('Chrome');
-    expect(changeOnlyInChrome()).not.toContain(' - ');
   });
 });

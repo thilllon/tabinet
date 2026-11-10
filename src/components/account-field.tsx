@@ -1,7 +1,8 @@
-import { KeyRound, LogIn, LogOut, RefreshCw, RotateCw, Trash2 } from 'lucide-react';
+import { KeyRound, LogOut, RefreshCw, RotateCw, Trash2 } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 
 import { DeleteCloudDataDialog } from '@/components/delete-cloud-data-dialog';
+import { GoogleLogo } from '@/components/google-logo';
 import { SettingsField } from '@/components/settings-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -116,7 +117,7 @@ export function AccountField({ onNotice, onError }: AccountFieldProps) {
     return (
       <SettingsField label={t('settingsAccountGoogle')} hint={t('settingsAccountSignedOutHint')}>
         <Button variant="outline" size="sm" onClick={startSignIn} disabled={busy}>
-          <LogIn />
+          <GoogleLogo />
           {t('settingsAccountSignIn')}
         </Button>
       </SettingsField>
