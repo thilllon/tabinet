@@ -396,7 +396,7 @@
     "description": "Heading of the Settings section listing the extension's keyboard commands."
   },
   "settingsShortcutsDescription": {
-    "message": "各コマンドに Chrome が割り当てているキーです。",
+    "message": "各コマンドに Chrome が割り当てているキーです。変更は Chrome で行います。",
     "description": "One line under the Keyboard shortcuts heading in Settings."
   },
   "settingsSortCommand": {
@@ -412,12 +412,8 @@
     "description": "Shortcuts list: the command has no key. Short."
   },
   "settingsShortcutSuggestedHint": {
-    "message": "推奨キー: $1。この環境では Chrome が割り当てていません。Chrome のショートカットページで設定できます。",
+    "message": "推奨キー: $1",
     "description": "Grey hint under an unbound command in the shortcuts list. $1 is the key, e.g. Alt + Shift + A."
-  },
-  "settingsShortcutsChangeOnlyInChrome": {
-    "message": "これらのショートカットは Chrome のショートカット設定でのみ変更できます。",
-    "description": "Note beside the Change in Chrome button."
   },
   "settingsShortcutsLoading": {
     "message": "Chrome からショートカットを読み込んでいます…",

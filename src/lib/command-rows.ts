@@ -34,11 +34,6 @@ export function notSetLabel(): string {
   return t('settingsShortcutNotSet');
 }
 
-/** Extensions cannot bind keys themselves; only Chrome's own page can. */
-export function changeOnlyInChrome(): string {
-  return t('settingsShortcutsChangeOnlyInChrome');
-}
-
 export function commandsLoading(): string {
   return t('settingsShortcutsLoading');
 }

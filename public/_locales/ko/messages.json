@@ -388,7 +388,7 @@
     "description": "Heading of the Settings section listing the extension's keyboard commands."
   },
   "settingsShortcutsDescription": {
-    "message": "각 명령에 Chrome이 지정한 키입니다.",
+    "message": "각 명령에 Chrome이 지정한 키입니다. 바꾸려면 Chrome에서 바꿉니다.",
     "description": "One line under the Keyboard shortcuts heading in Settings."
   },
   "settingsSortCommand": {
@@ -404,12 +404,8 @@
     "description": "Shortcuts list: the command has no key. Short."
   },
   "settingsShortcutSuggestedHint": {
-    "message": "추천 키: $1. Chrome이 아직 이 키를 지정하지 않았습니다. Chrome 단축키 페이지에서 설정할 수 있습니다.",
+    "message": "추천 키: $1",
     "description": "Grey hint under an unbound command in the shortcuts list. $1 is the key, e.g. Alt + Shift + A."
-  },
-  "settingsShortcutsChangeOnlyInChrome": {
-    "message": "이 단축키는 Chrome 자체 단축키 설정에서만 변경할 수 있습니다.",
-    "description": "Note beside the Change in Chrome button."
   },
   "settingsShortcutsLoading": {
     "message": "Chrome에서 단축키를 읽는 중…",
