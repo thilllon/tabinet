@@ -179,7 +179,7 @@ async function runAssembleTabs(): Promise<void> {
 async function runPauseYoutube(): Promise<void> {
   try {
     if (!(await hasYoutubeAccess())) {
-      // `#settings/youtube`: the dialog brings the YouTube row into view, focuses Allow access
+      // `#settings/youtube`: the dialog brings the YouTube row into view, focuses its switch
       // and says why it opened, so the person is not left wondering what the command did.
       await openDashboard(formatRoute({ view: 'settings', focus: 'youtube' }));
       return;

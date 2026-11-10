@@ -149,7 +149,7 @@
   },
   "settingsYoutubeAccess": {
     "message": "YouTube へのアクセス",
-    "description": "Label of the Settings row that allows or removes the extension's access to youtube.com, needed to pause videos."
+    "description": "Label of the switch in Settings that grants or removes access to YouTube (needed to pause videos)."
   },
   "settingsYoutubeAccessOffHint": {
     "message": "まだ許可されていません。動画の一時停止に必要で、Chrome が先に確認します。Tabinet は YouTube で一時停止を押すだけで、ページの内容は読み取りません。",
@@ -166,14 +166,6 @@
   "settingsYoutubeAllowed": {
     "message": "YouTube へのアクセスを許可しました。もう一度「$1」を選ぶと動画が一時停止します。",
     "description": "Short notice after the person allowed access to youtube.com in Chrome's prompt: tells them to run the command again. $1 is the right-click menu item (cmdPauseYoutube), quoted."
-  },
-  "settingsYoutubeAllow": {
-    "message": "アクセスを許可",
-    "description": "Button in the YouTube section of Settings: asks Chrome for access to youtube.com (Chrome then shows its own prompt). Short."
-  },
-  "settingsYoutubeRemove": {
-    "message": "アクセスを解除",
-    "description": "Button in the YouTube section of Settings, shown once access is granted: gives the access to youtube.com back. Short."
   },
   "settingsYoutubeDeclined": {
     "message": "YouTube へのアクセスが許可されなかったため、まだ動画を一時停止できません。",
@@ -404,8 +396,8 @@
     "description": "Heading of the Settings section listing the extension's keyboard commands."
   },
   "settingsShortcutsDescription": {
-    "message": "新しくインストールすると、ほかの拡張機能がそのキーを使っていなければ、Chrome は並べ替えに $1、$2 に $3、YouTube の一時停止に $4 を割り当てます。ほかのコマンドには最初はキーが割り当てられていません。",
-    "description": "Explanation under the Keyboard shortcuts heading. $1 is the sort key (e.g. Alt + Shift + S), $2 is the name of the Assemble! action, $3 is its key (e.g. Alt + Shift + A), $4 is the key that pauses every YouTube video (e.g. Alt + Shift + P)."
+    "message": "各コマンドに Chrome が割り当てているキーです。",
+    "description": "One line under the Keyboard shortcuts heading in Settings."
   },
   "settingsSortCommand": {
     "message": "このウィンドウのタブを並べ替える（アイコンのクリックと同じ）",
@@ -1878,5 +1870,17 @@
   "commonTryAgain": {
     "message": "再試行",
     "description": "Button that repeats something that failed, such as reading the cloud sync account. Keep it short."
+  },
+  "settingsSortByUrlHint": {
+    "message": "アドレスのアルファベット順なので、同じサイトのタブが隣り合います。",
+    "description": "Grey hint under \"Sort by\" in Settings while \"By URL\" is chosen."
+  },
+  "settingsSortByTitleHint": {
+    "message": "ページのタイトル順です。",
+    "description": "Grey hint under \"Sort by\" in Settings while \"By title\" is chosen."
+  },
+  "settingsSortByCustomHint": {
+    "message": "同じサイトのタブをまとめ、サイトは最初に現れた順に並べます。",
+    "description": "Grey hint under \"Sort by\" in Settings while \"Custom\" is chosen."
   }
 }
