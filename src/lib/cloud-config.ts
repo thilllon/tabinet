@@ -35,5 +35,10 @@ export function overrideCloudSyncConfig(getter?: () => CloudSyncConfig): void {
  * disables the button rather than letting the click fail.
  */
 export function canSignInHere(extensionId: string = chrome.runtime.id): boolean {
+  // The store screenshots (scripts/prepare-registration.ts) are shot from an unpacked build of
+  // this mode and must show the store build's Settings; Vite drops this line from every other build.
+  if (import.meta.env.MODE === 'store-screenshots') {
+    return true;
+  }
   return extensionId === STORE_EXTENSION_ID;
 }

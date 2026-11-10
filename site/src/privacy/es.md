@@ -1,6 +1,6 @@
 # Política de privacidad - Tabinet
 
-Última actualización: 2 de noviembre de 2026
+Última actualización: 10 de noviembre de 2026
 
 ## Resumen
 

@@ -372,7 +372,9 @@ class Preparation {
       }
       return;
     }
-    execSync('pnpm build', { cwd: ROOT, stdio: 'inherit' });
+    // `store-screenshots`: an unpacked copy that shows Settings as the store build does (Google
+    // sign-in available, see canSignInHere). release-it rebuilds dist/ normally before the zip.
+    execSync('pnpm build --mode store-screenshots', { cwd: ROOT, stdio: 'inherit' });
     console.log('Build complete.');
   }
 
