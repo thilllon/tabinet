@@ -1,6 +1,6 @@
 # Privacy Policy - Tabinet
 
-Last Updated: November 2, 2026
+Last Updated: November 10, 2026
 
 ## Overview
 

@@ -221,13 +221,17 @@ async function workerWithApis(context: BrowserContext, timeout: number): Promise
 export async function launchExtension(options: LaunchOptions): Promise<ExtensionSession> {
   const { dist, args = [], preferHeaded = false, locale = 'en' } = options;
   const executablePath = resolveChromiumExecutable();
+  const headless = resolveHeadless(preferHeaded);
   setLanguageEnv(locale);
   // Chrome reads AppleLanguages once, at startup, so the default is put back as soon as it is up.
   const restoreMacLanguage = pinMacLanguage(locale);
   const context = await chromium
     .launchPersistentContext('', {
       ...(executablePath === undefined ? {} : { executablePath }),
-      headless: resolveHeadless(preferHeaded),
+      // Playwright's default headless browser is chromium-headless-shell, which cannot load an
+      // extension; the `chromium` channel runs the full browser in its new headless mode instead.
+      ...(executablePath === undefined && headless ? { channel: 'chromium' } : {}),
+      headless,
       args: [
         `--disable-extensions-except=${dist}`,
         `--load-extension=${dist}`,
