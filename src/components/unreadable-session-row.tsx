@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 
 import { DeleteSessionDialog } from '@/components/delete-session-dialog';
 import { Button } from '@/components/ui/button';
+import { useErrorToast } from '@/hooks/use-toast';
 import { formatDateTime } from '@/lib/display-format';
 import { reportError } from '@/lib/error-message';
 import { joinFacts, t } from '@/lib/i18n';
@@ -35,6 +36,7 @@ export function UnreadableSessionRow({
 }: UnreadableSessionRowProps) {
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
+  useErrorToast(error);
   // The dialog's close-time focus hand-off must not target a button that
   // unmounts with this row.
   const deletingRef = useRef(false);
@@ -87,12 +89,6 @@ export function UnreadableSessionRow({
           <Trash2 />
         </Button>
       </div>
-
-      {error !== undefined && (
-        <p role="alert" className="mt-2 text-xs text-destructive">
-          {error}
-        </p>
-      )}
 
       <DeleteSessionDialog
         name={summary.name}

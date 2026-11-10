@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { WindowTree } from '@/components/window-tree';
 import { useSessionBody } from '@/hooks/use-session-body';
+import { useErrorToast } from '@/hooks/use-toast';
 import { formatDateTime, formatSessionMeta } from '@/lib/display-format';
 import { reportError } from '@/lib/error-message';
 import { joinFacts, t, tp } from '@/lib/i18n';
@@ -51,6 +52,7 @@ export function SnapshotDetail({
 }: SnapshotDetailProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
+  useErrorToast(error);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const body = useSessionBody(summary.id);
   // The bold "Keep" sits inside the translated sentence as $2, wherever the language puts it.
@@ -163,12 +165,6 @@ export function SnapshotDetail({
         <strong>{t('sessionKeep')}</strong>
         {explainerAfter}
       </p>
-
-      {error !== undefined && (
-        <p role="alert" className="mt-2 text-xs text-destructive">
-          {error}
-        </p>
-      )}
 
       <div className="mt-4">
         {body.loading && body.session === undefined && (

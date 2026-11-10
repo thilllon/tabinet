@@ -21,6 +21,7 @@ import { useSavedToasts } from '@/hooks/use-saved-toasts';
 import { useSearchCorpus } from '@/hooks/use-search-corpus';
 import { useSessionIndex } from '@/hooks/use-session-index';
 import { useSessionSettings } from '@/hooks/use-session-settings';
+import { ToastContext, useErrorToast } from '@/hooks/use-toast';
 import { formatRoute, HOME, type Route, routeSessionId } from '@/lib/app-route';
 import { assembleOutcome } from '@/lib/assemble-notice';
 import { assembleTabs } from '@/lib/assemble-tabs';
@@ -505,18 +506,12 @@ export function App() {
     );
   };
 
-  // The error lines belong to whatever the user is looking at: the main pane, or the Settings
-  // dialog while it covers that pane (where a line behind the overlay would go unread). They stay
-  // in the flow on purpose - an error has to remain until it is dealt with, a toast would not.
+  // Every alert is a toast (owner's rule): an error is a red one that stays up for ERROR_MS. Only
+  // the quota notice keeps a line, because it carries a way to the storage meter.
+  useErrorToast(error, show);
+  useErrorToast(indexError, show);
   const banners = (
-    <>
-      {quotaFull && <QuotaNotice onShowStorage={() => go({ view: 'settings' })} />}
-      {(error ?? indexError) !== undefined && (
-        <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error ?? indexError}
-        </p>
-      )}
-    </>
+    <>{quotaFull && <QuotaNotice onShowStorage={() => go({ view: 'settings' })} />}</>
   );
 
   // One stack for the whole page, drawn inside the Settings dialog while that is open for the
@@ -535,165 +530,169 @@ export function App() {
   );
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      <header
-        ref={pageHeader}
-        className="sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b bg-background px-4 py-2"
-      >
-        {/* The wordmark is the way back to the open tabs, so it is a link to that route rather
-            than a button that happens to navigate. */}
-        <a
-          href={formatRoute(HOME)}
-          onClick={(event) => {
-            if (browserHandlesClick(event)) {
-              return;
-            }
-            event.preventDefault();
-            go(HOME);
-          }}
-          title={t('appHomeTitle')}
-          className="flex items-center gap-2 rounded-md px-1 py-0.5 text-sm font-semibold outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+    <ToastContext.Provider value={show}>
+      <div className="min-h-screen bg-muted/30">
+        <header
+          ref={pageHeader}
+          className="sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b bg-background px-4 py-2"
         >
-          <img src="/img/logo-32.png" alt="" aria-hidden="true" className="size-5 rounded" />
-          {t('appName')}
-          <span className="text-xs font-normal text-muted-foreground tabular-nums">v{VERSION}</span>
-        </a>
-        <div className="mx-auto flex max-w-xl flex-1 justify-center">
-          <SearchBar
-            key={searchEpoch}
-            onQueryChange={(next) => {
-              if (next === query) {
-                return;
-              }
-              resetResults();
-              navigate(next === '' ? HOME : { view: 'search', query: next }, true);
-            }}
-            onMove={(direction) =>
-              setHighlight((current) =>
-                direction === 'next'
-                  ? nextIndex(current, items.length)
-                  : prevIndex(current, items.length),
-              )
-            }
-            onActivate={setPendingActivation}
-          />
-        </div>
-        {/* `asChild` renders the Button's styling onto the anchor, so this gains an address without
-            src/components/ui/button.tsx being touched: Settings opens as a dialog, yet it is still
-            a link to `#settings` that a middle-click opens in a tab of its own. */}
-        <Button asChild variant="outline" size="sm">
+          {/* The wordmark is the way back to the open tabs, so it is a link to that route rather
+            than a button that happens to navigate. */}
           <a
-            href={formatRoute({ view: 'settings' })}
-            title={t('commonOpenSettingsTitle')}
+            href={formatRoute(HOME)}
             onClick={(event) => {
               if (browserHandlesClick(event)) {
                 return;
               }
               event.preventDefault();
-              go({ view: 'settings' });
+              go(HOME);
             }}
+            title={t('appHomeTitle')}
+            className="flex items-center gap-2 rounded-md px-1 py-0.5 text-sm font-semibold outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
-            <Settings />
-            {t('appSettings')}
+            <img src="/img/logo-32.png" alt="" aria-hidden="true" className="size-5 rounded" />
+            {t('appName')}
+            <span className="text-xs font-normal text-muted-foreground tabular-nums">
+              v{VERSION}
+            </span>
           </a>
-        </Button>
-      </header>
+          <div className="mx-auto flex max-w-xl flex-1 justify-center">
+            <SearchBar
+              key={searchEpoch}
+              onQueryChange={(next) => {
+                if (next === query) {
+                  return;
+                }
+                resetResults();
+                navigate(next === '' ? HOME : { view: 'search', query: next }, true);
+              }}
+              onMove={(direction) =>
+                setHighlight((current) =>
+                  direction === 'next'
+                    ? nextIndex(current, items.length)
+                    : prevIndex(current, items.length),
+                )
+              }
+              onActivate={setPendingActivation}
+            />
+          </div>
+          {/* `asChild` renders the Button's styling onto the anchor, so this gains an address without
+            src/components/ui/button.tsx being touched: Settings opens as a dialog, yet it is still
+            a link to `#settings` that a middle-click opens in a tab of its own. */}
+          <Button asChild variant="outline" size="sm">
+            <a
+              href={formatRoute({ view: 'settings' })}
+              title={t('commonOpenSettingsTitle')}
+              onClick={(event) => {
+                if (browserHandlesClick(event)) {
+                  return;
+                }
+                event.preventDefault();
+                go({ view: 'settings' });
+              }}
+            >
+              <Settings />
+              {t('appSettings')}
+            </a>
+          </Button>
+        </header>
 
-      <div
-        className="mx-auto grid max-w-7xl gap-4 p-4 lg:grid-cols-[var(--sidebar-width)_10px_minmax(0,1fr)]"
-        style={{ '--sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}
-      >
-        {/* A panel, not a bare column: the sidebar and the main pane hold different kinds of
+        <div
+          className="mx-auto grid max-w-7xl gap-4 p-4 lg:grid-cols-[var(--sidebar-width)_10px_minmax(0,1fr)]"
+          style={{ '--sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}
+        >
+          {/* A panel, not a bare column: the sidebar and the main pane hold different kinds of
             thing, and a surface of its own says so without a word of explanation. */}
-        <aside className="min-w-0 rounded-lg border bg-card p-2 lg:sticky lg:top-16 lg:self-start">
-          <SidebarNav
-            route={page}
-            saved={saved}
-            history={history}
-            windowCount={openWindows.windows.length}
-            tabCount={openWindows.windows.reduce((count, win) => count + win.tabs.length, 0)}
-            recoveredId={recovered?.id}
-            loading={loading}
-            onNavigate={go}
+          <aside className="min-w-0 rounded-lg border bg-card p-2 lg:sticky lg:top-16 lg:self-start">
+            <SidebarNav
+              route={page}
+              saved={saved}
+              history={history}
+              windowCount={openWindows.windows.length}
+              tabCount={openWindows.windows.reduce((count, win) => count + win.tabs.length, 0)}
+              recoveredId={recovered?.id}
+              loading={loading}
+              onNavigate={go}
+            />
+          </aside>
+
+          <SidebarResizer
+            width={sidebarWidth}
+            onResize={setSidebarWidth}
+            onCommit={writeSidebarWidth}
           />
-        </aside>
 
-        <SidebarResizer
-          width={sidebarWidth}
-          onResize={setSidebarWidth}
-          onCommit={writeSidebarWidth}
-        />
+          <main className="min-w-0 space-y-3">
+            {!settingsOpen && banners}
+            {main()}
+          </main>
+        </div>
 
-        <main className="min-w-0 space-y-3">
-          {!settingsOpen && banners}
-          {main()}
-        </main>
-      </div>
-
-      {/* Settings: an address (`#settings`) drawn as a dialog over the view behind it. Closing it
+        {/* Settings: an address (`#settings`) drawn as a dialog over the view behind it. Closing it
  - Escape, the ×, a click outside - leaves that address. The width and the scrolling body
           are set here by class, not in src/components/ui/dialog.tsx. */}
-      <Dialog
-        open={settingsOpen}
-        onOpenChange={(open) => {
-          if (open) {
-            return;
-          }
-          // A field that writes on blur (a snapshot interval or limit) would otherwise be unmounted
-          // with its text unsaved: Escape closes the dialog without moving focus first.
-          if (document.activeElement instanceof HTMLElement) {
-            document.activeElement.blur();
-          }
-          closeSettings(page);
-        }}
-      >
-        {/* The max-width keeps the stock 1rem side margins on a narrow window, which a bare
-            `sm:max-w-3xl` would drop between 640 and 800px. */}
-        <DialogContent
-          showCloseButton={false}
-          className="flex max-h-[calc(100dvh-4rem)] flex-col gap-0 p-0 sm:max-w-[min(48rem,calc(100%-2rem))]"
-          onOpenAutoFocus={() => {
-            settingsOpener.current = document.activeElement;
-          }}
-          onCloseAutoFocus={(event) => {
-            event.preventDefault();
-            if (settingsOpener.current instanceof HTMLElement) {
-              settingsOpener.current.focus();
+        <Dialog
+          open={settingsOpen}
+          onOpenChange={(open) => {
+            if (open) {
+              return;
             }
+            // A field that writes on blur (a snapshot interval or limit) would otherwise be unmounted
+            // with its text unsaved: Escape closes the dialog without moving focus first.
+            if (document.activeElement instanceof HTMLElement) {
+              document.activeElement.blur();
+            }
+            closeSettings(page);
           }}
         >
-          <SettingsView
-            summaries={sessions}
-            onNotice={announce}
-            onSaved={show}
-            onError={setError}
-            onExportAll={() => void exportAll()}
-            onImport={() => setImportOpen(true)}
-            exporting={exporting}
-            focus={route.view === 'settings' ? route.focus : undefined}
+          {/* The max-width keeps the stock 1rem side margins on a narrow window, which a bare
+            `sm:max-w-3xl` would drop between 640 and 800px. */}
+          <DialogContent
+            showCloseButton={false}
+            className="flex max-h-[calc(100dvh-4rem)] flex-col gap-0 p-0 sm:max-w-[min(48rem,calc(100%-2rem))]"
+            onOpenAutoFocus={() => {
+              settingsOpener.current = document.activeElement;
+            }}
+            onCloseAutoFocus={(event) => {
+              event.preventDefault();
+              if (settingsOpener.current instanceof HTMLElement) {
+                settingsOpener.current.focus();
+              }
+            }}
           >
-            {banners}
-          </SettingsView>
-          {/* Inside the dialog while it is open: left in the page it would sit under the overlay,
+            <SettingsView
+              summaries={sessions}
+              onNotice={announce}
+              onSaved={show}
+              onError={setError}
+              onExportAll={() => void exportAll()}
+              onImport={() => setImportOpen(true)}
+              exporting={exporting}
+              focus={route.view === 'settings' ? route.focus : undefined}
+            >
+              {banners}
+            </SettingsView>
+            {/* Inside the dialog while it is open: left in the page it would sit under the overlay,
               dimmed, hidden from screen readers, and its Cancel would count as a click outside. */}
-          {progressToast}
-          {toastStack}
-          <DialogCloseButton />
-        </DialogContent>
-      </Dialog>
+            {progressToast}
+            {toastStack}
+            <DialogCloseButton />
+          </DialogContent>
+        </Dialog>
 
-      <ImportDialog
-        open={importOpen}
-        onOpenChange={setImportOpen}
-        onImported={(count) => announce(importedNotice(count))}
-      />
-      <RestoreConfirmDialog
-        pending={pending}
-        onConfirm={confirmRestore}
-        onCancel={() => setPending(undefined)}
-      />
-      {!settingsOpen && progressToast}
-      {!settingsOpen && toastStack}
-    </div>
+        <ImportDialog
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          onImported={(count) => announce(importedNotice(count))}
+        />
+        <RestoreConfirmDialog
+          pending={pending}
+          onConfirm={confirmRestore}
+          onCancel={() => setPending(undefined)}
+        />
+        {!settingsOpen && progressToast}
+        {!settingsOpen && toastStack}
+      </div>
+    </ToastContext.Provider>
   );
 }
