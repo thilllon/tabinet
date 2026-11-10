@@ -2046,5 +2046,9 @@
   "settingsSortByCustomHint": {
     "message": "Junta las pestañas de cada sitio, con los sitios en el orden en que aparecen.",
     "description": "Grey hint under \"Sort by\" in Settings while \"Custom\" is chosen."
+  },
+  "settingsAccountStoreOnlyHint": {
+    "message": "El inicio de sesión solo funciona en la versión instalada desde Chrome Web Store.",
+    "description": "Grey hint under \"Google account\" in Settings in an unpacked or developer build, where Google sign-in cannot work; the Sign in button is disabled."
   }
 }

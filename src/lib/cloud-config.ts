@@ -3,7 +3,12 @@
  * `src/constants.ts` (configured, so the feature is on); tests swap the getter to switch it off or
  * point it at a fake server without touching the constant the manifest is built from.
  */
-import { CLOUD_SYNC, type CloudSyncConfig, cloudSyncConfigured } from '@/constants';
+import {
+  CLOUD_SYNC,
+  type CloudSyncConfig,
+  cloudSyncConfigured,
+  STORE_EXTENSION_ID,
+} from '@/constants';
 
 const fromConstants = (): CloudSyncConfig => CLOUD_SYNC;
 
@@ -22,4 +27,13 @@ export function isCloudSyncEnabled(): boolean {
 /** Tests only: read the configuration from `getter`, or from `CLOUD_SYNC` again when omitted. */
 export function overrideCloudSyncConfig(getter?: () => CloudSyncConfig): void {
   source = getter ?? fromConstants;
+}
+
+/**
+ * Whether Google sign-in can work in this copy of the extension. The OAuth client is bound to the
+ * store item id, so an unpacked build (another id) is refused by Chrome: Settings says so and
+ * disables the button rather than letting the click fail.
+ */
+export function canSignInHere(extensionId: string = chrome.runtime.id): boolean {
+  return extensionId === STORE_EXTENSION_ID;
 }

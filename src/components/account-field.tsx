@@ -19,6 +19,7 @@ import {
   signOut,
   unlockWithPassphrase,
 } from '@/lib/cloud-auth';
+import { canSignInHere } from '@/lib/cloud-config';
 import { formatDateTime } from '@/lib/display-format';
 import { reportError } from '@/lib/error-message';
 import { joinSentences, t, tp } from '@/lib/i18n';
@@ -117,8 +118,16 @@ export function AccountField({ onNotice, onError }: AccountFieldProps) {
 
   if (cloud.state === 'signedOut') {
     return (
-      <SettingsField label={t('settingsAccountGoogle')} hint={t('settingsAccountSignedOutHint')}>
-        <Button variant="outline" size="sm" onClick={startSignIn} disabled={busy}>
+      <SettingsField
+        label={t('settingsAccountGoogle')}
+        hint={t(canSignInHere() ? 'settingsAccountSignedOutHint' : 'settingsAccountStoreOnlyHint')}
+      >
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={startSignIn}
+          disabled={busy || !canSignInHere()}
+        >
           <GoogleLogo />
           {t('settingsAccountSignIn')}
         </Button>

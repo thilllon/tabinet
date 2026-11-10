@@ -1878,5 +1878,9 @@
   "settingsSortByCustomHint": {
     "message": "同じサイトのタブをまとめ、サイトは最初に現れた順に並べます。",
     "description": "Grey hint under \"Sort by\" in Settings while \"Custom\" is chosen."
+  },
+  "settingsAccountStoreOnlyHint": {
+    "message": "ログインは Chrome ウェブストアからインストールした版でのみ使えます。",
+    "description": "Grey hint under \"Google account\" in Settings in an unpacked or developer build, where Google sign-in cannot work; the Sign in button is disabled."
   }
 }

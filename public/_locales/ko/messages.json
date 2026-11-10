@@ -1870,5 +1870,9 @@
   "settingsSortByCustomHint": {
     "message": "같은 사이트의 탭을 모으고, 사이트는 처음 나온 순서대로 둡니다.",
     "description": "Grey hint under \"Sort by\" in Settings while \"Custom\" is chosen."
+  },
+  "settingsAccountStoreOnlyHint": {
+    "message": "로그인은 Chrome 웹 스토어에서 설치한 버전에서만 됩니다.",
+    "description": "Grey hint under \"Google account\" in Settings in an unpacked or developer build, where Google sign-in cannot work; the Sign in button is disabled."
   }
 }

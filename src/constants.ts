@@ -57,6 +57,9 @@ export const LOCALE_ENDONYMS: Record<SupportedLocale, string> = {
   ja: '日本語',
 };
 
+/** The extension's Chrome Web Store item id: the id the store build runs under. */
+export const STORE_EXTENSION_ID = 'bmbpmnfhfbdjdjpblimidmbohgccmjdg';
+
 /** Where cloud sync talks to and which Google OAuth client signs in to it. */
 export interface CloudSyncConfig {
   /** The sync server's origin, such as `https://tabinet.example.app`; the routes live under `/v1`. */
