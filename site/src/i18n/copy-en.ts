@@ -231,7 +231,7 @@ export const en: SiteCopy = {
       },
       {
         q: 'How do YouTube notes work?',
-        a: 'Open a YouTube video, then right-click the Tabinet icon and choose YouTube notes (or use the button on the Tabinet page, or a shortcut you set at chrome://extensions/shortcuts). The notes open in Chrome’s side panel. The first time, turn on Access to YouTube there. Add note at saves a note at the current time, Screenshot keeps the frame on screen with it, and clicking a note’s time moves the video there. Notes stay on your computer, and sync end-to-end encrypted only if you turn on sync. On the Tabinet page you find every video’s notes, can search them and export them as Markdown.',
+        a: 'Open a YouTube video, then right-click the Tabinet icon and choose YouTube notes (or use the button on the Tabinet page, or a shortcut you set at chrome://extensions/shortcuts). The notes open in Chrome’s side panel. The first time, turn on Access to YouTube there. The Add note button, which shows the current time, saves a note at that moment, Screenshot keeps the frame on screen with a note, and clicking a note’s time moves the video there. Notes stay on your computer, and sync end-to-end encrypted only if you turn on sync. The Tabinet page lists every video’s notes, which you can search and export as Markdown.',
       },
       {
         q: 'Does it work in other Chromium browsers?',
