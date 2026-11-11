@@ -226,6 +226,26 @@ async function track(changes: NoteChanges): Promise<void> {
   }
 }
 
+/**
+ * The storage keys of screenshots cloud sync received or sent and still holds live (known, with no
+ * deletion pending): one no note references yet may be waiting for its note, which a pull cut
+ * short (or one still running) has not written. Empty while sync does not track notes.
+ */
+async function awaitedImageKeys(): Promise<Set<string>> {
+  if (!isCloudSyncEnabled()) {
+    return new Set();
+  }
+  const images = (await readSyncMeta())?.images;
+  if (images === undefined) {
+    return new Set();
+  }
+  return new Set(
+    Object.keys(images.known)
+      .filter((imageId) => images.deleted[imageId] === undefined)
+      .map(noteImageKey),
+  );
+}
+
 async function allKeys(): Promise<string[]> {
   const area = chrome.storage.local;
   // `getKeys()` is Chrome 130+; older Chrome reads every value instead.
@@ -334,6 +354,39 @@ function afterRemoteTombstone(track: RecordTrack, id: string, remoteAt: number):
   return next;
 }
 
+/**
+ * `meta` after notes that reference `kept` won here. A pending deletion of one of those screenshots
+ * loses with the notes it belonged to, so it is dropped (sending it would delete a picture the
+ * winning copy still shows, on the server and every other device). When this device already
+ * removed that picture, the id is forgotten and the next pull reads the feed again from the start
+ * (`rereadFeed`), so the picture the server still holds comes back. Inside both locks.
+ */
+async function withKeptImages(
+  meta: CloudSyncMeta,
+  kept: readonly string[],
+): Promise<CloudSyncMeta> {
+  const images = meta.images;
+  const revived = kept.filter((imageId) => images?.deleted[imageId] !== undefined);
+  if (images === undefined || revived.length === 0) {
+    return meta;
+  }
+  const deleted = { ...images.deleted };
+  const known = { ...images.known };
+  let reread = false;
+  for (const imageId of revived) {
+    delete deleted[imageId];
+    if ((await readImage(imageId)) === undefined) {
+      delete known[imageId];
+      reread = true;
+    }
+  }
+  const next: CloudSyncMeta = { ...meta, images: { ...images, deleted, known } };
+  if (reread) {
+    next.rereadFeed = true;
+  }
+  return next;
+}
+
 /** Applies a notes record or its tombstone. Inside both locks. */
 async function applyRemoteNotes(
   meta: CloudSyncMeta,
@@ -361,7 +414,8 @@ async function applyRemoteNotes(
       return tombstone !== undefined ? 'kept-local' : 'unchanged';
     }
     await writeBodyAndIndex(change.notes);
-    await writeSyncMeta({ ...meta, notes: settled(notesTrack, id, remoteAt) });
+    const next = { ...meta, notes: settled(notesTrack, id, remoteAt) };
+    await writeSyncMeta(await withKeptImages(next, imageIdsOf(change.notes.entries)));
     return 'applied';
   }
   const localAt = Math.max(local.updatedAt, tombstone ?? 0);
@@ -377,9 +431,11 @@ async function applyRemoteNotes(
     return localAt > remoteAt ? 'kept-local' : 'unchanged';
   }
   let dropped: string[];
+  let kept: string[] = [];
   if (change.type === 'notes') {
-    const kept = new Set(imageIdsOf(change.notes.entries));
-    dropped = imageIdsOf(local.entries).filter((imageId) => !kept.has(imageId));
+    kept = imageIdsOf(change.notes.entries);
+    const keptIds = new Set(kept);
+    dropped = imageIdsOf(local.entries).filter((imageId) => !keptIds.has(imageId));
     await writeBodyAndIndex(change.notes);
     if (dropped.length > 0) {
       await chrome.storage.local.remove(dropped.map(noteImageKey));
@@ -390,7 +446,7 @@ async function applyRemoteNotes(
   }
   // The screenshots of notes the winning copy does not have are gone here; their tombstones go to
   // the server, or a picture this device sent would stay there, counted, with nothing showing it.
-  const next = { ...meta, notes: settled(notesTrack, id, remoteAt) };
+  const next = await withKeptImages({ ...meta, notes: settled(notesTrack, id, remoteAt) }, kept);
   await writeSyncMeta(withNoteChanges(next, { imagesDeleted: dropped }, Date.now()));
   return 'applied';
 }
@@ -735,7 +791,8 @@ export const notesRepo = {
 
   /**
    * The repair pass: re-indexes bodies the index lacks, drops index entries without a body (or
-   * whose summary no longer matches it), and removes images no note references. An unreadable
+   * whose summary no longer matches it), and removes images no note references (except one cloud
+   * sync received and holds live, whose note may still be on its way). An unreadable
    * index is rebuilt from the bodies; a body from a newer version is kept as it is and left out of
    * the index, and the images it may reference are kept too.
    */
@@ -783,8 +840,12 @@ export const notesRepo = {
       if (reindexed > 0 || dropped > 0 || indexBroken) {
         await writeIndex(summaries);
       }
-      // An unreadable body may reference images we cannot see, so none are removed then.
-      const orphans = unreadable ? [] : imageKeys.filter((key) => !referenced.has(key));
+      // An unreadable body may reference images we cannot see, so none are removed then. Nor is a
+      // screenshot cloud sync received and still holds live: its note may be later in the feed.
+      const awaited = await awaitedImageKeys();
+      const orphans = unreadable
+        ? []
+        : imageKeys.filter((key) => !referenced.has(key) && !awaited.has(key));
       if (orphans.length > 0) {
         await chrome.storage.local.remove(orphans);
       }

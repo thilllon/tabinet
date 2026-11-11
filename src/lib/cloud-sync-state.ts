@@ -82,6 +82,11 @@ export interface CloudSyncMeta {
   heldImages?: Record<string, number>;
   /** Whether Settings has said that screenshots are held back, since the set last became non-empty. */
   heldImagesNoticed?: boolean;
+  /**
+   * The next pull reads the feed again from the start: notes that won here reference a screenshot
+   * this device had already removed (its deletion lost), and the server still holds the picture.
+   */
+  rereadFeed?: boolean;
 }
 
 /**
@@ -157,7 +162,8 @@ export function parseSyncMeta(value: unknown): CloudSyncMeta | undefined {
     !(value.settingsSyncedAt === undefined || isCount(value.settingsSyncedAt)) ||
     !(value.pendingSettings === undefined || isRecord(value.pendingSettings)) ||
     !(value.heldImages === undefined || isStampMap(value.heldImages)) ||
-    !(value.heldImagesNoticed === undefined || typeof value.heldImagesNoticed === 'boolean')
+    !(value.heldImagesNoticed === undefined || typeof value.heldImagesNoticed === 'boolean') ||
+    !(value.rereadFeed === undefined || typeof value.rereadFeed === 'boolean')
   ) {
     return undefined;
   }
@@ -199,6 +205,9 @@ export function parseSyncMeta(value: unknown): CloudSyncMeta | undefined {
   }
   if (value.heldImagesNoticed !== undefined) {
     meta.heldImagesNoticed = value.heldImagesNoticed;
+  }
+  if (value.rereadFeed === true) {
+    meta.rereadFeed = true;
   }
   return meta;
 }

@@ -1085,6 +1085,72 @@ describe('YouTube notes and screenshots', () => {
     expect(server.record('image', imageId)).toMatchObject({ deleted: true });
   });
 
+  it('a deleted note that loses to a newer edit elsewhere keeps its screenshot everywhere', async () => {
+    const pictured = await addNote(a, 'With a picture', picture(13));
+    const plain = await addNote(a, 'Plain');
+    const imageId = pictured.imageId ?? '';
+    await sync(a);
+    await sync(b);
+
+    // A deletes the note with the picture, B edits the video later; neither has synced since.
+    at(2_000_000);
+    await on(a, () => notesRepo.removeEntry(VIDEO, pictured.id));
+    at(3_000_000);
+    await on(b, () => notesRepo.updateEntry(VIDEO, plain.id, { text: 'Plain, edited' }));
+    await sync(b);
+    await sync(a);
+    await sync(b);
+
+    // B's copy wins, with the note that holds the picture: the picture is not deleted anywhere.
+    expect((await notesOf(a))?.entries.map((entry) => entry.text)).toEqual([
+      'With a picture',
+      'Plain, edited',
+    ]);
+    expect(await notesOf(a)).toEqual(await notesOf(b));
+    expect(server.record('image', imageId)).toMatchObject({ deleted: false });
+    expect(await imageOf(b, imageId)).toBe(picture(13));
+    // A had already removed it; it reads the feed again and gets it back.
+    expect(await imageOf(a, imageId)).toBe(picture(13));
+    expect((await meta(a))?.images?.deleted).toEqual({});
+  });
+
+  it('a screenshot received before its note survives the repair pass of an interrupted pull', async () => {
+    const entry = await addNote(a, 'Picture first', picture(14));
+    const imageId = entry.imageId ?? '';
+    await sync(a);
+    // An edit moves the note after its picture in the feed.
+    at(2_000_000);
+    await on(a, () => notesRepo.updateEntry(VIDEO, entry.id, { text: 'Edited later' }));
+    await sync(a);
+    const order = [...server.records.values()]
+      .sort((x, y) => x.seq - y.seq)
+      .map((record) => record.kind);
+    const imagePage = order.indexOf('image') + 1;
+    expect(order.indexOf('notes') + 1).toBeGreaterThan(imagePage);
+
+    // B reads one record per page and loses the connection right after the picture's page.
+    const realFetch = server.fetch;
+    let gets = 0;
+    const failingAfterPicture: typeof fetch = async (input, init) => {
+      if ((init?.method ?? 'GET') === 'GET') {
+        gets += 1;
+        if (gets === imagePage + 1) {
+          throw new TypeError('Failed to fetch');
+        }
+      }
+      return realFetch(input, init);
+    };
+    await on(b, () => syncNow({ fetch: failingAfterPicture, pageSize: 1 }));
+    expect(await imageOf(b, imageId)).toBe(picture(14));
+    expect(await notesOf(b)).toBeUndefined();
+    // The browser restarts: the repair pass must not take the picture for a leftover.
+    expect(await on(b, () => notesRepo.reconcile())).toMatchObject({ images: 0 });
+
+    await sync(b);
+    expect((await notesOf(b))?.entries.map((e) => e.text)).toEqual(['Edited later']);
+    expect(await imageOf(b, imageId)).toBe(picture(14));
+  });
+
   it('an Undo after a deletion that was already sent brings the note and its picture back everywhere', async () => {
     const entry = await addNote(a, 'Keep me', picture(4));
     await sync(a);

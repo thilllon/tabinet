@@ -53,7 +53,12 @@ export function AccountField({ onNotice, onError }: AccountFieldProps) {
   noticeRef.current = onNotice;
   const heldShown = useRef(false);
   useEffect(() => {
-    if (heldImages === 0 || heldImagesNoticed || heldShown.current) {
+    if (heldImages === 0) {
+      // Every picture went up: a later refusal is news again.
+      heldShown.current = false;
+      return;
+    }
+    if (heldImagesNoticed || heldShown.current) {
       return;
     }
     heldShown.current = true;

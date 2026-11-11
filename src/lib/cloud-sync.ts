@@ -563,13 +563,34 @@ async function applyRecordSafely(
   }
 }
 
-/** Reads the change feed from the stored cursor to its end, storing the cursor after each page. */
+/**
+ * Reads the change feed from the stored cursor to its end, storing the cursor after each page. When
+ * a page asked for it (`rereadFeed`: notes that won here reference a screenshot this device had
+ * already removed), the feed is read once more from the start in the same run.
+ */
 async function pull(run: RunState): Promise<void> {
   const meta = await readSyncMetaFor(run.context);
   if (meta === undefined) {
     return;
   }
-  let cursor = meta.cursor;
+  await pullFrom(run, meta.rereadFeed === true ? 0 : meta.cursor);
+  let reread = false;
+  await updateMeta(run.context, (current) => {
+    if (current.rereadFeed !== true) {
+      return current;
+    }
+    reread = true;
+    const next = { ...current, cursor: 0 };
+    delete next.rereadFeed;
+    return next;
+  });
+  if (reread) {
+    await pullFrom(run, 0);
+  }
+}
+
+async function pullFrom(run: RunState, start: number): Promise<void> {
+  let cursor = start;
   for (;;) {
     const page = await getRecords(
       run.context.account.token,
