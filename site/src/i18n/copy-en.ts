@@ -4,7 +4,7 @@ export const en: SiteCopy = {
   meta: {
     homeTitle: 'Tabinet - sort, group and save your Chrome tabs',
     homeDescription:
-      'A Chrome extension that sorts and groups every tab in one click, handles duplicates, and saves whole windows as sessions you can restore. Free, no tracking, and nothing leaves your device unless you turn on the optional encrypted sync.',
+      'A Chrome extension that sorts and groups every tab in one click, handles duplicates, saves whole windows as sessions you can restore, and keeps timestamped notes on YouTube videos. Free, no tracking, and nothing leaves your device unless you turn on the optional encrypted sync.',
     supportTitle: 'Support - Tabinet',
     supportDescription:
       'Answers to common questions about Tabinet, and how to report a problem or ask for a feature.',
@@ -31,7 +31,7 @@ export const en: SiteCopy = {
   hero: {
     eyebrow: 'Extension for Chrome',
     title: 'One click, and every tab falls into place.',
-    lead: 'Tabinet sorts and groups the tabs in your window, clears out duplicates, and saves whole windows as sessions you can bring back later. Everything stays on your computer unless you turn on sync.',
+    lead: 'Tabinet sorts and groups the tabs in your window, clears out duplicates, and saves whole windows as sessions you can bring back later. Watching a YouTube video? Take timestamped notes beside it. Everything stays on your computer unless you turn on sync.',
     imageAlt:
       'The Tabinet page: saved sessions in the left column, and a session of two windows with its pinned tabs and tab groups on the right',
     languages:
@@ -65,6 +65,18 @@ export const en: SiteCopy = {
         'Restoring never deletes the saved session',
       ],
       alt: 'Tabinet asking "Restore 112 tabs?" with the option to load tabs lazily, over a saved session of three windows',
+    },
+    {
+      shot: 'notes',
+      kicker: 'YouTube notes',
+      title: 'Notes that know where they were in the video',
+      body: 'Open YouTube notes from the right-click menu or the Tabinet page, and Chrome’s side panel follows the video you are watching. Each note is stamped with the moment it was taken, and a click on that time jumps the video back there.',
+      points: [
+        'Add a note at the current time, or a screenshot of the frame on screen',
+        'The video can pause while you write, and plays on when you save',
+        'Every video’s notes in one place on the Tabinet page, searchable and exportable as Markdown',
+      ],
+      alt: 'A video’s YouTube notes in Tabinet: four notes listed by time, two of them with a screenshot of the video',
     },
     {
       shot: 'history',
@@ -159,7 +171,7 @@ export const en: SiteCopy = {
     startSteps: [
       'Add Tabinet from the Chrome Web Store, then pin its icon to the toolbar.',
       'Click the icon to sort the window you are in.',
-      'Right-click the icon for Assemble!, Save all windows as session and Pause all YouTube videos. Options opens Tabinet itself, with your sessions and settings.',
+      'Right-click the icon for Assemble!, Save all windows as session, Pause all YouTube videos and YouTube notes. Options opens Tabinet itself, with your sessions, notes and settings.',
     ],
     reportTitle: 'Report a problem',
     reportLead:
@@ -216,6 +228,10 @@ export const en: SiteCopy = {
       {
         q: 'Can it pause all my YouTube videos at once?',
         a: 'Yes. Right-click the icon and choose Pause all YouTube videos, or press its keyboard shortcut (Alt+Shift+P on a new install, Option+Shift+P on a Mac; set or change it at chrome://extensions/shortcuts). Every YouTube tab in every window pauses where it was; nothing is muted or closed, and running it again resumes nothing. The first time, Settings opens at its YouTube section so you can allow access to YouTube; then choose it again. Pausing only presses pause; YouTube notes, in the side panel, read only the time and title of the video, plus the frame on screen when you press Screenshot. You can remove the access in Settings at any time.',
+      },
+      {
+        q: 'How do YouTube notes work?',
+        a: 'Open a YouTube video, then right-click the Tabinet icon and choose YouTube notes (or use the button on the Tabinet page, or a shortcut you set at chrome://extensions/shortcuts). The notes open in Chrome’s side panel. The first time, turn on Access to YouTube there. Add note at saves a note at the current time, Screenshot keeps the frame on screen with it, and clicking a note’s time moves the video there. Notes stay on your computer, and sync end-to-end encrypted only if you turn on sync. On the Tabinet page you find every video’s notes, can search them and export them as Markdown.',
       },
       {
         q: 'Does it work in other Chromium browsers?',

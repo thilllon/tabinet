@@ -11,11 +11,16 @@ import type { Worker } from '@playwright/test';
 
 import {
   type GroupSnapshot,
+  type NoteEntry,
+  NOTES_SCHEMA_VERSION,
+  type NotesIndex,
+  type NotesSummary,
   SESSION_SCHEMA_VERSION,
   type Session,
   type SessionIndex,
   type SessionSummary,
   type TabSnapshot,
+  type VideoNotes,
   type WindowSnapshot,
 } from '../../src/types';
 
@@ -376,5 +381,193 @@ export async function seedSessions(worker: Worker, sessions: Session[]): Promise
       await area.set(records);
     },
     { sessions, index },
+  );
+}
+
+/*
+ * YouTube notes
+ */
+
+/** A fixture video: fake ids (11 characters, as YouTube's are) and made-up titles. */
+interface VideoPlan {
+  videoId: string;
+  title: string;
+  /** Milliseconds before `now` of the last change. */
+  ago: number;
+  entries: { at: number; text: string; image?: string }[];
+}
+
+const NOTE_VIDEOS: VideoPlan[] = [
+  {
+    videoId: 'tAbInEtDem0',
+    title: 'Building a browser extension, step by step - Workshop',
+    ago: 6 * MINUTE,
+    entries: [
+      {
+        at: 42,
+        text: 'Manifest first: name, permissions, and the service worker as the one entry point.',
+      },
+      {
+        at: 3 * 60 + 15,
+        text: 'The service worker sleeps when idle.\n- register every listener at the top level\n- keep no state in memory',
+        image: 'slide-lifecycle',
+      },
+      {
+        at: 7 * 60 + 48,
+        text: 'Side panel: one HTML page, opened from a click.',
+      },
+      {
+        at: 12 * 60 + 5,
+        text: '',
+        image: 'slide-storage',
+      },
+    ],
+  },
+  {
+    videoId: 'xR7mQ2pLk9w',
+    title: 'Typography for interfaces in 20 minutes',
+    ago: 3 * HOUR,
+    entries: [
+      { at: 95, text: 'Line length: 45 to 75 characters reads best.' },
+      { at: 8 * 60 + 2, text: 'Pick one scale and stick to it.' },
+    ],
+  },
+];
+
+/** The screenshot slides: text drawn on the "video frame" each fixture picture shows. */
+const SLIDES: Record<string, { heading: string; lines: string[] }> = {
+  'slide-lifecycle': {
+    heading: 'Service worker lifecycle',
+    lines: ['install', 'activate', 'idle', 'wake on event'],
+  },
+  'slide-storage': {
+    heading: 'Where data lives',
+    lines: ['storage.local', 'storage.sync', 'storage.session'],
+  },
+};
+
+/** The notes the screenshot fixture shows first: the video with the most entries. */
+export const NOTES_FIXTURE_VIDEO_ID = NOTE_VIDEOS[0].videoId;
+
+/**
+ * The fixture videos' notes, built against `now`. `text` translates the note texts (written by the
+ * person, so in their language); the video titles stay as the sites wrote them.
+ */
+export function buildNotesFixtures(text: (english: string) => string = (s) => s): VideoNotes[] {
+  const now = Date.now();
+  return NOTE_VIDEOS.map((video) => {
+    const at = now - video.ago;
+    const entries: NoteEntry[] = video.entries.map((entry, index) => {
+      const note: NoteEntry = {
+        id: `${video.videoId}-note-${index + 1}`,
+        at: entry.at,
+        text: entry.text === '' ? '' : text(entry.text),
+        createdAt: at - (video.entries.length - index) * MINUTE,
+        updatedAt: at - (video.entries.length - index) * MINUTE,
+      };
+      if (entry.image !== undefined) {
+        note.imageId = entry.image;
+      }
+      return note;
+    });
+    return {
+      schemaVersion: NOTES_SCHEMA_VERSION,
+      videoId: video.videoId,
+      url: `https://www.youtube.com/watch?v=${video.videoId}`,
+      title: video.title,
+      createdAt: entries[0].createdAt,
+      updatedAt: at,
+      entries,
+    };
+  });
+}
+
+/**
+ * Replaces the profile's notes with `videos`: each `notes:<videoId>` body, the `noteImage:<id>`
+ * pictures they reference (drawn in the service worker with OffscreenCanvas, WebP like a real
+ * screenshot) and the `notesIndex` that lists them, as `notesRepo` would have left them.
+ */
+export async function seedNotes(worker: Worker, videos: VideoNotes[]): Promise<void> {
+  const index: NotesIndex = {
+    schemaVersion: NOTES_SCHEMA_VERSION,
+    notes: videos
+      .map((video): NotesSummary => ({
+        videoId: video.videoId,
+        url: video.url,
+        title: video.title,
+        entryCount: video.entries.length,
+        createdAt: video.createdAt,
+        updatedAt: video.updatedAt,
+      }))
+      .sort((a, b) => b.updatedAt - a.updatedAt),
+  };
+  const imageIds = videos.flatMap((video) =>
+    video.entries.flatMap((entry) => (entry.imageId === undefined ? [] : [entry.imageId])),
+  );
+  const slides = imageIds.map((id) => ({ id, ...SLIDES[id] }));
+
+  await worker.evaluate(
+    async (payload: {
+      videos: VideoNotes[];
+      index: NotesIndex;
+      slides: { id: string; heading: string; lines: string[] }[];
+    }) => {
+      // A 1280 x 720 "video frame": a dark slide with a heading and a few boxes.
+      const draw = async (heading: string, lines: string[]): Promise<string> => {
+        const canvas = new OffscreenCanvas(1280, 720);
+        const ctx = canvas.getContext('2d');
+        if (ctx === null) {
+          throw new Error('no 2d context');
+        }
+        const gradient = ctx.createLinearGradient(0, 0, 1280, 720);
+        gradient.addColorStop(0, '#1e293b');
+        gradient.addColorStop(1, '#0f172a');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 1280, 720);
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = 'bold 64px sans-serif';
+        ctx.fillText(heading, 96, 170);
+        ctx.font = '40px sans-serif';
+        lines.forEach((line, i) => {
+          const y = 270 + i * 100;
+          ctx.fillStyle = ['#38bdf8', '#a78bfa', '#34d399', '#fbbf24'][i % 4];
+          ctx.fillRect(96, y, 56, 56);
+          ctx.fillStyle = '#e2e8f0';
+          ctx.fillText(line, 180, y + 42);
+        });
+        const blob = await canvas.convertToBlob({ type: 'image/webp', quality: 0.8 });
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        let binary = '';
+        for (const byte of bytes) {
+          binary += String.fromCharCode(byte);
+        }
+        return `data:${blob.type};base64,${btoa(binary)}`;
+      };
+
+      const area = chrome.storage.local;
+      const existing =
+        typeof area.getKeys === 'function'
+          ? await area.getKeys()
+          : Object.keys(await area.get(null));
+      const stale = existing.filter(
+        (key) => key.startsWith('notes:') || key.startsWith('noteImage:'),
+      );
+      if (stale.length > 0) {
+        await area.remove(stale);
+      }
+      // Pictures first, then bodies, then the index: the order notesRepo writes in.
+      const images: Record<string, string> = {};
+      for (const slide of payload.slides) {
+        images[`noteImage:${slide.id}`] = await draw(slide.heading, slide.lines);
+      }
+      await area.set(images);
+      const bodies: Record<string, unknown> = {};
+      for (const video of payload.videos) {
+        bodies[`notes:${video.videoId}`] = video;
+      }
+      await area.set(bodies);
+      await area.set({ notesIndex: payload.index });
+    },
+    { videos, index, slides },
   );
 }

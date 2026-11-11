@@ -7,7 +7,7 @@
 <h1 align="center">Tabinet</h1>
 
 <p align="center">
-  <strong>One click. Every tab sorted, grouped, and de-duplicated, plus sessions you can save and restore.</strong><br />
+  <strong>One click. Every tab sorted, grouped, and de-duplicated, plus sessions you can save and restore, and timestamped notes on YouTube videos.</strong><br />
   No popup, no tracking, and no data leaves your browser unless you turn on the optional, end-to-end encrypted sync.
 </p>
 
@@ -71,6 +71,10 @@ Everything that is not the icon click lives on one page (`app.html`), opened onc
 
 <p align="center">
   <img src="assets/dashboard-sessions.png" alt="The Tabinet app page" width="640" />
+</p>
+
+<p align="center">
+  <img src="assets/dashboard-notes.png" alt="A video's YouTube notes on the Tabinet app page, two of them with a screenshot" width="640" />
 </p>
 
 The left column is what you have; the rest of the page is whatever you picked. Every view has its own address, so Back works and a session can be bookmarked:
