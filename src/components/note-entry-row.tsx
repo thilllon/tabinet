@@ -5,13 +5,19 @@ import { NoteComposer } from '@/components/note-composer';
 import { NoteThumbnail } from '@/components/note-thumbnail';
 import { Button } from '@/components/ui/button';
 import { t } from '@/lib/i18n';
-import { formatTimestamp } from '@/lib/youtube-video';
+import { browserHandlesClick } from '@/lib/row-link';
+import { formatTimestamp, videoUrlAt } from '@/lib/youtube-video';
 import type { NoteEntry } from '@/types';
 
 interface NoteEntryRowProps {
   entry: NoteEntry;
   /** The time can seek: the panel has access to YouTube. */
   canSeek: boolean;
+  /**
+   * The app page: the time is a link to the video at that second (`onSeek` opens it), rather
+   * than a button that moves the video playing beside the panel.
+   */
+  linkToVideoId?: string;
   isMac: boolean;
   onSeek(at: number): void;
   /** Saves new text; resolves `true` once it is stored. */
@@ -29,6 +35,7 @@ interface NoteEntryRowProps {
 export const NoteEntryRow = memo(function NoteEntryRow({
   entry,
   canSeek,
+  linkToVideoId,
   isMac,
   onSeek,
   onEdit,
@@ -52,16 +59,34 @@ export const NoteEntryRow = memo(function NoteEntryRow({
   return (
     <li className="group flex flex-col gap-1 border-b py-2 last:border-b-0">
       <div className="flex items-center gap-1">
-        <Button
-          variant="link"
-          size="sm"
-          className="h-auto px-0 font-mono tabular-nums"
-          disabled={!canSeek}
-          title={t('notesJumpTo', time)}
-          onClick={() => onSeek(entry.at)}
-        >
-          {time}
-        </Button>
+        {linkToVideoId === undefined ? (
+          <Button
+            variant="link"
+            size="sm"
+            className="h-auto px-0 font-mono tabular-nums"
+            disabled={!canSeek}
+            title={t('notesJumpTo', time)}
+            onClick={() => onSeek(entry.at)}
+          >
+            {time}
+          </Button>
+        ) : (
+          <Button asChild variant="link" size="sm" className="h-auto px-0 font-mono tabular-nums">
+            <a
+              href={videoUrlAt(linkToVideoId, entry.at)}
+              title={t('notesOpenAt', time)}
+              onClick={(event) => {
+                if (browserHandlesClick(event)) {
+                  return;
+                }
+                event.preventDefault();
+                onSeek(entry.at);
+              }}
+            >
+              {time}
+            </a>
+          </Button>
+        )}
         <span className="flex-1" />
         {!editing && (
           <>

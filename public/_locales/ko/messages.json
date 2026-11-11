@@ -1396,7 +1396,7 @@
     "description": "Accessible name of the search box at the top of the app page. One word."
   },
   "searchInputTitle": {
-    "message": "열린 탭, 저장된 세션과 그 주소 검색",
+    "message": "열린 탭, 저장된 세션과 그 주소, 메모 검색",
     "description": "Tooltip of the search box at the top of the app page."
   },
   "searchPlaceholder": {
@@ -2006,5 +2006,73 @@
   "notesScreenshotFailed": {
     "message": "동영상의 스크린샷을 찍지 못했습니다.",
     "description": "Error toast when a screenshot of the video failed for any other reason."
+  },
+  "appNavNotes": {
+    "message": "메모",
+    "description": "Sidebar section heading above the list of YouTube videos with notes. Shown in uppercase. Keep short."
+  },
+  "appNavNoNotes": {
+    "message": "YouTube 동영상에 남긴 메모가 여기에 표시됩니다.",
+    "description": "Shown in the sidebar's Notes section when no YouTube video has notes yet."
+  },
+  "notesEntryCount_other": {
+    "message": "메모 $1개",
+    "description": "How many notes a YouTube video has: second line of its row in the sidebar and under its title on the app page. $1 is the count."
+  },
+  "notesUpdatedAt": {
+    "message": "$1 수정",
+    "description": "When a video's notes last changed: third line of its sidebar row and under its title on the app page. $1 is the date and time, already formatted."
+  },
+  "notesUntitledVideo": {
+    "message": "제목 없는 동영상",
+    "description": "Stands in for the title of a YouTube video whose title was not known when its notes were taken."
+  },
+  "searchGroupNotes": {
+    "message": "메모",
+    "description": "Heading of the search results group listing matching YouTube notes. Shown in small capitals; short."
+  },
+  "notesOpenAt": {
+    "message": "$1 위치에서 동영상 열기",
+    "description": "Tooltip of a note's time on the app page, a link that opens the video at that moment. $1 is the time, such as 1:23."
+  },
+  "notesSwitchedToVideo": {
+    "message": "이 동영상이 열려 있던 탭으로 이동했습니다.",
+    "description": "Toast after a note's time or the Open video button went to a tab that already showed the video."
+  },
+  "notesDeletedAll": {
+    "message": "“$1”의 메모를 삭제했습니다.",
+    "description": "Toast after every note on a video was deleted. $1 is the video's title."
+  },
+  "notesOpenVideo": {
+    "message": "동영상 열기",
+    "description": "Button on a video's notes page that opens the video. Button text, short."
+  },
+  "notesOpenVideoTitle": {
+    "message": "YouTube에서 동영상을 엽니다. 이미 열려 있으면 그 탭으로 이동합니다",
+    "description": "Tooltip of the Open video button on a video's notes page."
+  },
+  "notesExportMarkdown": {
+    "message": "Markdown으로 내보내기",
+    "description": "Button on a video's notes page that saves the notes as one Markdown file. Button text, short."
+  },
+  "notesExportMarkdownTitle": {
+    "message": "이 메모를 하나의 Markdown 파일로 저장합니다. 각 시점으로 가는 링크와 스크린샷이 함께 들어갑니다",
+    "description": "Tooltip of the Export Markdown button on a video's notes page."
+  },
+  "notesDeleteAll": {
+    "message": "메모 모두 삭제",
+    "description": "Menu item on a video's notes page that deletes every note on the video (it asks first)."
+  },
+  "notesDeleteAllTitle": {
+    "message": "이 동영상의 메모를 모두 삭제할까요?",
+    "description": "Title of the dialog that asks before every note on a video is deleted."
+  },
+  "notesDeleteAllBody_other": {
+    "message": "“$2”의 메모 $1개가 스크린샷과 함께 이 기기에서 모두 삭제됩니다. 되돌릴 수 없습니다.",
+    "description": "Text of the dialog that asks before every note on a video is deleted. $1 is how many notes, $2 the video's title."
+  },
+  "notesPageHint": {
+    "message": "메모는 동영상을 보면서 YouTube 메모 사이드 패널에서 작성합니다. 메모의 시간을 누르면 그 시점부터 동영상이 열립니다.",
+    "description": "Grey line under a video's title on its notes page, saying where notes are written and what a note's time does."
   }
 }

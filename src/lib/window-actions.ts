@@ -1,6 +1,9 @@
 import { LocalizedError, reportError } from '@/lib/error-message';
 import { t } from '@/lib/i18n';
+import { hasYoutubeAccess, NO_ANSWER, withinTime } from '@/lib/pause-youtube';
 import { loadSanitizeOptions, type RestoreTarget, sanitizeRestoreUrl } from '@/lib/session-restore';
+import { seekPlayer } from '@/lib/youtube-player';
+import { canonicalVideoUrl, pickVideoTab, videoUrlAt } from '@/lib/youtube-video';
 
 type ActionResult = { ok: true } | { ok: false; reason: string };
 
@@ -143,5 +146,57 @@ export async function openSavedTab(url: string): Promise<OpenSavedTabResult> {
     return opened.ok ? { ok: true, switched: false } : opened;
   }
   const jumped = await goToTab(open.tabId, open.windowId);
+  return jumped.ok ? { ok: true, switched: true } : jumped;
+}
+
+type OpenVideoAtResult = { ok: true; switched: boolean } | { ok: false; reason: string };
+
+/**
+ * How long `openVideoAt()` waits for the player to answer a seek. A loaded page answers in
+ * milliseconds; a tab Chrome froze in the background runs nothing until it is shown, so after this
+ * the tab loads the `&t=` address instead of the click doing nothing.
+ */
+const SEEK_ANSWER_TIMEOUT_MS = 1000;
+
+/**
+ * A note's time on the app page: the video at that second. A tab already showing the video is
+ * brought forward and moved there (through the player when Tabinet may reach YouTube, else by
+ * loading its `&t=` address), so the video does not open twice; otherwise the `&t=` address opens
+ * in a background tab, like a saved tab does. Without `seconds` (the video itself) an open tab is
+ * only brought forward, where it is. Never throws.
+ */
+export async function openVideoAt(
+  videoId: string,
+  seconds?: number,
+  { timeoutMs = SEEK_ANSWER_TIMEOUT_MS }: { timeoutMs?: number } = {},
+): Promise<OpenVideoAtResult> {
+  const url = seconds === undefined ? canonicalVideoUrl(videoId) : videoUrlAt(videoId, seconds);
+  let open: { tabId: number; windowId: number } | undefined;
+  try {
+    open = pickVideoTab(await chrome.tabs.query({}), videoId);
+  } catch {
+    // As in openSavedTab: the tab list is a convenience, a new tab is still right.
+    open = undefined;
+  }
+  if (open === undefined) {
+    const opened = await openTabInBackground(url);
+    return opened.ok ? { ok: true, switched: false } : opened;
+  }
+  const { tabId, windowId } = open;
+  if (seconds === undefined) {
+    const jumped = await goToTab(tabId, windowId);
+    return jumped.ok ? { ok: true, switched: true } : jumped;
+  }
+  const seeked = await hasYoutubeAccess()
+    .then((granted) => (granted ? withinTime(seekPlayer(tabId, seconds), timeoutMs) : null))
+    // A discarded or still loading tab cannot be reached; loading the address works there too.
+    .catch(() => null);
+  if (seeked === null || seeked === NO_ANSWER) {
+    const moved = await run(() => chrome.tabs.update(tabId, { url }));
+    if (!moved.ok) {
+      return moved;
+    }
+  }
+  const jumped = await goToTab(tabId, windowId);
   return jumped.ok ? { ok: true, switched: true } : jumped;
 }

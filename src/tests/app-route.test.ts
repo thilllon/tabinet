@@ -28,6 +28,14 @@ describe('parseRoute', () => {
     expect(parseRoute('#saved/')).toEqual(HOME);
     expect(parseRoute('#saved')).toEqual(HOME);
     expect(parseRoute('#search/')).toEqual(HOME);
+    expect(parseRoute('#notes/')).toEqual(HOME);
+    expect(parseRoute('#notes')).toEqual(HOME);
+  });
+
+  it('reads the notes view of one video', () => {
+    expect(parseRoute('#notes/dQw4w9WgXcQ')).toEqual({ view: 'notes', videoId: 'dQw4w9WgXcQ' });
+    expect(formatRoute({ view: 'notes', videoId: 'dQw4w9WgXcQ' })).toBe('#notes/dQw4w9WgXcQ');
+    expect(routeSessionId({ view: 'notes', videoId: 'dQw4w9WgXcQ' })).toBeUndefined();
   });
 
   it('reads the part of Settings to bring into view, and ignores one it does not know', () => {
@@ -50,6 +58,8 @@ describe('parseRoute', () => {
       { view: 'saved', id: 'a/b #c' },
       { view: 'auto', id: '0914-0912' },
       { view: 'search', query: '모두의 창업 #1' },
+      { view: 'notes', videoId: 'dQw4w9WgXcQ' },
+      { view: 'notes', videoId: 'a-b_c/d' },
     ] as const) {
       expect(parseRoute(formatRoute(route))).toEqual(route);
     }

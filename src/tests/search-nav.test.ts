@@ -85,9 +85,18 @@ describe('buildSearchGroups', () => {
     entry({ source: 'open', sessionName: 'Open windows', tabId: 7, windowId: 3, title: 'Docs' }),
     entry({ source: 'saved', title: 'Docs saved', tabIndex: 1 }),
     entry({ source: 'history', sessionId: 'hist-1', title: 'Docs snapshot', tabIndex: 2 }),
+    entry({
+      source: 'notes',
+      sessionId: undefined,
+      sessionName: 'A video',
+      title: 'Docs note',
+      videoId: 'abcdefghijk',
+      noteId: 'n1',
+      at: 12,
+    }),
   ];
 
-  it('orders session matches first, then open, saved and history', () => {
+  it('orders session matches first, then open, saved, notes and history', () => {
     const result = search(corpus, 'docs', { includeHistory: true });
 
     const groups = buildSearchGroups(result, [summary({ name: 'Docs project' })]);
@@ -96,16 +105,24 @@ describe('buildSearchGroups', () => {
       'Matching sessions',
       'Open tabs',
       'Saved sessions',
+      'Notes',
       'Snapshots',
     ]);
-    expect(groups.map((group) => group.startIndex)).toEqual([0, 1, 2, 3]);
-    expect(groups.map((group) => group.count)).toEqual([1, 1, 1, 1]);
+    expect(groups.map((group) => group.startIndex)).toEqual([0, 1, 2, 3, 4]);
+    expect(groups.map((group) => group.count)).toEqual([1, 1, 1, 1, 1]);
+  });
+
+  it('makes a note a note row, keyed by its video and note', () => {
+    const notes = buildSearchGroups(search(corpus, 'docs')).find(
+      (group) => group.source === 'notes',
+    );
+    expect(notes?.items).toEqual([{ kind: 'note', key: 'notes:abcdefghijk:n1', entry: corpus[3] }]);
   });
 
   it('drops empty groups, so history disappears while it is opted out', () => {
     const groups = buildSearchGroups(search(corpus, 'docs'));
 
-    expect(groups.map((group) => group.source)).toEqual(['open', 'saved']);
+    expect(groups.map((group) => group.source)).toEqual(['open', 'saved', 'notes']);
   });
 
   it('keeps the per-source count and hasMore of a truncated source', () => {
@@ -125,7 +142,7 @@ describe('buildSearchGroups', () => {
     const items = flattenSearchItems(groups);
 
     expect(new Set(items.map((item) => item.key)).size).toBe(items.length);
-    expect(items.map((item) => item.kind)).toEqual(['session', 'tab', 'tab', 'tab']);
+    expect(items.map((item) => item.kind)).toEqual(['session', 'tab', 'tab', 'note', 'tab']);
   });
 
   it('flattens to nothing when nothing matched', () => {

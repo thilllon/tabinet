@@ -1,7 +1,7 @@
 import { errorDetail } from '@/lib/error-message';
 import { entriesFromSession, type SearchEntry } from '@/lib/search-engine';
 import { sessionKey, sessionRepo } from '@/lib/session-repo';
-import type { SessionId, SessionSummary } from '@/types';
+import type { NotesSummary, SessionId, SessionSummary } from '@/types';
 
 /**
  * How many bytes of session bodies the idle pre-warm may read: it stops after 5 MB and the rest
@@ -264,4 +264,18 @@ export class SearchCorpusCache {
       this.mutationCount += 1;
     }
   }
+}
+
+/**
+ * The videos whose notes the search must (re)read: those not read yet, or read at another
+ * `updatedAt` than the index now says. Every note write moves the video's `updatedAt` in the index,
+ * so the index alone tells a changed video from an unchanged one.
+ */
+export function notesToLoad(
+  summaries: readonly NotesSummary[],
+  loadedAt: ReadonlyMap<string, number>,
+): string[] {
+  return summaries
+    .filter((summary) => loadedAt.get(summary.videoId) !== summary.updatedAt)
+    .map((summary) => summary.videoId);
 }

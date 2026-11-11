@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  notesToLoad,
   changedSessionIds,
   PREWARM_BYTE_BUDGET,
   SearchCorpusCache,
@@ -344,5 +345,27 @@ describe('SearchCorpusCache', () => {
 
     expect(cache.loadedCount).toBe(0);
     expect(cache.entriesFor(['a'])).toEqual([]);
+  });
+});
+
+describe('notesToLoad', () => {
+  const summary = (videoId: string, updatedAt: number) => ({
+    videoId,
+    url: `https://www.youtube.com/watch?v=${videoId}`,
+    title: videoId,
+    entryCount: 1,
+    createdAt: 1,
+    updatedAt,
+  });
+
+  it('reads the videos not read yet and those changed since', () => {
+    const loaded = new Map([
+      ['same', 10],
+      ['changed', 10],
+    ]);
+    expect(
+      notesToLoad([summary('new', 5), summary('same', 10), summary('changed', 11)], loaded),
+    ).toEqual(['new', 'changed']);
+    expect(notesToLoad([], loaded)).toEqual([]);
   });
 });

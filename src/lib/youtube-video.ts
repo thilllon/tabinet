@@ -133,3 +133,29 @@ export function sameActiveVideo(a: ActiveVideo | null, b: ActiveVideo | null): b
 export function isImageDataUrl(value: string): boolean {
   return /^data:image\/(?:webp|png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/.test(value);
 }
+
+/**
+ * The video's url that starts playing at `seconds` (`&t=<s>s`), whole seconds cut like
+ * `formatTimestamp`, so the link and the time written beside it agree.
+ */
+export function videoUrlAt(videoId: string, seconds: number): string {
+  const whole = Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
+  return `${canonicalVideoUrl(videoId)}&t=${whole}s`;
+}
+
+/** The first tab showing `videoId` (in any form of its url), or `undefined` when none does. */
+export function pickVideoTab(
+  tabs: readonly chrome.tabs.Tab[],
+  videoId: string,
+): { tabId: number; windowId: number } | undefined {
+  for (const tab of tabs) {
+    if (tab.id === undefined || tab.incognito) {
+      continue;
+    }
+    const url = tab.url !== undefined && tab.url !== '' ? tab.url : tab.pendingUrl;
+    if (parseVideoId(url) === videoId) {
+      return { tabId: tab.id, windowId: tab.windowId };
+    }
+  }
+  return undefined;
+}

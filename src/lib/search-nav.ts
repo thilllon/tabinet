@@ -20,15 +20,21 @@ function searchGroupHeading(source: SearchGroupSource): string {
       return t('searchGroupOpenTabs');
     case 'saved':
       return t('searchGroupSavedSessions');
+    case 'notes':
+      return t('searchGroupNotes');
     case 'history':
       return t('searchGroupHistory');
   }
 }
 
-/** One activatable row: restore a whole session (tier 1), or open/focus one tab (tier 2). */
+/**
+ * One activatable row: restore a whole session (tier 1), open/focus one tab (tier 2), or show one
+ * YouTube note among its video's notes.
+ */
 export type SearchItem =
   | { kind: 'session'; key: string; summary: SessionSummary }
-  | { kind: 'tab'; key: string; entry: SearchEntry };
+  | { kind: 'tab'; key: string; entry: SearchEntry }
+  | { kind: 'note'; key: string; entry: SearchEntry };
 
 export interface SearchGroup {
   source: SearchGroupSource;
@@ -72,6 +78,9 @@ export function sessionNameMatches(
  * tab by its runtime id, which survives the tab moving inside its window (its position does not).
  */
 function entryKey(entry: SearchEntry): string {
+  if (entry.source === 'notes') {
+    return `notes:${entry.videoId ?? ''}:${entry.noteId ?? String(entry.tabIndex)}`;
+  }
   if (entry.tabId !== undefined) {
     return `open:${String(entry.tabId)}`;
   }
@@ -79,8 +88,8 @@ function entryKey(entry: SearchEntry): string {
 }
 
 /**
- * The rendered result groups: the tier-1 session matches first, then open tabs, saved sessions
- * and history (`SEARCH_SOURCES` order). Empty groups are dropped, and `startIndex` gives each
+ * The rendered result groups: the tier-1 session matches first, then open tabs, saved sessions,
+ * notes and history (`SEARCH_SOURCES` order). Empty groups are dropped, and `startIndex` gives each
  * group's offset into `flattenSearchItems()` so a row can address its own highlight index.
  */
 export function buildSearchGroups(
@@ -125,7 +134,11 @@ export function buildSearchGroups(
     const bucket = result.bySource[source];
     push(
       source,
-      bucket.entries.map((entry) => ({ kind: 'tab' as const, key: entryKey(entry), entry })),
+      bucket.entries.map((entry) =>
+        source === 'notes'
+          ? { kind: 'note' as const, key: entryKey(entry), entry }
+          : { kind: 'tab' as const, key: entryKey(entry), entry },
+      ),
       bucket.count,
       bucket.hasMore,
     );

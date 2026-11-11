@@ -8,7 +8,9 @@ import {
   entriesByTime,
   formatTimestamp,
   parseVideoId,
+  pickVideoTab,
   sameActiveVideo,
+  videoUrlAt,
 } from '@/lib/youtube-video';
 import type { NoteEntry } from '@/types';
 
@@ -172,5 +174,37 @@ describe('isImageDataUrl', () => {
     expect(isImageDataUrl('data:text/html;base64,PGI+')).toBe(false);
     expect(isImageDataUrl('javascript:alert(1)')).toBe(false);
     expect(isImageDataUrl('data:image/webp;base64,AA"onerror=x')).toBe(false);
+  });
+});
+
+describe('videoUrlAt', () => {
+  it('links the video at whole seconds, cut like the time written beside it', () => {
+    expect(videoUrlAt(ID, 83.9)).toBe(`https://www.youtube.com/watch?v=${ID}&t=83s`);
+    expect(videoUrlAt(ID, 3725)).toBe(`https://www.youtube.com/watch?v=${ID}&t=3725s`);
+    expect(videoUrlAt(ID, -4)).toBe(`https://www.youtube.com/watch?v=${ID}&t=0s`);
+    expect(videoUrlAt(ID, Number.NaN)).toBe(`https://www.youtube.com/watch?v=${ID}&t=0s`);
+  });
+});
+
+describe('pickVideoTab', () => {
+  const tab = (overrides: Partial<chrome.tabs.Tab>): chrome.tabs.Tab =>
+    ({ id: 1, windowId: 1, index: 0, incognito: false, url: '', ...overrides }) as chrome.tabs.Tab;
+
+  it('finds the tab showing the video in any form of its url', () => {
+    const tabs = [
+      tab({ id: 1, url: 'https://www.youtube.com/watch?v=otherVideo1' }),
+      tab({ id: 2, windowId: 5, url: `https://youtu.be/${ID}?t=10` }),
+    ];
+    expect(pickVideoTab(tabs, ID)).toEqual({ tabId: 2, windowId: 5 });
+  });
+
+  it('reads a navigating tab by its pending url, and never an incognito tab', () => {
+    expect(
+      pickVideoTab([tab({ id: 3, pendingUrl: `https://m.youtube.com/watch?v=${ID}` })], ID),
+    ).toEqual({ tabId: 3, windowId: 1 });
+    expect(
+      pickVideoTab([tab({ id: 4, incognito: true, url: canonicalVideoUrl(ID) })], ID),
+    ).toBeUndefined();
+    expect(pickVideoTab([], ID)).toBeUndefined();
   });
 });
