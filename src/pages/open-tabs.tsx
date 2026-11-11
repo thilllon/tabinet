@@ -1,4 +1,4 @@
-import { Combine, Keyboard, Save } from 'lucide-react';
+import { Combine, Keyboard, NotebookPen, Save } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { CloseTabsDialog } from '@/components/close-tabs-dialog';
@@ -36,6 +36,8 @@ interface OpenTabsPageProps {
   onAssemble(): void;
   /** An assemble run is under way. */
   assembling: boolean;
+  /** Opens the YouTube notes side panel in this window. */
+  onOpenNotes(): void;
   onSaveWindow(windowId: number): void;
   /**
    * Saves these live tabs as a session. Resolves with the ids of the tabs that were stored -
@@ -68,6 +70,7 @@ export function OpenTabsPage({
   onSaveAll,
   onAssemble,
   assembling,
+  onOpenNotes,
   onSaveWindow,
   onSaveTabs,
   onOpenSettings,
@@ -204,6 +207,10 @@ export function OpenTabsPage({
               {t('assembleName')}
             </Button>
           )}
+          <Button variant="outline" onClick={onOpenNotes} title={t('notesOpenTitle')}>
+            <NotebookPen />
+            {t('cmdOpenNotes')}
+          </Button>
           <Button
             onClick={onSaveAll}
             disabled={busy || windowCount === 0}

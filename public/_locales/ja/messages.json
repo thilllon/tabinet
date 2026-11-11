@@ -35,6 +35,10 @@
     "message": "YouTube の動画をすべて一時停止",
     "description": "Keyboard command (listed at chrome://extensions/shortcuts) and item in the toolbar icon's right-click menu: pauses the video in every YouTube tab of every window. Menu item, keep it short (under 40 characters)."
   },
+  "cmdOpenNotes": {
+    "message": "YouTube メモ",
+    "description": "Keyboard command (listed at chrome://extensions/shortcuts), item in the toolbar icon's right-click menu, button on the app page and title of the side panel: opens the side panel where the person takes timestamped notes on the YouTube video in the active tab. Menu item, keep it short (under 30 characters)."
+  },
   "assembleName": {
     "message": "集合！",
     "description": "Short name of the action that moves every window's tabs into the current one. Shown on a button."
@@ -149,18 +153,18 @@
   },
   "settingsYoutubeAccess": {
     "message": "YouTube へのアクセス",
-    "description": "Label of the switch in Settings that grants or removes access to YouTube (needed to pause videos)."
+    "description": "Label of the switch in Settings (and in the YouTube notes side panel) that grants or removes access to YouTube (needed to pause videos and for YouTube notes)."
   },
   "settingsYoutubeAccessOffHint": {
-    "message": "まだ許可されていません。動画の一時停止に必要で、Chrome が先に確認します。Tabinet は YouTube で一時停止を押すだけで、ページの内容は読み取りません。",
+    "message": "まだ許可されていません。動画の一時停止に必要で、Chrome が先に確認します。Tabinet が行うのは、動画の一時停止と、YouTube メモのための動画の時刻とタイトルの読み取り、メモの時刻への移動だけです。",
     "description": "Grey hint under \"Access to YouTube\" while the access is not granted."
   },
   "settingsYoutubeAccessOnHint": {
-    "message": "許可済み。アイコンを右クリックして「$1」を選ぶか、ショートカットキーを押すと、すべての動画が一時停止します。Tabinet は YouTube で一時停止を押すだけで、ページの内容は読み取りません。",
+    "message": "許可済み。アイコンを右クリックして「$1」を選ぶか、ショートカットキーを押すと、すべての動画が一時停止します。Tabinet が行うのは、動画の一時停止と、YouTube メモのための動画の時刻とタイトルの読み取り、メモの時刻への移動だけです。",
     "description": "Grey hint under \"Access to YouTube\" once the access is granted. $1 is the right-click menu item (cmdPauseYoutube), quoted."
   },
   "settingsYoutubeAccessAskedHint": {
-    "message": "「$1」を使うには、先にこのアクセスを許可してください。許可したら、もう一度「$1」を選ぶかショートカットキーを押してください。Tabinet は YouTube で一時停止を押すだけで、ページの内容は読み取りません。",
+    "message": "「$1」を使うには、先にこのアクセスを許可してください。許可したら、もう一度「$1」を選ぶかショートカットキーを押してください。Tabinet が行うのは、動画の一時停止と、YouTube メモのための動画の時刻とタイトルの読み取り、メモの時刻への移動だけです。",
     "description": "Grey hint under \"Access to YouTube\" when the person arrived from the menu item or shortcut without the access yet: explains why Settings opened. $1 (twice) is the right-click menu item (cmdPauseYoutube), quoted."
   },
   "settingsYoutubeAllowed": {
@@ -1898,5 +1902,77 @@
   "shortcutPromptButton": {
     "message": "キーを設定",
     "description": "Button on the shortcuts toast that opens Chrome's keyboard shortcuts page. Keep it short."
+  },
+  "notesOpenTitle": {
+    "message": "このウィンドウの YouTube 動画に、時刻付きのメモを Chrome のサイドパネルで書きます",
+    "description": "Tooltip of the YouTube notes button on the app page."
+  },
+  "notesOpenFailed": {
+    "message": "メモパネルを開けませんでした。",
+    "description": "Error toast when Chrome did not open the YouTube notes side panel."
+  },
+  "notesNotVideo": {
+    "message": "このウィンドウで YouTube の動画を開くと、メモを書けます。メモはこのデバイスに保存されます。",
+    "description": "Shown in the YouTube notes side panel when the active tab is not a YouTube video."
+  },
+  "notesAccessHint": {
+    "message": "動画の再生位置を読み取り、メモの時刻へ移動するのに必要で、Chrome が先に確認します。Tabinet が読み取るのは動画の時刻とタイトルだけです。",
+    "description": "Grey hint under the \"Access to YouTube\" switch in the YouTube notes side panel, while the access is not granted."
+  },
+  "notesAccessDeclined": {
+    "message": "YouTube へのアクセスが許可されなかったため、まだ動画の時刻を読み取れません。",
+    "description": "Short notice in the notes side panel after the person declined Chrome's prompt for access to youtube.com."
+  },
+  "notesAdd": {
+    "message": "メモを追加",
+    "description": "Button in the notes side panel that starts a note, while the time in the video is not known yet."
+  },
+  "notesAddAt": {
+    "message": "$1 にメモを追加",
+    "description": "Button in the notes side panel that starts a note at the current time of the video. $1 is the time, such as 1:23 or 1:02:03."
+  },
+  "notesPauseWhileWriting": {
+    "message": "書いている間は動画を一時停止",
+    "description": "Checkbox in the notes side panel: pause the video while a note is being written, and play it again after."
+  },
+  "notesEntryLabel": {
+    "message": "$1 のメモ",
+    "description": "Screen-reader name of the text box of a note. $1 is the time in the video, such as 1:23."
+  },
+  "notesPlaceholder": {
+    "message": "メモを入力してください（Markdown 可）。$1 で保存します。",
+    "description": "Placeholder in the note text box. $1 is the key combination that saves, such as \"Ctrl + Enter\" or \"Command + Enter\"."
+  },
+  "notesEmptyText": {
+    "message": "先に内容を入力してください。",
+    "description": "Shown under the note text box when the person tries to save an empty note."
+  },
+  "notesEmpty": {
+    "message": "この動画にはまだメモがありません。",
+    "description": "Shown in the notes side panel when the video has no notes."
+  },
+  "notesJumpTo": {
+    "message": "$1 へ移動",
+    "description": "Tooltip of a note's time, a button that moves the video to it. $1 is the time, such as 1:23."
+  },
+  "notesEditEntry": {
+    "message": "$1 のメモを編集",
+    "description": "Screen-reader name and tooltip of the edit button of one note. $1 is its time, such as 1:23."
+  },
+  "notesDeleteEntry": {
+    "message": "$1 のメモを削除",
+    "description": "Screen-reader name and tooltip of the delete button of one note. $1 is its time, such as 1:23."
+  },
+  "notesDeleted": {
+    "message": "メモを削除しました。",
+    "description": "Toast after a note was deleted; it carries an Undo button."
+  },
+  "notesUndo": {
+    "message": "元に戻す",
+    "description": "Button on the \"Note deleted.\" toast that puts the note back."
+  },
+  "notesPlayerFailed": {
+    "message": "このタブの動画にアクセスできませんでした。タブを再読み込みしてから、もう一度お試しください。",
+    "description": "Error toast when the notes side panel could not read or move the video in the tab."
   }
 }

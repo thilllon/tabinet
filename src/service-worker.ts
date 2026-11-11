@@ -11,7 +11,9 @@ import {
   takeHistorySnapshot,
 } from '@/lib/history-snapshots';
 import { applyUiLanguage, t, uiLanguageReady } from '@/lib/i18n';
+import { notesRepo } from '@/lib/notes-repo';
 import { openDashboard } from '@/lib/open-app-page';
+import { openNotesPanel } from '@/lib/open-notes-panel';
 import { hasYoutubeAccess, pauseYoutubeTabs } from '@/lib/pause-youtube';
 import { captureSession } from '@/lib/session-capture';
 import { ensureUniqueName } from '@/lib/session-naming';
@@ -32,13 +34,14 @@ export const MENU_IDS = {
   assembleTabs: 'assemble-tabs',
   saveAll: 'save-all',
   pauseYoutube: 'pause-youtube',
+  openNotes: 'open-notes',
 } as const;
 
 /**
  * Keyboard-command ids. These must stay in lockstep with the `commands` block of
  * `defineManifest()` in `vite.config.ts` - Chrome delivers exactly those strings to
  * `commands.onCommand`, and a rename on one side silently stops the shortcut working.
- * `assembleTabs` and `pauseYoutube` deliberately share their ids with the menu items of the same
+ * `assembleTabs`, `pauseYoutube` and `openNotes` deliberately share their ids with the menu items of the same
  * name, so one `case` serves both. `openDashboard` has no
  * menu item: Chrome adds its own "Options" entry (it opens `app.html#settings`), and a second
  * entry onto the same page would only make the menu longer.
@@ -48,6 +51,7 @@ export const COMMAND_IDS = {
   openDashboard: 'open-dashboard',
   assembleTabs: 'assemble-tabs',
   pauseYoutube: 'pause-youtube',
+  openNotes: 'open-notes',
 } as const;
 
 const SAVED_BADGE_COLOR = '#16a34a';
@@ -128,6 +132,11 @@ export async function registerContextMenus(): Promise<void> {
   chrome.contextMenus.create({
     id: MENU_IDS.pauseYoutube,
     title: t('cmdPauseYoutube'),
+    contexts: ['action'],
+  });
+  chrome.contextMenus.create({
+    id: MENU_IDS.openNotes,
+    title: t('cmdOpenNotes'),
     contexts: ['action'],
   });
 }
@@ -211,9 +220,18 @@ async function runPauseYoutube(): Promise<void> {
   }
 }
 
-export async function handleMenuOrCommand(id: string): Promise<void> {
+/**
+ * One menu item or command. `tab` is the tab Chrome hands over with the event (the active tab of
+ * the window it happened in), used to open the notes panel in that window.
+ */
+export async function handleMenuOrCommand(id: string, tab?: chrome.tabs.Tab): Promise<void> {
   clearBadge();
   switch (id) {
+    // Also `COMMAND_IDS.openNotes`, the same id. First, and before any `await`: Chrome opens a
+    // side panel only while the gesture that asked for it is still being handled.
+    case MENU_IDS.openNotes:
+      await openNotesPanel(tab?.windowId);
+      return;
     case COMMAND_IDS.saveSession:
       await saveSession('window');
       return;
@@ -255,6 +273,7 @@ async function onInstalled(details: chrome.runtime.InstalledDetails): Promise<vo
     await sessionRepo.migrateAll().catch(report);
   }
   await sessionRepo.reconcile().catch(report);
+  await notesRepo.reconcile().catch(report);
   // Chrome drops every alarm on extension update/reload, so the periodic history alarm is
   // re-asserted for all reasons (a no-op replace when it already exists).
   await ensureHistoryAlarm();
@@ -269,6 +288,7 @@ async function onStartup(): Promise<void> {
   // person changed since the last install or update. Caught locally like the repair steps below.
   await registerContextMenus().catch(report);
   await sessionRepo.reconcile().catch(report);
+  await notesRepo.reconcile().catch(report);
   // Crash recovery first, so the last snapshot of the previous browser session is protected
   // before any new snapshot can push it out of the ring. Caught locally (like reconcile above)
   // so a failed promotion still lets the alarms below be armed.
@@ -371,12 +391,12 @@ chrome.runtime.onStartup.addListener(() => {
   onStartup().catch(report);
 });
 
-chrome.contextMenus.onClicked.addListener((info) => {
-  handleMenuOrCommand(String(info.menuItemId)).catch(report);
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  handleMenuOrCommand(String(info.menuItemId), tab).catch(report);
 });
 
-chrome.commands.onCommand.addListener((command) => {
-  handleMenuOrCommand(command).catch(report);
+chrome.commands.onCommand.addListener((command, tab) => {
+  handleMenuOrCommand(command, tab).catch(report);
 });
 
 // `vite build --mode e2e` only: scripts/e2e/assemble.ts drives commands from the real-Chrome QA run

@@ -98,16 +98,17 @@ afterEach(() => {
 });
 
 describe('registerContextMenus', () => {
-  it('is idempotent: removeAll then exactly the 3 items, no separators', async () => {
+  it('is idempotent: removeAll then exactly the 4 items, no separators', async () => {
     await registerContextMenus();
     await registerContextMenus();
 
     const menus = getChromeFake().state.menus;
-    expect(menus).toHaveLength(3);
+    expect(menus).toHaveLength(4);
     expect(menus.map((m) => m.id)).toEqual([
       MENU_IDS.assembleTabs,
       MENU_IDS.saveAll,
       MENU_IDS.pauseYoutube,
+      MENU_IDS.openNotes,
     ]);
     // Opening the app is Chrome's own "Options" item (options_page = app.html#settings) plus the
     // `open-dashboard` command; this menu does not repeat it.
@@ -115,6 +116,7 @@ describe('registerContextMenus', () => {
       "Assemble! (move every window's tabs into this one)",
       'Save all windows as session',
       'Pause all YouTube videos',
+      'YouTube notes',
     ]);
     for (const menu of menus) {
       expect(menu.contexts).toEqual(['action']);
@@ -505,7 +507,7 @@ describe('listener wiring', () => {
     fake.fire.installed({ reason: 'update', previousVersion: '6.0.0' });
 
     await vi.waitFor(() => {
-      expect(fake.state.menus).toHaveLength(3);
+      expect(fake.state.menus).toHaveLength(4);
       expect(migrateSpy).toHaveBeenCalledTimes(1);
       expect(reconcileSpy).toHaveBeenCalledTimes(1);
     });
@@ -570,6 +572,7 @@ describe('listener wiring', () => {
         t('cmdAssembleTabs'),
         t('workerMenuSaveAll'),
         t('cmdPauseYoutube'),
+        t('cmdOpenNotes'),
       ]);
     });
     expect(t('workerMenuSaveAll')).not.toBe('Save all windows as session');
@@ -889,7 +892,7 @@ describe('history wiring', () => {
       expect(getChromeFake().state.alarms.get(HISTORY_ALARM)).toEqual({ periodInMinutes: 5 });
     });
     expect(alarmNames()).toEqual([HISTORY_ALARM]);
-    expect(fake.state.menus).toHaveLength(3);
+    expect(fake.state.menus).toHaveLength(4);
     expect(reconcileSpy).toHaveBeenCalledTimes(1);
     expect(reconcileSpy.mock.invocationCallOrder[0]).toBeLessThan(
       createSpy.mock.invocationCallOrder[0],
@@ -923,7 +926,7 @@ describe('history wiring', () => {
 
     await vi.waitFor(() => {
       expect(reconcileSpy).toHaveBeenCalledTimes(1);
-      expect(fake.state.menus).toHaveLength(3);
+      expect(fake.state.menus).toHaveLength(4);
     });
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(alarmNames()).toEqual([]);
@@ -1103,6 +1106,7 @@ describe('the language chosen in Settings', () => {
       catalog.cmdAssembleTabs?.message,
       catalog.workerMenuSaveAll?.message,
       catalog.cmdPauseYoutube?.message,
+      catalog.cmdOpenNotes?.message,
     ];
   }
 
@@ -1179,5 +1183,75 @@ describe('the language chosen in Settings', () => {
     // Spanish counts the window as "1 ventana"; English would say "1 window".
     fake.setUiLanguage('es');
     expect(summary?.name).toContain(chrome.i18n.getMessage('windowCount_one', ['1']));
+  });
+});
+
+describe('YouTube notes', () => {
+  it.each([
+    ['the menu item', 'menu'],
+    ['the command', 'command'],
+  ])(
+    '%s opens the side panel in the focused window before anything is awaited',
+    async (_name, kind) => {
+      vi.resetModules();
+      await import('@/service-worker');
+      const fake = getChromeFake();
+      await seedWindow(['https://a.example/'], false);
+      const focused = await seedWindow(['https://www.youtube.com/watch?v=dQw4w9WgXcQ'], true);
+
+      if (kind === 'menu') {
+        fake.fire.menuClicked(MENU_IDS.openNotes);
+      } else {
+        fake.fire.command(COMMAND_IDS.openNotes);
+      }
+
+      // Synchronously: Chrome opens a side panel only while the gesture is being handled.
+      expect(fake.state.sidePanelOpens).toEqual([{ windowId: focused }]);
+    },
+  );
+
+  it('without a tab from Chrome, opens it in the last-focused window', async () => {
+    const fake = getChromeFake();
+    const windowId = await seedWindow(['https://a.example/'], true);
+
+    await handleMenuOrCommand(COMMAND_IDS.openNotes);
+
+    expect(fake.state.sidePanelOpens).toEqual([{ windowId }]);
+  });
+
+  it('a click on the icon never opens the panel', async () => {
+    vi.resetModules();
+    await import('@/service-worker');
+    const fake = getChromeFake();
+    await seedWindow(['https://b.example/', 'https://a.example/'], true);
+
+    fake.fire.actionClicked();
+
+    await vi.waitFor(() => {
+      expect(fake.state.tabs.size).toBe(2);
+    });
+    expect(fake.state.sidePanelOpens).toEqual([]);
+    expect(fake.state.sidePanelBehavior.openPanelOnActionClick).toBe(false);
+  });
+
+  it.each([
+    ['onInstalled', 'installed'],
+    ['onStartup', 'startup'],
+  ])('%s repairs the notes store', async (_name, kind) => {
+    vi.resetModules();
+    await import('@/service-worker');
+    const { notesRepo } = await import('@/lib/notes-repo');
+    const reconcile = vi.spyOn(notesRepo, 'reconcile');
+    const fake = getChromeFake();
+
+    if (kind === 'installed') {
+      fake.fire.installed({ reason: 'install' });
+    } else {
+      fake.fire.startup();
+    }
+
+    await vi.waitFor(() => {
+      expect(reconcile).toHaveBeenCalledTimes(1);
+    });
   });
 });

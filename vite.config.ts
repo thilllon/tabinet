@@ -64,6 +64,8 @@ const manifest = defineManifest((env) => {
     // useless without the optional YouTube host permission below. `identity` (cloud sync sign-in)
     // is added while CLOUD_SYNC in src/constants.ts names both the server and the Google client, as
     // it does now; nothing touches chrome.identity at load, only Sign in with Google in Settings.
+    // `sidePanel` hosts the YouTube notes (notes-panel.html); it is only called inside a handler
+    // (`chrome.sidePanel.open` from the menu item, the command or the app page's button).
     permissions: [
       'tabs',
       'tabGroups',
@@ -73,6 +75,7 @@ const manifest = defineManifest((env) => {
       'favicon',
       'alarms',
       'scripting',
+      'sidePanel',
       ...cloudSyncPermissions(),
     ],
     // The Google OAuth client `chrome.identity.getAuthToken` signs in with (cloud sync): present
@@ -82,8 +85,11 @@ const manifest = defineManifest((env) => {
     // when the person first wants to pause YouTube (chrome.permissions.request needs a click in a
     // page), and can be taken back there. Without it, nothing runs in any web page.
     optional_host_permissions: [...YOUTUBE_ORIGINS],
+    // YouTube notes. Chrome lists it in its own side panel menu too; the toolbar icon never opens
+    // it (`openPanelOnActionClick` stays at its default, false): a click on the icon sorts.
+    side_panel: { default_path: 'notes-panel.html' },
     // Sorting, assembling and pausing YouTube suggest a key (DEFAULT_SHORTCUTS in src/constants.ts;
-    // Chrome takes at most four); the other two ship unbound. Chrome silently drops a suggested_key that conflicts with another extension,
+    // Chrome takes at most four); the other three ship unbound. Chrome silently drops a suggested_key that conflicts with another extension,
     // so the UI must not promise a key - Settings shows what Chrome actually assigned. Users bind
     // and rebind them at chrome://extensions/shortcuts.
     commands: {
@@ -102,6 +108,9 @@ const manifest = defineManifest((env) => {
         suggested_key: { default: DEFAULT_SHORTCUTS['pause-youtube'] },
         description: '__MSG_cmdPauseYoutube__',
       },
+      // No suggested key (the owner's choice): Chrome takes at most four suggested keys, three are
+      // in use, and the last one is kept free. People bind one at chrome://extensions/shortcuts.
+      'open-notes': { description: '__MSG_cmdOpenNotes__' },
     },
   };
 });
@@ -126,6 +135,8 @@ export default defineConfig(() => {
           // The one page. crxjs only builds the pages the manifest names, and `options_page` carries a
           // `#settings` fragment, so the entry is listed here rather than trusted to be picked up.
           app: path.resolve(import.meta.dirname, 'src/app.html'),
+          // The YouTube notes side panel (the manifest's `side_panel.default_path`), a page of its own.
+          'notes-panel': path.resolve(import.meta.dirname, 'src/notes-panel.html'),
         },
         output: {
           chunkFileNames: 'assets/chunk-[hash].js',

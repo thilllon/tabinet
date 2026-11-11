@@ -753,3 +753,40 @@ describe('chrome fake: match patterns, permissions and scripting', () => {
     expect(result?.result).toBe(42);
   });
 });
+
+describe('chrome.sidePanel', () => {
+  it('records an open in a window that exists, and refuses one without a target', async () => {
+    const fake = getChromeFake();
+    const win = await chrome.windows.create({ url: 'https://a.example/' });
+    if (win?.id === undefined) {
+      throw new Error('fake windows.create returned nothing');
+    }
+
+    await chrome.sidePanel.open({ windowId: win.id });
+
+    expect(fake.state.sidePanelOpens).toEqual([{ windowId: win.id }]);
+    // @ts-expect-error -- the type already demands a target; Chrome checks it at run time too.
+    await expect(chrome.sidePanel.open({})).rejects.toThrow(/tabId and windowId/);
+    await expect(chrome.sidePanel.open({ windowId: 999 })).rejects.toThrow();
+  });
+
+  it('does not open on a click on the icon unless told to', async () => {
+    expect(await chrome.sidePanel.getPanelBehavior()).toEqual({ openPanelOnActionClick: false });
+  });
+});
+
+describe('menu clicks and commands', () => {
+  it('hand over the active tab of the focused window, as Chrome does', async () => {
+    const fake = getChromeFake();
+    const win = await chrome.windows.create({ url: 'https://a.example/' });
+    const seen: (chrome.tabs.Tab | undefined)[] = [];
+    chrome.contextMenus.onClicked.addListener((_info, tab) => seen.push(tab));
+    chrome.commands.onCommand.addListener((_command, tab) => seen.push(tab));
+
+    fake.fire.menuClicked('x');
+    fake.fire.command('y');
+
+    expect(seen.map((tab) => tab?.windowId)).toEqual([win?.id, win?.id]);
+    expect(seen.every((tab) => tab?.active === true)).toBe(true);
+  });
+});

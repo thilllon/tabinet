@@ -12,3 +12,18 @@ interface ComposingKeyEvent {
 export function isComposingEnter(event: ComposingKeyEvent): boolean {
   return event.nativeEvent.isComposing || event.keyCode === 229;
 }
+
+/** The parts of a keyboard event `isSubmitShortcut` reads. */
+interface SubmitKeyEvent extends ComposingKeyEvent {
+  key: string;
+  ctrlKey: boolean;
+  metaKey: boolean;
+}
+
+/**
+ * Ctrl+Enter (Command+Enter on a Mac; either is taken on both) saves a multi-line text, where a
+ * plain Enter is a new line. Not while an IME composition is being confirmed.
+ */
+export function isSubmitShortcut(event: SubmitKeyEvent): boolean {
+  return event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !isComposingEnter(event);
+}
