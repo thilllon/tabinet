@@ -8,7 +8,7 @@ Tabinet es una extensión de Chrome que ordena y organiza las pestañas del nave
 
 ## Recopilación de datos
 
-Si no inicias sesión en la sincronización en la nube, Tabinet **no** recopila ni transmite ningún dato personal: no hace peticiones de red y todas las operaciones se realizan localmente en tu navegador. La sincronización en la nube es opcional y está desactivada hasta que inicias sesión; qué envía y cómo se protege se describe en «Sincronización en la nube» más abajo. En cualquier caso, la extensión no lee nada de las páginas que visitas y no usa analíticas, rastreo ni telemetría. Solo ejecuta algo dentro de una página web en YouTube, y solo después de que lo permitas: la pausa de los vídeos y, para las notas de YouTube, la lectura del tiempo y el título del vídeo sobre el que tomas notas (consulta «Pausar los vídeos de YouTube» y «Notas de YouTube» más abajo).
+Si no inicias sesión en la sincronización en la nube, Tabinet **no** recopila ni transmite ningún dato personal: no hace peticiones de red y todas las operaciones se realizan localmente en tu navegador. La sincronización en la nube es opcional y está desactivada hasta que inicias sesión; qué envía y cómo se protege se describe en «Sincronización en la nube» más abajo. En cualquier caso, la extensión no usa analíticas, rastreo ni telemetría, y no lee nada de las páginas que visitas salvo lo que se describe más abajo para YouTube. Solo ejecuta algo dentro de una página web en YouTube, y solo después de que lo permitas: la pausa de los vídeos y, para las notas de YouTube, la lectura del tiempo y el título del vídeo sobre el que tomas notas (consulta «Pausar los vídeos de YouTube» y «Notas de YouTube» más abajo).
 
 ### Qué se guarda y dónde
 
@@ -45,6 +45,8 @@ Para ello la extensión necesita acceso a youtube.com (`https://*.youtube.com/*`
 Por cada vídeo sobre el que tomas notas, la extensión guarda en el almacenamiento local de extensiones (`chrome.storage.local`) de este dispositivo: el identificador y la dirección del vídeo (`https://www.youtube.com/watch?v=<id>`), su título, el texto de cada nota con el momento del vídeo al que corresponde, y cuándo se escribió y se modificó por última vez cada nota. Las notas **nunca** se sincronizan, ni siquiera con la sincronización en la nube, y nunca se envían a ningún sitio.
 
 Para funcionar, el panel necesita el mismo acceso a youtube.com que la pausa (consulta arriba), que pide con el mismo interruptor «Acceso a YouTube». Con él, mientras el panel está abierto sobre un vídeo, una pequeña función que forma parte de la extensión lee el tiempo actual del vídeo, su duración, si se está reproduciendo y el título de la página, aproximadamente una vez por segundo mientras el panel está visible; cuando lo pides, lleva el vídeo al tiempo de una nota y, si dejas activado «Pausar el vídeo mientras escribo», lo pausa mientras escribes una nota y lo vuelve a reproducir después. No lee nada más de la página, y lo que lee no se guarda salvo como parte de una nota que guardes.
+
+### Sincronización en la nube (opcional)
 
 La sincronización en la nube mantiene iguales tus sesiones guardadas y tu configuración en todos los ordenadores donde usas Tabinet. Está **desactivada hasta que inicias sesión**: abre Configuración, Cuenta, y haz clic en «Iniciar sesión con Google». Si nunca lo haces, nada de esta sección se aplica y la extensión no hace ninguna petición de red.
 

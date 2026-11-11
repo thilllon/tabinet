@@ -156,15 +156,15 @@
     "description": "Label of the switch in Settings (and in the YouTube notes side panel) that grants or removes access to YouTube (needed to pause videos and for YouTube notes)."
   },
   "settingsYoutubeAccessOffHint": {
-    "message": "Not allowed yet. Needed to pause videos; Chrome asks you first. Tabinet only presses pause and, for YouTube notes, reads the video's time and title.",
+    "message": "Not allowed yet. Needed to pause videos; Chrome asks you first. Tabinet only pauses videos and, for YouTube notes, reads the video's time and title and moves it to a note's time.",
     "description": "Grey hint under \"Access to YouTube\" while the access is not granted."
   },
   "settingsYoutubeAccessOnHint": {
-    "message": "Allowed. Choose “$1” in the icon's right-click menu, or press its shortcut, to pause every video. Tabinet only presses pause and, for YouTube notes, reads the video's time and title.",
+    "message": "Allowed. Choose “$1” in the icon's right-click menu, or press its shortcut, to pause every video. Tabinet only pauses videos and, for YouTube notes, reads the video's time and title and moves it to a note's time.",
     "description": "Grey hint under \"Access to YouTube\" once the access is granted. $1 is the right-click menu item (cmdPauseYoutube), quoted."
   },
   "settingsYoutubeAccessAskedHint": {
-    "message": "“$1” needs this access first. Allow it here, then choose “$1” again or press its shortcut. Tabinet only presses pause and, for YouTube notes, reads the video's time and title.",
+    "message": "“$1” needs this access first. Allow it here, then choose “$1” again or press its shortcut. Tabinet only pauses videos and, for YouTube notes, reads the video's time and title and moves it to a note's time.",
     "description": "Grey hint under \"Access to YouTube\" when the person arrived from the menu item or shortcut without the access yet: explains why Settings opened. $1 (twice) is the right-click menu item (cmdPauseYoutube), quoted."
   },
   "settingsYoutubeAllowed": {

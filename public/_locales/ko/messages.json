@@ -148,15 +148,15 @@
     "description": "Label of the switch in Settings (and in the YouTube notes side panel) that grants or removes access to YouTube (needed to pause videos and for YouTube notes)."
   },
   "settingsYoutubeAccessOffHint": {
-    "message": "아직 허용되지 않았습니다. 동영상을 일시중지하려면 필요하며, Chrome이 먼저 묻습니다. Tabinet은 YouTube에서 일시중지를 누르고, YouTube 메모를 위해 동영상의 시간과 제목만 읽습니다.",
+    "message": "아직 허용되지 않았습니다. 동영상을 일시중지하려면 필요하며, Chrome이 먼저 묻습니다. Tabinet은 YouTube에서 동영상을 일시중지하고, YouTube 메모를 위해 동영상의 시간과 제목을 읽고 메모한 시간으로 이동하는 일만 합니다.",
     "description": "Grey hint under \"Access to YouTube\" while the access is not granted."
   },
   "settingsYoutubeAccessOnHint": {
-    "message": "허용됨. 아이콘을 마우스 오른쪽 버튼으로 클릭해 “$1”를 선택하거나 단축키를 누르면 모든 동영상이 일시중지됩니다. Tabinet은 YouTube에서 일시중지를 누르고, YouTube 메모를 위해 동영상의 시간과 제목만 읽습니다.",
+    "message": "허용됨. 아이콘을 마우스 오른쪽 버튼으로 클릭해 “$1”를 선택하거나 단축키를 누르면 모든 동영상이 일시중지됩니다. Tabinet은 YouTube에서 동영상을 일시중지하고, YouTube 메모를 위해 동영상의 시간과 제목을 읽고 메모한 시간으로 이동하는 일만 합니다.",
     "description": "Grey hint under \"Access to YouTube\" once the access is granted. $1 is the right-click menu item (cmdPauseYoutube), quoted."
   },
   "settingsYoutubeAccessAskedHint": {
-    "message": "“$1”를 사용하려면 먼저 이 접근을 허용해야 합니다. 여기서 허용한 뒤 “$1”를 다시 선택하거나 단축키를 누르세요. Tabinet은 YouTube에서 일시중지를 누르고, YouTube 메모를 위해 동영상의 시간과 제목만 읽습니다.",
+    "message": "“$1”를 사용하려면 먼저 이 접근을 허용해야 합니다. 여기서 허용한 뒤 “$1”를 다시 선택하거나 단축키를 누르세요. Tabinet은 YouTube에서 동영상을 일시중지하고, YouTube 메모를 위해 동영상의 시간과 제목을 읽고 메모한 시간으로 이동하는 일만 합니다.",
     "description": "Grey hint under \"Access to YouTube\" when the person arrived from the menu item or shortcut without the access yet: explains why Settings opened. $1 (twice) is the right-click menu item (cmdPauseYoutube), quoted."
   },
   "settingsYoutubeAllowed": {
@@ -1944,7 +1944,7 @@
     "description": "Shown in the notes side panel when the video has no notes."
   },
   "notesJumpTo": {
-    "message": "$1(으)로 이동",
+    "message": "$1 위치로 이동",
     "description": "Tooltip of a note's time, a button that moves the video to it. $1 is the time, such as 1:23."
   },
   "notesEditEntry": {

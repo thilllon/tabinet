@@ -156,15 +156,15 @@
     "description": "Label of the switch in Settings (and in the YouTube notes side panel) that grants or removes access to YouTube (needed to pause videos and for YouTube notes)."
   },
   "settingsYoutubeAccessOffHint": {
-    "message": "Aún no está permitido. Hace falta para pausar vídeos; Chrome te lo pregunta antes. Tabinet solo pulsa pausa y, para las notas de YouTube, lee el tiempo y el título del vídeo.",
+    "message": "Aún no está permitido. Hace falta para pausar vídeos; Chrome te lo pregunta antes. Tabinet solo pausa los vídeos y, para las notas de YouTube, lee el tiempo y el título del vídeo y lo lleva al momento de una nota.",
     "description": "Grey hint under \"Access to YouTube\" while the access is not granted."
   },
   "settingsYoutubeAccessOnHint": {
-    "message": "Permitido. Haz clic derecho en el icono y elige «$1», o pulsa su combinación de teclas, para pausar todos los vídeos. Tabinet solo pulsa pausa y, para las notas de YouTube, lee el tiempo y el título del vídeo.",
+    "message": "Permitido. Haz clic derecho en el icono y elige «$1», o pulsa su combinación de teclas, para pausar todos los vídeos. Tabinet solo pausa los vídeos y, para las notas de YouTube, lee el tiempo y el título del vídeo y lo lleva al momento de una nota.",
     "description": "Grey hint under \"Access to YouTube\" once the access is granted. $1 is the right-click menu item (cmdPauseYoutube), quoted."
   },
   "settingsYoutubeAccessAskedHint": {
-    "message": "«$1» necesita antes este acceso. Permítelo aquí y luego vuelve a elegir «$1» o pulsa su combinación de teclas. Tabinet solo pulsa pausa y, para las notas de YouTube, lee el tiempo y el título del vídeo.",
+    "message": "«$1» necesita antes este acceso. Permítelo aquí y luego vuelve a elegir «$1» o pulsa su combinación de teclas. Tabinet solo pausa los vídeos y, para las notas de YouTube, lee el tiempo y el título del vídeo y lo lleva al momento de una nota.",
     "description": "Grey hint under \"Access to YouTube\" when the person arrived from the menu item or shortcut without the access yet: explains why Settings opened. $1 (twice) is the right-click menu item (cmdPauseYoutube), quoted."
   },
   "settingsYoutubeAllowed": {

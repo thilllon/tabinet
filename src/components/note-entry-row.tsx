@@ -1,5 +1,5 @@
 import { Pencil, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { memo, useState } from 'react';
 
 import { NoteComposer } from '@/components/note-composer';
 import { Button } from '@/components/ui/button';
@@ -21,9 +21,9 @@ interface NoteEntryRowProps {
 /**
  * One note: its time (a button that jumps the video there), its text as written (Markdown is not
  * rendered, only kept), and Edit and Delete. Editing swaps the text for the same box a new note
- * is written in.
+ * is written in. Memoized: the panel redraws on every toast and save, and the list stays as it is.
  */
-export function NoteEntryRow({
+export const NoteEntryRow = memo(function NoteEntryRow({
   entry,
   canSeek,
   isMac,
@@ -99,4 +99,4 @@ export function NoteEntryRow({
       )}
     </li>
   );
-}
+});

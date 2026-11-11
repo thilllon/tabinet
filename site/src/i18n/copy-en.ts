@@ -143,7 +143,7 @@ export const en: SiteCopy = {
       },
       {
         title: 'No tracking',
-        body: 'No analytics, no tracking, and no requests at all unless you sign in to sync. Nothing is read from the pages you visit. Only on YouTube, once you allow it, does Tabinet run anything in a page: it pauses videos, and for YouTube notes reads the time and title of the video.',
+        body: 'No analytics, no tracking, and no requests at all unless you sign in to sync. Only on YouTube, once you allow it, does Tabinet run anything in a page: it pauses videos, and for YouTube notes reads the time and title of the video. Nothing else is read from the pages you visit.',
       },
     ],
     link: 'Read the privacy policy',

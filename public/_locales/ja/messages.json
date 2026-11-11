@@ -156,15 +156,15 @@
     "description": "Label of the switch in Settings (and in the YouTube notes side panel) that grants or removes access to YouTube (needed to pause videos and for YouTube notes)."
   },
   "settingsYoutubeAccessOffHint": {
-    "message": "まだ許可されていません。動画の一時停止に必要で、Chrome が先に確認します。Tabinet は YouTube で一時停止を押すほか、YouTube メモのために動画の時刻とタイトルだけを読み取ります。",
+    "message": "まだ許可されていません。動画の一時停止に必要で、Chrome が先に確認します。Tabinet が行うのは、動画の一時停止と、YouTube メモのための動画の時刻とタイトルの読み取り、メモの時刻への移動だけです。",
     "description": "Grey hint under \"Access to YouTube\" while the access is not granted."
   },
   "settingsYoutubeAccessOnHint": {
-    "message": "許可済み。アイコンを右クリックして「$1」を選ぶか、ショートカットキーを押すと、すべての動画が一時停止します。Tabinet は YouTube で一時停止を押すほか、YouTube メモのために動画の時刻とタイトルだけを読み取ります。",
+    "message": "許可済み。アイコンを右クリックして「$1」を選ぶか、ショートカットキーを押すと、すべての動画が一時停止します。Tabinet が行うのは、動画の一時停止と、YouTube メモのための動画の時刻とタイトルの読み取り、メモの時刻への移動だけです。",
     "description": "Grey hint under \"Access to YouTube\" once the access is granted. $1 is the right-click menu item (cmdPauseYoutube), quoted."
   },
   "settingsYoutubeAccessAskedHint": {
-    "message": "「$1」を使うには、先にこのアクセスを許可してください。許可したら、もう一度「$1」を選ぶかショートカットキーを押してください。Tabinet は YouTube で一時停止を押すほか、YouTube メモのために動画の時刻とタイトルだけを読み取ります。",
+    "message": "「$1」を使うには、先にこのアクセスを許可してください。許可したら、もう一度「$1」を選ぶかショートカットキーを押してください。Tabinet が行うのは、動画の一時停止と、YouTube メモのための動画の時刻とタイトルの読み取り、メモの時刻への移動だけです。",
     "description": "Grey hint under \"Access to YouTube\" when the person arrived from the menu item or shortcut without the access yet: explains why Settings opened. $1 (twice) is the right-click menu item (cmdPauseYoutube), quoted."
   },
   "settingsYoutubeAllowed": {

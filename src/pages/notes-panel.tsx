@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { AddNoteBar } from '@/components/add-note-bar';
 import { NoteComposer } from '@/components/note-composer';
@@ -28,6 +28,8 @@ const IS_MAC = isMacPlatform(navigator.userAgent);
 
 /** A note being written: where in the video, and whether the panel paused the video for it. */
 interface Draft {
+  /** Tells one draft from the next, so a new one starts with an empty box. */
+  key: number;
   videoId: string;
   at: number;
   /** The title the page showed when the note was started. */
@@ -51,15 +53,9 @@ export function NotesPanel() {
   const [pauseWhileWriting, setPauseWhileWriting] = useState(readNotesPause);
   // The tab the draft's video plays in, to resume it; the active tab may change meanwhile.
   const draftTab = useRef<number | undefined>(undefined);
+  const draftCount = useRef(0);
 
   useErrorToast(loadError, show);
-
-  // A draft belongs to its video: another video in the tab drops it.
-  useEffect(() => {
-    setDraft((current) =>
-      current !== null && current.videoId !== video?.videoId ? null : current,
-    );
-  }, [video?.videoId]);
 
   // Every failure is a red toast; shown directly, so the same failure twice shows twice.
   const showError = useCallback(
@@ -94,7 +90,9 @@ export function NotesPanel() {
           return;
         }
         draftTab.current = active.tabId;
+        draftCount.current += 1;
         setDraft({
+          key: draftCount.current,
           videoId: active.videoId,
           at: player.currentTime,
           title: cleanVideoTitle(player.title) || active.title,
@@ -189,6 +187,27 @@ export function NotesPanel() {
           )}
         </header>
 
+        {/* Kept mounted while another tab is in front, so a note half written survives a look at
+            another tab; it shows again with its video. */}
+        {draft !== null && (
+          <section
+            key={draft.key}
+            className="flex flex-col gap-1"
+            hidden={draft.videoId !== video?.videoId}
+          >
+            <p className="font-mono text-xs text-muted-foreground tabular-nums">
+              {formatTimestamp(draft.at)}
+            </p>
+            <NoteComposer
+              label={t('notesEntryLabel', formatTimestamp(draft.at))}
+              isMac={IS_MAC}
+              saving={busy}
+              onSave={(text) => saveDraft(draft, text)}
+              onCancel={() => cancelDraft(draft)}
+            />
+          </section>
+        )}
+
         {video === undefined ? (
           <p className="text-muted-foreground">{t('commonLoading')}</p>
         ) : video === null ? (
@@ -202,7 +221,7 @@ export function NotesPanel() {
                 onError={fail}
               />
             )}
-            {draft === null ? (
+            {(draft === null || draft.videoId !== video.videoId) && (
               <AddNoteBar
                 tabId={video.tabId}
                 enabled={granted === true}
@@ -211,19 +230,6 @@ export function NotesPanel() {
                 onPauseWhileWritingChange={choosePause}
                 onAdd={() => startNote(video)}
               />
-            ) : (
-              <section className="flex flex-col gap-1">
-                <p className="font-mono text-xs text-muted-foreground tabular-nums">
-                  {formatTimestamp(draft.at)}
-                </p>
-                <NoteComposer
-                  label={t('notesEntryLabel', formatTimestamp(draft.at))}
-                  isMac={IS_MAC}
-                  saving={busy}
-                  onSave={(text) => saveDraft(draft, text)}
-                  onCancel={() => cancelDraft(draft)}
-                />
-              </section>
             )}
             {notes === undefined ? (
               <p className="text-muted-foreground">{t('commonLoading')}</p>

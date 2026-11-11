@@ -144,7 +144,7 @@ export const es: SiteCopy = {
       },
       {
         title: 'Sin rastreo',
-        body: 'Sin analíticas, sin rastreo y sin ninguna petición salvo que inicies sesión en la sincronización. No lee el contenido de las páginas que visitas. Solo en YouTube, si lo permites, ejecuta algo en una página: pausa los vídeos y, para las notas de YouTube, lee el tiempo y el título del vídeo.',
+        body: 'Sin analíticas, sin rastreo y sin ninguna petición salvo que inicies sesión en la sincronización. Solo en YouTube, si lo permites, ejecuta algo en una página: pausa los vídeos y, para las notas de YouTube, lee el tiempo y el título del vídeo. No lee nada más de las páginas que visitas.',
       },
     ],
     link: 'Leer la política de privacidad',

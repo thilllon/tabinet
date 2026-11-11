@@ -8,7 +8,7 @@ Tabinet is a Chrome extension that sorts and organizes your browser tabs and let
 
 ## Data Collection
 
-Unless you sign in to cloud sync, Tabinet does **not** collect or transmit any personal data: it makes no network requests and all operations are performed locally within your browser. Cloud sync is optional and off until you sign in; what it sends, and how it is protected, is described in "Cloud sync" below. Either way, the extension reads nothing from the pages you visit and uses no analytics, tracking or telemetry. It runs something inside a web page only on YouTube, and only after you allow it: the pause for YouTube videos, and, for YouTube notes, reading the time and title of the video you are taking notes on (see "Pausing YouTube videos" and "YouTube notes" below).
+Unless you sign in to cloud sync, Tabinet does **not** collect or transmit any personal data: it makes no network requests and all operations are performed locally within your browser. Cloud sync is optional and off until you sign in; what it sends, and how it is protected, is described in "Cloud sync" below. Either way, the extension uses no analytics, tracking or telemetry, and reads nothing from the pages you visit except what is described below for YouTube. It runs something inside a web page only on YouTube, and only after you allow it: the pause for YouTube videos, and, for YouTube notes, reading the time and title of the video you are taking notes on (see "Pausing YouTube videos" and "YouTube notes" below).
 
 ### What is stored, and where
 
@@ -45,6 +45,8 @@ For this the extension needs access to youtube.com (`https://*.youtube.com/*`, w
 For each video you take notes on, the extension stores in local extension storage (`chrome.storage.local`) on this device: the video's id and address (`https://www.youtube.com/watch?v=<id>`), its title, the text of each note with the time in the video it belongs to, and when each note was written and last changed. Notes are **never** synced, not even with cloud sync, and never sent anywhere.
 
 To work, the panel needs the same access to youtube.com as pausing (see above), which it asks for with the same "Access to YouTube" switch. With it, while the panel is open on a video, a small function that is part of the extension reads that video's current time, its length, whether it is playing, and the page's title, about once a second while the panel is visible; when you ask, it moves the video to a note's time, and, if you leave "Pause the video while I write" on, pauses it while you write a note and plays it again after. It reads nothing else from the page, and what it reads is not stored except as part of a note you save.
+
+### Cloud sync (optional)
 
 Cloud sync keeps your saved sessions and your settings in step across the computers where you use Tabinet. It is **off until you sign in**: open Settings, Account, and click "Sign in with Google". If you never do, nothing in this section applies and the extension makes no network requests.
 
