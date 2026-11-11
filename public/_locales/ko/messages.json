@@ -1716,7 +1716,7 @@
     "description": "Heading of the Settings section for signing in to cloud sync. One or two words."
   },
   "settingsAccountDescription": {
-    "message": "로그인하면 저장한 세션과 설정을 여러 기기에서 맞춰 둘 수 있습니다. 데이터는 나만 아는 암호 문구로 이 기기에서 암호화됩니다.",
+    "message": "로그인하면 저장한 세션, YouTube 메모와 설정을 여러 기기에서 맞춰 둘 수 있습니다. 데이터는 나만 아는 암호 문구로 이 기기에서 암호화됩니다.",
     "description": "Explanation under the Account heading in Settings."
   },
   "settingsAccountGoogle": {
@@ -1792,7 +1792,7 @@
     "description": "Button in Settings that signs out of cloud sync on this device. Keep it short."
   },
   "settingsAccountSignedOut": {
-    "message": "로그아웃했습니다. 이 기기의 세션은 그대로 있습니다.",
+    "message": "로그아웃했습니다. 이 기기의 세션과 메모는 그대로 있습니다.",
     "description": "Toast after signing out of cloud sync."
   },
   "settingsAccountDelete": {
@@ -1804,7 +1804,7 @@
     "description": "Title of the dialog that asks before deleting the cloud sync account."
   },
   "settingsAccountDeleteBody": {
-    "message": "계정과 동기화 서버에 저장된 모든 데이터를 삭제합니다. 되돌릴 수 없습니다. 이 기기의 세션은 남아 있습니다.",
+    "message": "계정과 동기화 서버에 저장된 모든 데이터를 삭제합니다. 되돌릴 수 없습니다. 이 기기의 세션과 메모는 남아 있습니다.",
     "description": "Body of the dialog that asks before deleting the cloud sync account."
   },
   "settingsAccountDeleted": {
@@ -1826,6 +1826,10 @@
   "settingsAccountSynced": {
     "message": "동기화했습니다.",
     "description": "Toast after \"Sync now\" finished."
+  },
+  "settingsAccountImagesHeld_other": {
+    "message": "스크린샷 $1개를 동기화하지 못했습니다. 계정에 이미 최대치인 스크린샷 $2개가 있습니다. 이 기기에는 남아 있고, 스크린샷을 지우면 동기화됩니다.",
+    "description": "Toast in Settings > Account, shown once, when the sync server refused note screenshots because the account is at its limit. $1 is how many are held back on this device, $2 the limit (100)."
   },
   "errorCloudUnreachable": {
     "message": "동기화 서버에 연결할 수 없습니다. 연결을 확인하고 다시 시도하세요.",
@@ -1858,6 +1862,10 @@
   "errorCloudRecordTooLarge": {
     "message": "세션 하나가 너무 커서 동기화할 수 없습니다. 이 기기에만 남아 있습니다.",
     "description": "Error when a saved session is too large for the sync server; it stays on this device only."
+  },
+  "errorCloudNoteTooLarge": {
+    "message": "메모나 스크린샷 하나가 너무 커서 동기화할 수 없습니다. 이 기기에만 남아 있습니다.",
+    "description": "Error when one video's notes, or one note screenshot, is too large for the sync server; it stays on this device only."
   },
   "commonTryAgain": {
     "message": "다시 시도",

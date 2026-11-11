@@ -1,9 +1,9 @@
 import type { PGlite } from '@electric-sql/pglite';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { createSqlStore, type Query, type Store } from '../src/store.js';
+import { createSqlStore, IMAGE_RECORD_LIMIT, type Query, type Store } from '../src/store.js';
 import type { RecordInput } from '../src/types.js';
-import { b64, createTestDb, resetDb, validKeySetup } from './helpers.js';
+import { b64, createTestDb, imageRecord, resetDb, validKeySetup } from './helpers.js';
 
 let db: PGlite;
 let query: Query;
@@ -152,6 +152,82 @@ describe('the SQL store on Postgres (PGlite, real migration)', () => {
       store.applyRecord(user.id, { ...record('x', 1), kind: 'other' as never }),
     ).rejects.toThrow();
     await expect(store.applyRecord(user.id, record('bad id', 1))).rejects.toThrow();
+  });
+});
+
+describe('image records and the per-account cap', () => {
+  function image(id: string, updatedAt: number, deleted = false): RecordInput {
+    return { ...imageRecord(id, updatedAt, deleted), kind: 'image' };
+  }
+
+  async function liveImages(userId: string): Promise<number> {
+    const rows = await query(
+      "SELECT count(*)::int AS n FROM records WHERE user_id = $1 AND kind = 'image' AND NOT deleted",
+      [userId],
+    );
+    return Number(rows[0].n);
+  }
+
+  it('keeps at most IMAGE_RECORD_LIMIT live images per user, counting each user apart', async () => {
+    const a = await store.upsertUser('a', 'a@example.com');
+    const b = await store.upsertUser('b', 'b@example.com');
+    for (let i = 0; i < IMAGE_RECORD_LIMIT; i += 1) {
+      expect((await store.applyRecord(a.id, image(`i${i}`, 1))).status).toBe('applied');
+    }
+    expect(await store.applyRecord(a.id, image('extra', 1))).toEqual({
+      status: 'rejected',
+      reason: 'image_limit',
+    });
+    expect(await liveImages(a.id)).toBe(IMAGE_RECORD_LIMIT);
+    // Another account has its own count; other kinds are not counted.
+    expect((await store.applyRecord(b.id, image('extra', 1))).status).toBe('applied');
+    expect((await store.applyRecord(a.id, { ...image('s', 1), kind: 'notes' })).status).toBe(
+      'applied',
+    );
+  });
+
+  it('takes tombstones over the cap, and a deleted image back only while there is room', async () => {
+    const user = await store.upsertUser('a', 'a@example.com');
+    for (let i = 0; i < IMAGE_RECORD_LIMIT; i += 1) {
+      await store.applyRecord(user.id, image(`i${i}`, 1));
+    }
+    expect((await store.applyRecord(user.id, image('i0', 2, true))).status).toBe('applied');
+    expect((await store.applyRecord(user.id, image('gone', 2, true))).status).toBe('applied');
+    expect((await store.applyRecord(user.id, image('new', 3))).status).toBe('applied');
+    // Full again: bringing i0 back would be one more live image.
+    expect(await store.applyRecord(user.id, image('i0', 4))).toEqual({
+      status: 'rejected',
+      reason: 'image_limit',
+    });
+    expect(await liveImages(user.id)).toBe(IMAGE_RECORD_LIMIT);
+  });
+
+  it('applies image writes last writer wins, with a new seq, and lists them by kind', async () => {
+    const user = await store.upsertUser('a', 'a@example.com');
+    const first = await store.applyRecord(user.id, image('x', 5));
+    const stale = await store.applyRecord(user.id, image('x', 5, true));
+    expect(stale).toEqual({
+      status: 'stale',
+      current: { ...image('x', 5), seq: expect.any(Number) },
+    });
+    const newer = await store.applyRecord(user.id, image('x', 6, true));
+    expect(first.status === 'applied' && newer.status === 'applied' && newer.seq > first.seq).toBe(
+      true,
+    );
+    await store.applyRecord(user.id, record('s', 1));
+    expect((await store.listRecords(user.id, 0, 10, ['image'])).map((r) => r.id)).toEqual(['x']);
+    expect((await store.listRecords(user.id, 0, 10, ['session'])).map((r) => r.id)).toEqual(['s']);
+    expect(await store.listRecords(user.id, 0, 10)).toHaveLength(2);
+  });
+
+  it("takes the user's row lock first, and writes nothing for a user that no longer exists", async () => {
+    const user = await store.upsertUser('a', 'a@example.com');
+    await store.deleteUser(user.id);
+    await expect(store.applyRecord(user.id, image('x', 1))).rejects.toThrow();
+    const source = await query("SELECT prosrc FROM pg_proc WHERE proname = 'apply_image_record'");
+    const body = String(source[0].prosrc);
+    expect(body.indexOf('FOR NO KEY UPDATE')).toBeGreaterThan(-1);
+    expect(body.indexOf('FOR NO KEY UPDATE')).toBeLessThan(body.indexOf('count(*)'));
   });
 });
 

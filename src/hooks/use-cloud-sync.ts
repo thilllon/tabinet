@@ -13,11 +13,17 @@ export interface CloudSyncView extends SyncStatus {
 
 /**
  * The sync status Settings > Account shows while ready: when the last sync finished and why it
- * did not, following `cloudSyncMeta` in `chrome.storage.onChanged` (a sync the worker runs shows
- * at once), plus "Sync now". The listener lives in the page and dies with it.
+ * did not, and how many screenshots the server refused over its cap, following `cloudSyncMeta` in
+ * `chrome.storage.onChanged` (a sync the worker runs shows at once), plus "Sync now". The
+ * listener lives in the page and dies with it.
  */
 export function useCloudSync(enabled: boolean): CloudSyncView {
-  const [status, setStatus] = useState<SyncStatus>({ lastSyncAt: null, lastError: undefined });
+  const [status, setStatus] = useState<SyncStatus>({
+    lastSyncAt: null,
+    lastError: undefined,
+    heldImages: 0,
+    heldImagesNoticed: false,
+  });
   const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {

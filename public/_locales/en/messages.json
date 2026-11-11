@@ -1888,7 +1888,7 @@
     "description": "Heading of the Settings section for signing in to cloud sync. One or two words."
   },
   "settingsAccountDescription": {
-    "message": "Sign in to keep your saved sessions and settings in step across devices. They are encrypted on this device with a passphrase only you know.",
+    "message": "Sign in to keep your saved sessions, YouTube notes and settings in step across devices. They are encrypted on this device with a passphrase only you know.",
     "description": "Explanation under the Account heading in Settings."
   },
   "settingsAccountGoogle": {
@@ -1968,7 +1968,7 @@
     "description": "Button in Settings that signs out of cloud sync on this device. Keep it short."
   },
   "settingsAccountSignedOut": {
-    "message": "Signed out. Your sessions on this device are still here.",
+    "message": "Signed out. Your sessions and notes on this device are still here.",
     "description": "Toast after signing out of cloud sync."
   },
   "settingsAccountDelete": {
@@ -1980,7 +1980,7 @@
     "description": "Title of the dialog that asks before deleting the cloud sync account."
   },
   "settingsAccountDeleteBody": {
-    "message": "This deletes your account and everything stored for it on the sync server. It cannot be undone. The sessions on this device stay.",
+    "message": "This deletes your account and everything stored for it on the sync server. It cannot be undone. The sessions and notes on this device stay.",
     "description": "Body of the dialog that asks before deleting the cloud sync account."
   },
   "settingsAccountDeleted": {
@@ -2002,6 +2002,14 @@
   "settingsAccountSynced": {
     "message": "Synced.",
     "description": "Toast after \"Sync now\" finished."
+  },
+  "settingsAccountImagesHeld_one": {
+    "message": "$1 screenshot did not sync: your account already holds $2 screenshots, the most it keeps. It stays on this device and syncs once you delete a screenshot.",
+    "description": "Toast in Settings > Account, shown once, when the sync server refused note screenshots because the account is at its limit. $1 is how many are held back on this device, $2 the limit (100)."
+  },
+  "settingsAccountImagesHeld_other": {
+    "message": "$1 screenshots did not sync: your account already holds $2 screenshots, the most it keeps. They stay on this device and sync once you delete a screenshot.",
+    "description": "Toast in Settings > Account, shown once, when the sync server refused note screenshots because the account is at its limit. $1 is how many are held back on this device, $2 the limit (100)."
   },
   "errorCloudUnreachable": {
     "message": "Could not reach the sync server. Check the connection and try again.",
@@ -2034,6 +2042,10 @@
   "errorCloudRecordTooLarge": {
     "message": "A session is too large to sync. It stays on this device only.",
     "description": "Error when a saved session is too large for the sync server; it stays on this device only."
+  },
+  "errorCloudNoteTooLarge": {
+    "message": "A video's notes or a screenshot is too large to sync. It stays on this device only.",
+    "description": "Error when one video's notes, or one note screenshot, is too large for the sync server; it stays on this device only."
   },
   "commonTryAgain": {
     "message": "Try again",

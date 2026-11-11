@@ -1,4 +1,19 @@
-import type { ApplyResult, KeySetup, RecordInput, StoredRecord, User } from './types.js';
+import {
+  type ApplyResult,
+  type KeySetup,
+  RECORD_KINDS,
+  type RecordInput,
+  type RecordKind,
+  type StoredRecord,
+  type User,
+} from './types.js';
+
+/**
+ * The most live screenshots (`image` records that are not tombstones) one account may keep. A
+ * write that would add one more is answered `rejected` with `image_limit`, and the picture stays
+ * on the device that sent it. Tombstones are always accepted, so deleting makes room.
+ */
+export const IMAGE_RECORD_LIMIT = 100;
 
 /** Runs one parameterised statement and returns its rows. Neon in production, PGlite in tests. */
 export type Query = (text: string, params?: unknown[]) => Promise<Record<string, unknown>[]>;
@@ -14,9 +29,17 @@ export interface Store {
   deleteToken(tokenHash: string): Promise<void>;
   /** Sets the key setup when it is still null; false when one already exists. */
   setKeySetup(userId: string, keySetup: KeySetup): Promise<boolean>;
-  /** The user's records with `seq > since`, ascending, at most `limit`. */
-  listRecords(userId: string, since: number, limit: number): Promise<StoredRecord[]>;
-  /** Last writer wins: applies the record only when its `updatedAt` is newer than the stored one. */
+  /** The user's records of `kinds` (every kind when omitted) with `seq > since`, ascending, at most `limit`. */
+  listRecords(
+    userId: string,
+    since: number,
+    limit: number,
+    kinds?: readonly RecordKind[],
+  ): Promise<StoredRecord[]>;
+  /**
+   * Last writer wins: applies the record only when its `updatedAt` is newer than the stored one.
+   * A live image over `IMAGE_RECORD_LIMIT` is `rejected`.
+   */
   applyRecord(userId: string, record: RecordInput): Promise<ApplyResult>;
   /** Deletes the user; their tokens and records go with them (ON DELETE CASCADE). */
   deleteUser(userId: string): Promise<void>;
@@ -74,6 +97,42 @@ ON CONFLICT (user_id, kind, id) DO UPDATE SET
 WHERE records.updated_at < EXCLUDED.updated_at
 RETURNING seq`;
 
+// The cap needs a count that sees every committed write, which one statement cannot give (see
+// migrations/002_notes_images.sql), so image records go through a function of their own.
+async function applyImage(query: Query, userId: string, record: RecordInput): Promise<ApplyResult> {
+  const rows = await query(
+    'SELECT outcome, new_seq FROM apply_image_record($1, $2, $3, $4, $5, $6, $7)',
+    [
+      userId,
+      record.id,
+      record.updatedAt,
+      record.deleted,
+      record.iv,
+      record.ciphertext,
+      IMAGE_RECORD_LIMIT,
+    ],
+  );
+  if (rows.length === 0) {
+    throw new Error('Record neither applied nor found');
+  }
+  const { outcome } = rows[0];
+  if (outcome === 'applied') {
+    return { status: 'applied', seq: toNumber(rows[0].new_seq) };
+  }
+  if (outcome === 'rejected') {
+    return { status: 'rejected', reason: 'image_limit' };
+  }
+  // Stale: read the row that won, in a statement of its own as for every other kind.
+  const current = await query(
+    `SELECT ${RECORD_COLUMNS} FROM records WHERE user_id = $1 AND kind = $2 AND id = $3`,
+    [userId, record.kind, record.id],
+  );
+  if (current.length === 0) {
+    throw new Error('Record neither applied nor found');
+  }
+  return { status: 'stale', current: toRecord(current[0]) };
+}
+
 export function createSqlStore(query: Query): Store {
   return {
     async upsertUser(googleSub, email) {
@@ -118,15 +177,19 @@ export function createSqlStore(query: Query): Store {
       return rows.length > 0;
     },
 
-    async listRecords(userId, since, limit) {
+    async listRecords(userId, since, limit, kinds = RECORD_KINDS) {
       const rows = await query(
-        `SELECT ${RECORD_COLUMNS} FROM records WHERE user_id = $1 AND seq > $2 ORDER BY seq LIMIT $3`,
-        [userId, since, limit],
+        `SELECT ${RECORD_COLUMNS} FROM records
+         WHERE user_id = $1 AND seq > $2 AND kind = ANY($4::text[]) ORDER BY seq LIMIT $3`,
+        [userId, since, limit, [...kinds]],
       );
       return rows.map(toRecord);
     },
 
     async applyRecord(userId, record) {
+      if (record.kind === 'image') {
+        return applyImage(query, userId, record);
+      }
       const params = [
         userId,
         record.kind,

@@ -136,7 +136,7 @@ export const es: SiteCopy = {
     points: [
       {
         title: 'Se queda en el equipo',
-        body: 'Las sesiones y las instantáneas viven en el almacenamiento local de extensiones de Chrome. Las instantáneas nunca salen de ahí; las sesiones guardadas, solo si activas la sincronización.',
+        body: 'Las sesiones, las instantáneas y las notas de YouTube viven en el almacenamiento local de extensiones de Chrome. Las instantáneas nunca salen de ahí; las sesiones guardadas y las notas, solo si activas la sincronización.',
       },
       {
         title: 'Sin cuenta obligatoria',
@@ -188,7 +188,7 @@ export const es: SiteCopy = {
       },
       {
         q: '¿Envía mis datos de navegación a algún sitio?',
-        a: 'No, salvo que inicies sesión en la sincronización. Sin ella, Tabinet no hace ninguna petición de red y todo ocurre dentro de tu navegador. Con la sincronización activada, tus sesiones guardadas y tu configuración van cifradas al servidor de sincronización de Tabinet, así que solo tú puedes leerlas; las instantáneas automáticas nunca salen del equipo.',
+        a: 'No, salvo que inicies sesión en la sincronización. Sin ella, Tabinet no hace ninguna petición de red y todo ocurre dentro de tu navegador. Con la sincronización activada, tus sesiones guardadas, tus notas de YouTube y tu configuración van cifradas al servidor de sincronización de Tabinet, así que solo tú puedes leerlas; las instantáneas automáticas nunca salen del equipo.',
       },
       {
         q: '¿Dónde se guardan mis sesiones?',
@@ -204,11 +204,11 @@ export const es: SiteCopy = {
       },
       {
         q: '¿Puedo llevar mis sesiones a otro equipo?',
-        a: 'Sí. Activa la sincronización en los dos equipos y tus sesiones guardadas te acompañan. También puedes exportar todo como JSON e importarlo en el otro equipo, o exportar como HTML e importarlo en los marcadores de Chrome.',
+        a: 'Sí. Activa la sincronización en los dos equipos y tus sesiones guardadas y tus notas de YouTube te acompañan. También puedes exportar todo como JSON e importarlo en el otro equipo, o exportar como HTML e importarlo en los marcadores de Chrome.',
       },
       {
         q: '¿Cómo funciona la sincronización? ¿Puede el servidor leer mis pestañas?',
-        a: 'La sincronización es opcional y está desactivada hasta que haces clic en Iniciar sesión con Google en Configuración, Cuenta. Luego creas una frase de contraseña de sincronización: tus sesiones guardadas y tu configuración se cifran con ella en tu equipo antes de enviarse, y la frase nunca se envía, así que el servidor solo guarda datos que no puede leer. Las instantáneas nunca se sincronizan. Si olvidas la frase, nadie puede recuperar la copia de la nube, pero las sesiones de tus equipos se conservan. Eliminar datos de la nube, en el mismo sitio, borra todo del servidor. El inicio de sesión usa el de Google integrado en Chrome, así que puede no funcionar en otros navegadores Chromium.',
+        a: 'La sincronización es opcional y está desactivada hasta que haces clic en Iniciar sesión con Google en Configuración, Cuenta. Luego creas una frase de contraseña de sincronización: tus sesiones guardadas, tus notas de YouTube (con sus capturas) y tu configuración se cifran con ella en tu equipo antes de enviarse, y la frase nunca se envía, así que el servidor solo guarda datos que no puede leer. Las instantáneas nunca se sincronizan. El servidor guarda hasta 100 capturas por cuenta; las demás se quedan en el equipo donde las hiciste. Si olvidas la frase, nadie puede recuperar la copia de la nube, pero las sesiones y notas de tus equipos se conservan. Eliminar datos de la nube, en el mismo sitio, borra todo del servidor. El inicio de sesión usa el de Google integrado en Chrome, así que puede no funcionar en otros navegadores Chromium.',
       },
       {
         q: '¿Y si no me gusta cómo queda?',

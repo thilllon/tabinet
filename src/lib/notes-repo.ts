@@ -1,5 +1,19 @@
+import { isCloudSyncEnabled } from '@/lib/cloud-config';
+import {
+  type CloudSyncMeta,
+  emptyTrack,
+  type NoteChanges,
+  readSyncMeta,
+  type RecordTrack,
+  trackNoteChanges,
+  trackVersion,
+  withHeldImages,
+  withNoteChanges,
+  writeSyncMeta,
+} from '@/lib/cloud-sync-state';
 import { isRecord } from '@/lib/import-guards';
 import { MalformedRecordError, UnknownSchemaVersionError } from '@/lib/session-migrate';
+import { type RemoteApplyOutcome, withLock } from '@/lib/session-repo';
 import { canonicalVideoUrl, isImageDataUrl } from '@/lib/youtube-video';
 import {
   NOTES_SCHEMA_VERSION,
@@ -21,6 +35,11 @@ import {
  * Write order is image, then body, then index; deletion is body, then index, then images. An
  * interruption leaves an orphan body or image, which `reconcile()` re-indexes or removes, never an
  * index entry or a reference to something that is not there.
+ *
+ * Cloud sync (src/lib/cloud-sync.ts): every write records itself in the sync bookkeeping
+ * (`trackNoteChanges()`), and `applyRemote()` applies what the server sent. Both take the sessions
+ * lock inside the notes lock, because the bookkeeping is written under the sessions lock. The order
+ * is always notes, then sessions: nothing holding the sessions lock ever waits for the notes lock.
  */
 
 export const NOTES_INDEX_KEY = 'notesIndex';
@@ -200,6 +219,33 @@ function imageIdsOf(entries: readonly NoteEntry[]): string[] {
   return entries.flatMap((entry) => (entry.imageId === undefined ? [] : [entry.imageId]));
 }
 
+/** Records note-side writes for cloud sync; nothing at all while sync is unconfigured. In the notes lock. */
+async function track(changes: NoteChanges): Promise<void> {
+  if (isCloudSyncEnabled()) {
+    await withLock(() => trackNoteChanges(changes));
+  }
+}
+
+/**
+ * The storage keys of screenshots cloud sync received or sent and still holds live (known, with no
+ * deletion pending): one no note references yet may be waiting for its note, which a pull cut
+ * short (or one still running) has not written. Empty while sync does not track notes.
+ */
+async function awaitedImageKeys(): Promise<Set<string>> {
+  if (!isCloudSyncEnabled()) {
+    return new Set();
+  }
+  const images = (await readSyncMeta())?.images;
+  if (images === undefined) {
+    return new Set();
+  }
+  return new Set(
+    Object.keys(images.known)
+      .filter((imageId) => images.deleted[imageId] === undefined)
+      .map(noteImageKey),
+  );
+}
+
 async function allKeys(): Promise<string[]> {
   const area = chrome.storage.local;
   // `getKeys()` is Chrome 130+; older Chrome reads every value instead.
@@ -248,6 +294,216 @@ export interface NoteEdit {
   at?: number;
 }
 
+// ---------------------------------------------------------------------------
+// Cloud sync
+// ---------------------------------------------------------------------------
+
+/** A change received from the sync server, for `notesRepo.applyRemote()`. */
+export type RemoteNotesChange =
+  | { type: 'notes'; notes: VideoNotes }
+  | { type: 'notesDeleted'; videoId: string; updatedAt: number }
+  | { type: 'image'; imageId: string; image: string; updatedAt: number }
+  | { type: 'imageDeleted'; imageId: string; updatedAt: number };
+
+/**
+ * A received notes body for `videoId`, checked like a stored one, with the canonical url of the id;
+ * `null` when it is not one (another video, a newer schema, anything malformed). Pure.
+ */
+export function parseRemoteNotes(value: unknown, videoId: string): VideoNotes | null {
+  try {
+    const notes = parseVideoNotes(value);
+    return notes.videoId === videoId ? { ...notes, url: canonicalVideoUrl(videoId) } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** `track` with the pending entries of `id` dropped and `remoteAt` remembered. Pure. */
+function settled(track: RecordTrack, id: string, remoteAt: number): RecordTrack {
+  const dirty = { ...track.dirty };
+  const deleted = { ...track.deleted };
+  delete dirty[id];
+  delete deleted[id];
+  return {
+    dirty,
+    deleted,
+    known: { ...track.known, [id]: Math.max(track.known[id] ?? 0, remoteAt) },
+  };
+}
+
+/**
+ * The bar a live record must clear when there is no copy here: this device's pending deletion and
+ * the newest version of the id it ever knew. Pure.
+ */
+function floorOf(track: RecordTrack, id: string): number | undefined {
+  const floors = [track.deleted[id], track.known[id]].filter((at) => at !== undefined);
+  return floors.length > 0 ? Math.max(...floors) : undefined;
+}
+
+/** A remote tombstone with no copy here: raises the mark, settles a pending deletion it covers. Pure. */
+function afterRemoteTombstone(track: RecordTrack, id: string, remoteAt: number): RecordTrack {
+  const next: RecordTrack = {
+    dirty: track.dirty,
+    deleted: { ...track.deleted },
+    known: { ...track.known, [id]: Math.max(track.known[id] ?? 0, remoteAt) },
+  };
+  const tombstone = track.deleted[id];
+  if (tombstone !== undefined && remoteAt >= tombstone) {
+    delete next.deleted[id];
+  }
+  return next;
+}
+
+/**
+ * `meta` after notes that reference `kept` won here. A pending deletion of one of those screenshots
+ * loses with the notes it belonged to, so it is dropped (sending it would delete a picture the
+ * winning copy still shows, on the server and every other device). When this device already
+ * removed that picture, the id is forgotten and the next pull reads the feed again from the start
+ * (`rereadFeed`), so the picture the server still holds comes back. Inside both locks.
+ */
+async function withKeptImages(
+  meta: CloudSyncMeta,
+  kept: readonly string[],
+): Promise<CloudSyncMeta> {
+  const images = meta.images;
+  const revived = kept.filter((imageId) => images?.deleted[imageId] !== undefined);
+  if (images === undefined || revived.length === 0) {
+    return meta;
+  }
+  const deleted = { ...images.deleted };
+  const known = { ...images.known };
+  let reread = false;
+  for (const imageId of revived) {
+    delete deleted[imageId];
+    if ((await readImage(imageId)) === undefined) {
+      delete known[imageId];
+      reread = true;
+    }
+  }
+  const next: CloudSyncMeta = { ...meta, images: { ...images, deleted, known } };
+  if (reread) {
+    next.rereadFeed = true;
+  }
+  return next;
+}
+
+/** Applies a notes record or its tombstone. Inside both locks. */
+async function applyRemoteNotes(
+  meta: CloudSyncMeta,
+  notesTrack: RecordTrack,
+  change: Extract<RemoteNotesChange, { type: 'notes' | 'notesDeleted' }>,
+  serverWinsTies: boolean,
+): Promise<RemoteApplyOutcome> {
+  const id = change.type === 'notes' ? change.notes.videoId : change.videoId;
+  const remoteAt = change.type === 'notes' ? change.notes.updatedAt : change.updatedAt;
+  let local: VideoNotes | undefined;
+  try {
+    local = await readBody(id);
+  } catch {
+    // A body this build cannot read is never overwritten or deleted.
+    return 'unchanged';
+  }
+  const tombstone = notesTrack.deleted[id];
+  if (local === undefined) {
+    if (change.type === 'notesDeleted') {
+      await writeSyncMeta({ ...meta, notes: afterRemoteTombstone(notesTrack, id, remoteAt) });
+      return tombstone !== undefined && remoteAt < tombstone ? 'kept-local' : 'unchanged';
+    }
+    const floor = floorOf(notesTrack, id);
+    if (floor !== undefined && remoteAt <= floor) {
+      return tombstone !== undefined ? 'kept-local' : 'unchanged';
+    }
+    await writeBodyAndIndex(change.notes);
+    const next = { ...meta, notes: settled(notesTrack, id, remoteAt) };
+    await writeSyncMeta(await withKeptImages(next, imageIdsOf(change.notes.entries)));
+    return 'applied';
+  }
+  const localAt = Math.max(local.updatedAt, tombstone ?? 0);
+  const remoteWins = remoteAt > localAt || (serverWinsTies && remoteAt === localAt);
+  if (!remoteWins) {
+    if (localAt > remoteAt && notesTrack.dirty[id] === undefined && tombstone === undefined) {
+      // This device's copy is newer and yet not pending (the server lost a write): send it again.
+      await writeSyncMeta({
+        ...meta,
+        notes: { ...notesTrack, dirty: { ...notesTrack.dirty, [id]: local.updatedAt } },
+      });
+    }
+    return localAt > remoteAt ? 'kept-local' : 'unchanged';
+  }
+  let dropped: string[];
+  let kept: string[] = [];
+  if (change.type === 'notes') {
+    kept = imageIdsOf(change.notes.entries);
+    const keptIds = new Set(kept);
+    dropped = imageIdsOf(local.entries).filter((imageId) => !keptIds.has(imageId));
+    await writeBodyAndIndex(change.notes);
+    if (dropped.length > 0) {
+      await chrome.storage.local.remove(dropped.map(noteImageKey));
+    }
+  } else {
+    dropped = imageIdsOf(local.entries);
+    await removeBodyAndIndex(local);
+  }
+  // The screenshots of notes the winning copy does not have are gone here; their tombstones go to
+  // the server, or a picture this device sent would stay there, counted, with nothing showing it.
+  const next = await withKeptImages({ ...meta, notes: settled(notesTrack, id, remoteAt) }, kept);
+  await writeSyncMeta(withNoteChanges(next, { imagesDeleted: dropped }, Date.now()));
+  return 'applied';
+}
+
+/** Applies a screenshot record or its tombstone. Inside both locks. */
+async function applyRemoteImage(
+  meta: CloudSyncMeta,
+  images: RecordTrack,
+  change: Extract<RemoteNotesChange, { type: 'image' | 'imageDeleted' }>,
+  serverWinsTies: boolean,
+): Promise<RemoteApplyOutcome> {
+  const id = change.imageId;
+  const remoteAt = change.updatedAt;
+  const local = await readImage(id);
+  const tombstone = images.deleted[id];
+  if (change.type === 'image') {
+    if (local !== undefined) {
+      // A picture never changes: the server has this one, at least as new as anything pending here.
+      const dirty = images.dirty[id];
+      const next: RecordTrack = settled(images, id, remoteAt);
+      if (dirty !== undefined && dirty > remoteAt) {
+        next.dirty[id] = dirty;
+      }
+      await writeSyncMeta({ ...meta, images: next });
+      return 'unchanged';
+    }
+    const floor = floorOf(images, id);
+    if (floor !== undefined && remoteAt <= floor) {
+      return tombstone !== undefined ? 'kept-local' : 'unchanged';
+    }
+    await chrome.storage.local.set({ [noteImageKey(id)]: change.image });
+    await writeSyncMeta({ ...meta, images: settled(images, id, remoteAt) });
+    return 'applied';
+  }
+  if (local === undefined) {
+    await writeSyncMeta({ ...meta, images: afterRemoteTombstone(images, id, remoteAt) });
+    return tombstone !== undefined && remoteAt < tombstone ? 'kept-local' : 'unchanged';
+  }
+  const held = meta.heldImages?.[id];
+  const localAt = Math.max(trackVersion(images, id), held ?? 0);
+  const remoteWins = remoteAt > localAt || (serverWinsTies && remoteAt === localAt);
+  if (!remoteWins) {
+    if (localAt > remoteAt && images.dirty[id] === undefined && held === undefined) {
+      await writeSyncMeta({
+        ...meta,
+        images: { ...images, dirty: { ...images.dirty, [id]: localAt } },
+      });
+    }
+    return localAt > remoteAt ? 'kept-local' : 'unchanged';
+  }
+  await chrome.storage.local.remove(noteImageKey(id));
+  const rest = { ...meta.heldImages };
+  delete rest[id];
+  await writeSyncMeta(withHeldImages({ ...meta, images: settled(images, id, remoteAt) }, rest));
+  return 'applied';
+}
+
 export const notesRepo = {
   /** Every video with notes, newest first. */
   async listSummaries(): Promise<NotesSummary[]> {
@@ -292,11 +548,16 @@ export const notesRepo = {
         updatedAt: now,
         entries: [],
       };
-      await writeBodyAndIndex({
+      const written: VideoNotes = {
         ...notes,
         title: video.title === '' ? notes.title : video.title,
         updatedAt: after(existing?.updatedAt ?? now - 1, now),
         entries: [...notes.entries, entry],
+      };
+      await writeBodyAndIndex(written);
+      await track({
+        notesChanged: [[written.videoId, written.updatedAt]],
+        imagesStored: imageIdsOf([entry]),
       });
       return entry;
     });
@@ -313,10 +574,12 @@ export const notesRepo = {
       const { entry, image } = removed;
       const existing = await readBody(video.videoId);
       const restored: NoteEntry = { ...entry };
+      const stored: string[] = [];
       if (restored.imageId !== undefined) {
         const key = noteImageKey(restored.imageId);
         if (image !== undefined && isImageDataUrl(image)) {
           await chrome.storage.local.set({ [key]: image });
+          stored.push(restored.imageId);
         } else if ((await readImage(restored.imageId)) === undefined) {
           delete restored.imageId;
         }
@@ -330,11 +593,13 @@ export const notesRepo = {
         updatedAt: now,
         entries: [],
       };
-      await writeBodyAndIndex({
+      const written: VideoNotes = {
         ...notes,
         updatedAt: after(existing?.updatedAt ?? now - 1, now),
         entries: [...notes.entries.filter((other) => other.id !== entry.id), restored],
-      });
+      };
+      await writeBodyAndIndex(written);
+      await track({ notesChanged: [[written.videoId, written.updatedAt]], imagesStored: stored });
     });
   },
 
@@ -357,11 +622,13 @@ export const notesRepo = {
         at: edit.at === undefined ? target.at : cleanTime(edit.at),
         updatedAt: after(target.updatedAt, now),
       };
-      await writeBodyAndIndex({
+      const written: VideoNotes = {
         ...notes,
         updatedAt: after(notes.updatedAt, now),
         entries: notes.entries.map((entry) => (entry.id === entryId ? changed : entry)),
-      });
+      };
+      await writeBodyAndIndex(written);
+      await track({ notesChanged: [[written.videoId, written.updatedAt]] });
       return true;
     });
   },
@@ -391,12 +658,25 @@ export const notesRepo = {
       const rest = notes.entries.filter((entry) => entry.id !== entryId);
       if (rest.length === 0) {
         await removeBodyAndIndex(notes);
+        await track({
+          notesDeleted: [[notes.videoId, notes.updatedAt]],
+          imagesDeleted: imageIdsOf(notes.entries),
+        });
         return removed;
       }
-      await writeBodyAndIndex({ ...notes, updatedAt: after(notes.updatedAt, now), entries: rest });
+      const written: VideoNotes = {
+        ...notes,
+        updatedAt: after(notes.updatedAt, now),
+        entries: rest,
+      };
+      await writeBodyAndIndex(written);
       if (target.imageId !== undefined) {
         await chrome.storage.local.remove(noteImageKey(target.imageId));
       }
+      await track({
+        notesChanged: [[written.videoId, written.updatedAt]],
+        imagesDeleted: imageIdsOf([target]),
+      });
       return removed;
     });
   },
@@ -407,6 +687,10 @@ export const notesRepo = {
       const notes = await readBody(videoId);
       if (notes !== undefined) {
         await removeBodyAndIndex(notes);
+        await track({
+          notesDeleted: [[notes.videoId, notes.updatedAt]],
+          imagesDeleted: imageIdsOf(notes.entries),
+        });
         return;
       }
       const index = await readIndex();
@@ -422,8 +706,93 @@ export const notesRepo = {
   },
 
   /**
+   * Applies a change received from the sync server (`src/lib/cloud-sync.ts`), never recorded as a
+   * change of this device. Last writer wins by `updatedAt` as for saved sessions
+   * (`sessionRepo.applyRemote()`), decided under the notes lock against the copy as it is now; with
+   * no copy here a live record must be newer than this device's pending deletion and every version
+   * it has known, so a replay of deleted notes or a deleted screenshot cannot bring them back.
+   *
+   * A screenshot's version is its stamp in the bookkeeping (a picture never changes). It is stored
+   * even when no note here references it yet: its note may come later in the feed. When the notes
+   * that win no longer reference a screenshot this device has, the picture is deleted here and its
+   * tombstone recorded, so the server does not keep it.
+   *
+   * Does nothing (`'unchanged'`) before a sync of this version started tracking notes.
+   */
+  applyRemote(
+    change: RemoteNotesChange,
+    options: { serverWinsTies?: boolean } = {},
+  ): Promise<RemoteApplyOutcome> {
+    return withNotesLock(() =>
+      withLock(async () => {
+        const meta = await readSyncMeta();
+        if (meta?.notes === undefined || meta.images === undefined) {
+          return 'unchanged';
+        }
+        const ties = options.serverWinsTies === true;
+        if (change.type === 'notes' || change.type === 'notesDeleted') {
+          return applyRemoteNotes(meta, meta.notes, change, ties);
+        }
+        if (change.type === 'image' && !isImageDataUrl(change.image)) {
+          throw new MalformedRecordError('A note screenshot must be an image data URL');
+        }
+        return applyRemoteImage(meta, meta.images, change, ties);
+      }),
+    );
+  },
+
+  /**
+   * Starts tracking notes for cloud sync, once: every video's notes and every stored screenshot a
+   * note references are marked dirty (a screenshot stamped with its note's `createdAt`), and the
+   * change feed is read again from the start, because a version from before notes moved its cursor
+   * past records it never asked for. Under both locks, so no note written meanwhile goes untracked.
+   * Resolves whether it started now.
+   */
+  startSyncTracking(): Promise<boolean> {
+    return withNotesLock(() =>
+      withLock(async () => {
+        const meta = await readSyncMeta();
+        if (meta === undefined || (meta.notes !== undefined && meta.images !== undefined)) {
+          return false;
+        }
+        const notes = emptyTrack();
+        const images = emptyTrack();
+        const keys = (await allKeys()).filter((key) => key.startsWith(NOTES_KEY_PREFIX));
+        const raw: Record<string, unknown> = await chrome.storage.local.get(keys);
+        const stamps = new Map<string, number>();
+        for (const key of keys) {
+          let body: VideoNotes;
+          try {
+            body = parseVideoNotes(raw[key]);
+          } catch {
+            continue;
+          }
+          notes.dirty[body.videoId] = body.updatedAt;
+          for (const entry of body.entries) {
+            if (entry.imageId !== undefined) {
+              stamps.set(entry.imageId, Math.max(1, entry.createdAt));
+            }
+          }
+        }
+        const imageKeys = [...stamps.keys()].map(noteImageKey);
+        const pictures: Record<string, unknown> =
+          imageKeys.length > 0 ? await chrome.storage.local.get(imageKeys) : {};
+        for (const [imageId, stamp] of stamps) {
+          const value = pictures[noteImageKey(imageId)];
+          if (typeof value === 'string' && isImageDataUrl(value)) {
+            images.dirty[imageId] = stamp;
+          }
+        }
+        await writeSyncMeta({ ...meta, cursor: 0, notes, images });
+        return true;
+      }),
+    );
+  },
+
+  /**
    * The repair pass: re-indexes bodies the index lacks, drops index entries without a body (or
-   * whose summary no longer matches it), and removes images no note references. An unreadable
+   * whose summary no longer matches it), and removes images no note references (except one cloud
+   * sync received and holds live, whose note may still be on its way). An unreadable
    * index is rebuilt from the bodies; a body from a newer version is kept as it is and left out of
    * the index, and the images it may reference are kept too.
    */
@@ -471,8 +840,12 @@ export const notesRepo = {
       if (reindexed > 0 || dropped > 0 || indexBroken) {
         await writeIndex(summaries);
       }
-      // An unreadable body may reference images we cannot see, so none are removed then.
-      const orphans = unreadable ? [] : imageKeys.filter((key) => !referenced.has(key));
+      // An unreadable body may reference images we cannot see, so none are removed then. Nor is a
+      // screenshot cloud sync received and still holds live: its note may be later in the feed.
+      const awaited = await awaitedImageKeys();
+      const orphans = unreadable
+        ? []
+        : imageKeys.filter((key) => !referenced.has(key) && !awaited.has(key));
       if (orphans.length > 0) {
         await chrome.storage.local.remove(orphans);
       }

@@ -77,12 +77,12 @@ describe('parseRecordsBody', () => {
   });
 
   it('refuses an unknown kind', () => {
-    for (const kind of ['history', 'Session', '', 1]) {
+    for (const kind of ['history', 'Session', 'images', '', 1]) {
       expect(parseRecordsBody({ records: [{ ...sessionRecord('a', 1), kind }] })).toBeNull();
     }
-    expect(
-      parseRecordsBody({ records: [{ ...sessionRecord('a', 1), kind: 'settings' }] }),
-    ).not.toBeNull();
+    for (const kind of ['settings', 'notes', 'image']) {
+      expect(parseRecordsBody({ records: [{ ...sessionRecord('a', 1), kind }] })).not.toBeNull();
+    }
   });
 
   it('wants updatedAt to be a non-negative safe integer', () => {
@@ -138,13 +138,27 @@ describe('parseRecordsBody', () => {
 
 describe('parseRecordsQuery', () => {
   it('defaults since to 0 and limit to 500', () => {
-    expect(parseRecordsQuery(new URLSearchParams())).toEqual({ since: 0, limit: 500 });
+    expect(parseRecordsQuery(new URLSearchParams())).toEqual({
+      since: 0,
+      limit: 500,
+      kinds: ['session', 'settings'],
+    });
+  });
+
+  it('lists only the kinds every client version knows unless asked for more', () => {
+    expect(parseRecordsQuery(new URLSearchParams('kinds=session,settings,notes,image'))).toEqual({
+      since: 0,
+      limit: 500,
+      kinds: ['session', 'settings', 'notes', 'image'],
+    });
+    expect(parseRecordsQuery(new URLSearchParams('kinds=image'))?.kinds).toEqual(['image']);
   });
 
   it('reads both', () => {
     expect(parseRecordsQuery(new URLSearchParams('since=12&limit=3'))).toEqual({
       since: 12,
       limit: 3,
+      kinds: ['session', 'settings'],
     });
   });
 
@@ -156,6 +170,11 @@ describe('parseRecordsQuery', () => {
     'limit=501',
     'limit=',
     'since=99999999999999999',
+    'kinds=',
+    'kinds=history',
+    'kinds=notes,notes',
+    'kinds=notes,',
+    'kinds=Notes',
   ])('refuses %s', (search) => {
     expect(parseRecordsQuery(new URLSearchParams(search))).toBeNull();
   });

@@ -176,7 +176,11 @@ export interface EncryptedPayload {
   ciphertext: string;
 }
 
-export type CloudRecordKind = 'session' | 'settings';
+/** The kinds of record, in the order a pull asks for them (`GET /v1/records?kinds=`). */
+export const CLOUD_RECORD_KINDS = ['session', 'settings', 'notes', 'image'] as const;
+
+/** A saved session, the settings, one video's notes, or one note screenshot. */
+export type CloudRecordKind = (typeof CLOUD_RECORD_KINDS)[number];
 
 /** A record as the server stores it: everything readable lives inside `ciphertext`. */
 export interface CloudRecord extends EncryptedPayload {

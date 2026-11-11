@@ -2,13 +2,14 @@ import type { PGlite } from '@electric-sql/pglite';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { type Deps, handle } from '../src/app.js';
-import type { Query, Store } from '../src/store.js';
+import { IMAGE_RECORD_LIMIT, type Query, type Store } from '../src/store.js';
 import { TOKEN_TTL_MS } from '../src/tokens.js';
 import type { StoredRecord } from '../src/types.js';
 import {
   b64,
   createTestDb,
   createTestDeps,
+  imageRecord,
   ORIGIN,
   request,
   resetDb,
@@ -353,6 +354,80 @@ describe('records', () => {
       { ...sessionRecord('x', 1), kind: 'settings' },
     ]);
     expect(body.results.map((r: { status: string }) => r.status)).toEqual(['applied', 'applied']);
+  });
+
+  it('lists notes and image records only to a client that asks for them', async () => {
+    const token = await signIn();
+    const notes = { ...sessionRecord('dQw4w9WgXcQ', 2), kind: 'notes' };
+    const { body } = await post(token, [sessionRecord('a', 1), notes, imageRecord('img-1', 3)]);
+    expect(body.results.map((r: { status: string }) => r.status)).toEqual([
+      'applied',
+      'applied',
+      'applied',
+    ]);
+    // An older client asks with no kinds and must never see a kind it would refuse.
+    const legacy = await get(token);
+    expect(legacy.body.records.map((r: { id: string }) => r.id)).toEqual(['a']);
+    expect(legacy.body.next).toBe(body.results[0].seq);
+    const all = await get(token, '?kinds=session,settings,notes,image');
+    expect(all.body.records.map((r: { kind: string }) => r.kind)).toEqual([
+      'session',
+      'notes',
+      'image',
+    ]);
+    expect((await get(token, '?kinds=image')).body.records).toEqual([
+      { ...imageRecord('img-1', 3), seq: body.results[2].seq },
+    ]);
+    expect((await get(token, '?kinds=photos')).status).toBe(400);
+  });
+
+  it('refuses a live image over the per-account cap, record by record, and always takes tombstones', async () => {
+    const token = await signIn();
+    const full = Array.from({ length: IMAGE_RECORD_LIMIT }, (_, i) => imageRecord(`img${i}`, 1));
+    expect(
+      (await post(token, full)).body.results.every(
+        (r: { status: string }) => r.status === 'applied',
+      ),
+    ).toBe(true);
+    const { body } = await post(token, [
+      imageRecord('one-more', 1),
+      sessionRecord('a', 1),
+      imageRecord('img0', 2),
+    ]);
+    expect(body.results).toEqual([
+      { kind: 'image', id: 'one-more', status: 'rejected', reason: 'image_limit' },
+      { kind: 'session', id: 'a', status: 'applied', seq: expect.any(Number) },
+      // Already live: rewriting it adds nothing to the count.
+      { kind: 'image', id: 'img0', status: 'applied', seq: expect.any(Number) },
+    ]);
+    const listed = await get(token, '?kinds=image');
+    expect(listed.body.records.some((r: { id: string }) => r.id === 'one-more')).toBe(false);
+    // A deletion makes room, and the refused picture goes through on the next try.
+    const deleted = await post(token, [imageRecord('img1', 2, true), imageRecord('one-more', 1)]);
+    expect(deleted.body.results.map((r: { status: string }) => r.status)).toEqual([
+      'applied',
+      'applied',
+    ]);
+    expect((await post(token, [imageRecord('two-more', 1)])).body.results[0].status).toBe(
+      'rejected',
+    );
+    // A tombstone for a picture the server never had is taken too, over the cap.
+    expect((await post(token, [imageRecord('never-sent', 5, true)])).body.results[0].status).toBe(
+      'applied',
+    );
+  });
+
+  it('answers an older image write stale, not rejected, even at the cap', async () => {
+    const token = await signIn();
+    await post(
+      token,
+      Array.from({ length: IMAGE_RECORD_LIMIT }, (_, i) => imageRecord(`img${i}`, 5)),
+    );
+    const { body } = await post(token, [imageRecord('img0', 4, true)]);
+    expect(body.results[0]).toMatchObject({
+      status: 'stale',
+      current: { id: 'img0', updatedAt: 5 },
+    });
   });
 
   it('stores a tombstone, which a stale write cannot bring back', async () => {

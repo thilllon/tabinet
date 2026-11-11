@@ -5,18 +5,30 @@ import { overrideCloudSyncConfig } from '@/lib/cloud-config';
 import { encryptRecord, toBase64 } from '@/lib/cloud-crypto';
 import {
   handleCloudStorageChange,
+  markHeldImagesNoticed,
   PUSH_MAX_BYTES,
   PUSH_MAX_RECORDS,
   readLocalSettings,
   syncNow,
   type SyncResult,
 } from '@/lib/cloud-sync';
-import { CLOUD_SYNC_META_KEY, type CloudSyncMeta, readSyncMeta } from '@/lib/cloud-sync-state';
+import {
+  CLOUD_SYNC_META_KEY,
+  type CloudSyncMeta,
+  loadSyncStatus,
+  readSyncMeta,
+} from '@/lib/cloud-sync-state';
 import { t } from '@/lib/i18n';
+import { notesRepo } from '@/lib/notes-repo';
 import { removeTabFromSession } from '@/lib/session-edit';
 import { sessionRepo } from '@/lib/session-repo';
 import { UI_LANGUAGE_KEY } from '@/lib/ui-language';
-import { SESSION_SCHEMA_VERSION, type Session, type WindowSnapshot } from '@/types';
+import {
+  SESSION_SCHEMA_VERSION,
+  type Session,
+  type VideoNotes,
+  type WindowSnapshot,
+} from '@/types';
 
 import { createChromeFake } from './chrome-fake';
 import { fakeSyncServer, type FakeServerRecord, type FakeSyncServer } from './cloud-fetch';
@@ -117,7 +129,7 @@ function meta(device: Device): Promise<CloudSyncMeta | undefined> {
 }
 
 /** A copy of the server's record, as an attacker holding the server would keep it. */
-function stored(kind: 'session' | 'settings', id: string): Omit<FakeServerRecord, 'seq'> {
+function stored(kind: FakeServerRecord['kind'], id: string): Omit<FakeServerRecord, 'seq'> {
   const record = server.record(kind, id);
   if (record === undefined) {
     throw new Error(`no ${kind} ${id} on the server`);
@@ -970,4 +982,325 @@ describe('interrupted runs and gaps in readiness', () => {
       expect(await names(b)).toEqual(['Two']);
     },
   );
+});
+
+// ---------------------------------------------------------------------------
+// YouTube notes and their screenshots (GitHub issue #221)
+// ---------------------------------------------------------------------------
+
+const VIDEO = 'dQw4w9WgXcQ';
+const OTHER_VIDEO = 'abcdefghijk';
+
+function picture(n: number): string {
+  return `data:image/webp;base64,${btoa(`picture number ${n}!`)}`;
+}
+
+function addNote(device: Device, text: string, image?: string, videoId: string = VIDEO) {
+  return on(device, () =>
+    notesRepo.addEntry({ videoId, title: `Video ${videoId}` }, { at: 42, text, image }),
+  );
+}
+
+function notesOf(device: Device, videoId: string = VIDEO): Promise<VideoNotes | undefined> {
+  return on(device, () => notesRepo.get(videoId));
+}
+
+function imageOf(device: Device, imageId: string): Promise<string | undefined> {
+  return on(device, () => notesRepo.getImage(imageId));
+}
+
+describe('YouTube notes and screenshots', () => {
+  it('a note and its screenshot created on one device arrive on the other', async () => {
+    const entry = await addNote(a, 'The chorus', picture(1));
+    const imageId = entry.imageId ?? '';
+    await sync(a);
+    expect(server.record('notes', VIDEO)).toMatchObject({ deleted: false });
+    expect(server.record('image', imageId)).toMatchObject({ deleted: false });
+    // The server holds ciphertext only: neither the text nor the picture is readable there.
+    expect(JSON.stringify([...server.records.values()])).not.toContain('chorus');
+    expect(JSON.stringify([...server.records.values()])).not.toContain(picture(1).slice(23));
+    // The note goes before its picture, so another device reads the note first.
+    expect(server.record('notes', VIDEO)?.seq).toBeLessThan(
+      server.record('image', imageId)?.seq ?? 0,
+    );
+
+    await sync(b);
+    expect(await notesOf(b)).toEqual(await notesOf(a));
+    expect(await imageOf(b, imageId)).toBe(picture(1));
+    expect(await on(b, () => notesRepo.listSummaries())).toEqual(
+      await on(a, () => notesRepo.listSummaries()),
+    );
+    // Nothing is left to send, and a second round sends nothing.
+    const posts = postCount();
+    await sync(a);
+    await sync(b);
+    expect(postCount()).toBe(posts);
+  });
+
+  it('an edit, a deleted note with its screenshot and a deleted video reach the other device', async () => {
+    const first = await addNote(a, 'One');
+    const second = await addNote(a, 'Two', picture(2));
+    await addNote(a, 'Elsewhere', undefined, OTHER_VIDEO);
+    await sync(a);
+    await sync(b);
+    const imageId = second.imageId ?? '';
+    expect(await imageOf(b, imageId)).toBe(picture(2));
+
+    at(2_000_000);
+    await on(b, () => notesRepo.updateEntry(VIDEO, first.id, { text: 'One, edited' }));
+    await on(b, () => notesRepo.removeEntry(VIDEO, second.id));
+    await on(b, () => notesRepo.remove(OTHER_VIDEO));
+    await sync(b);
+    await sync(a);
+    expect((await notesOf(a))?.entries.map((entry) => entry.text)).toEqual(['One, edited']);
+    expect(await notesOf(a)).toEqual(await notesOf(b));
+    expect(await imageOf(a, imageId)).toBeUndefined();
+    expect(await notesOf(a, OTHER_VIDEO)).toBeUndefined();
+    expect(server.record('image', imageId)).toMatchObject({ deleted: true });
+    expect(server.record('notes', OTHER_VIDEO)).toMatchObject({ deleted: true });
+  });
+
+  it('concurrent edits of one video: the newer copy wins, and the losing screenshot is deleted on the server too', async () => {
+    await addNote(a, 'Shared');
+    await sync(a);
+    await sync(b);
+
+    at(2_000_000);
+    const fromA = await addNote(a, 'From A', picture(3));
+    at(3_000_000);
+    await addNote(b, 'From B, later');
+    await sync(a);
+    await sync(b);
+    await sync(a);
+    await sync(b);
+    expect((await notesOf(a))?.entries.map((entry) => entry.text)).toEqual([
+      'Shared',
+      'From B, later',
+    ]);
+    expect(await notesOf(a)).toEqual(await notesOf(b));
+    // A's note lost, so its picture is gone here and its tombstone keeps it from being kept there.
+    const imageId = fromA.imageId ?? '';
+    expect(await imageOf(a, imageId)).toBeUndefined();
+    expect(await imageOf(b, imageId)).toBeUndefined();
+    expect(server.record('image', imageId)).toMatchObject({ deleted: true });
+  });
+
+  it('a deleted note that loses to a newer edit elsewhere keeps its screenshot everywhere', async () => {
+    const pictured = await addNote(a, 'With a picture', picture(13));
+    const plain = await addNote(a, 'Plain');
+    const imageId = pictured.imageId ?? '';
+    await sync(a);
+    await sync(b);
+
+    // A deletes the note with the picture, B edits the video later; neither has synced since.
+    at(2_000_000);
+    await on(a, () => notesRepo.removeEntry(VIDEO, pictured.id));
+    at(3_000_000);
+    await on(b, () => notesRepo.updateEntry(VIDEO, plain.id, { text: 'Plain, edited' }));
+    await sync(b);
+    await sync(a);
+    await sync(b);
+
+    // B's copy wins, with the note that holds the picture: the picture is not deleted anywhere.
+    expect((await notesOf(a))?.entries.map((entry) => entry.text)).toEqual([
+      'With a picture',
+      'Plain, edited',
+    ]);
+    expect(await notesOf(a)).toEqual(await notesOf(b));
+    expect(server.record('image', imageId)).toMatchObject({ deleted: false });
+    expect(await imageOf(b, imageId)).toBe(picture(13));
+    // A had already removed it; it reads the feed again and gets it back.
+    expect(await imageOf(a, imageId)).toBe(picture(13));
+    expect((await meta(a))?.images?.deleted).toEqual({});
+  });
+
+  it('a screenshot received before its note survives the repair pass of an interrupted pull', async () => {
+    const entry = await addNote(a, 'Picture first', picture(14));
+    const imageId = entry.imageId ?? '';
+    await sync(a);
+    // An edit moves the note after its picture in the feed.
+    at(2_000_000);
+    await on(a, () => notesRepo.updateEntry(VIDEO, entry.id, { text: 'Edited later' }));
+    await sync(a);
+    const order = [...server.records.values()]
+      .sort((x, y) => x.seq - y.seq)
+      .map((record) => record.kind);
+    const imagePage = order.indexOf('image') + 1;
+    expect(order.indexOf('notes') + 1).toBeGreaterThan(imagePage);
+
+    // B reads one record per page and loses the connection right after the picture's page.
+    const realFetch = server.fetch;
+    let gets = 0;
+    const failingAfterPicture: typeof fetch = async (input, init) => {
+      if ((init?.method ?? 'GET') === 'GET') {
+        gets += 1;
+        if (gets === imagePage + 1) {
+          throw new TypeError('Failed to fetch');
+        }
+      }
+      return realFetch(input, init);
+    };
+    await on(b, () => syncNow({ fetch: failingAfterPicture, pageSize: 1 }));
+    expect(await imageOf(b, imageId)).toBe(picture(14));
+    expect(await notesOf(b)).toBeUndefined();
+    // The browser restarts: the repair pass must not take the picture for a leftover.
+    expect(await on(b, () => notesRepo.reconcile())).toMatchObject({ images: 0 });
+
+    await sync(b);
+    expect((await notesOf(b))?.entries.map((e) => e.text)).toEqual(['Edited later']);
+    expect(await imageOf(b, imageId)).toBe(picture(14));
+  });
+
+  it('an Undo after a deletion that was already sent brings the note and its picture back everywhere', async () => {
+    const entry = await addNote(a, 'Keep me', picture(4));
+    await sync(a);
+    await sync(b);
+    at(2_000_000);
+    const removed = await on(a, () => notesRepo.removeEntry(VIDEO, entry.id));
+    await sync(a);
+    await sync(b);
+    expect(await notesOf(b)).toBeUndefined();
+    at(2_000_500);
+    await on(a, () =>
+      notesRepo.restoreEntry({ videoId: VIDEO, title: 'Video' }, removed ?? { entry }),
+    );
+    await sync(a);
+    await sync(b);
+    expect((await notesOf(b))?.entries.map((e) => e.text)).toEqual(['Keep me']);
+    expect(await imageOf(b, entry.imageId ?? '')).toBe(picture(4));
+  });
+
+  it('notes written before sync started are offered on the first sync, also after an update', async () => {
+    // A device already syncing sessions with a version from before notes: no notes tracking yet.
+    await on(a, () => sessionRepo.put(makeSession('s1', 'Work')));
+    await sync(a);
+    const old = await meta(a);
+    if (old === undefined) {
+      throw new Error('no bookkeeping');
+    }
+    const { notes: _notes, images: _images, ...legacy } = old;
+    await on(a, () => chrome.storage.local.set({ [CLOUD_SYNC_META_KEY]: { ...legacy } }));
+    const entry = await addNote(a, 'Written before the update', picture(5));
+    expect((await meta(a))?.notes).toBeUndefined();
+
+    await sync(a);
+    expect(server.record('notes', VIDEO)).toBeDefined();
+    expect(server.record('image', entry.imageId ?? '')).toBeDefined();
+    await sync(b);
+    expect((await notesOf(b))?.entries[0].text).toBe('Written before the update');
+    expect(await get(b, 's1')).toBeDefined();
+  });
+
+  it('a device of an older version asks for no kinds and never sees a notes record', async () => {
+    await addNote(a, 'New kinds', picture(6));
+    await on(a, () => sessionRepo.put(makeSession('s1', 'Work')));
+    await sync(a);
+    const response = await server.fetch('https://sync.test/v1/records?since=0', {
+      headers: { Authorization: 'Bearer tok' },
+    });
+    const body = (await response.json()) as { records: { kind: string }[] };
+    expect(body.records.map((record) => record.kind).sort()).toEqual(['session', 'settings']);
+  });
+
+  it('a screenshot over the account cap stays on the device, is held back, and syncs once there is room', async () => {
+    server.imageLimit = 2;
+    const one = await addNote(a, 'One', picture(7));
+    const two = await addNote(a, 'Two', picture(8));
+    const three = await addNote(a, 'Three', picture(9));
+    const result = await sync(a);
+    expect(result.outcome).toBe('synced');
+    const held = three.imageId ?? '';
+    expect(server.record('image', held)).toBeUndefined();
+    expect(await imageOf(a, held)).toBe(picture(9));
+    const status = await on(a, () => loadSyncStatus());
+    expect(status).toMatchObject({ heldImages: 1, heldImagesNoticed: false, lastError: undefined });
+    // Held back, it is not offered again on every run.
+    const posts = postCount();
+    await sync(a);
+    expect(postCount()).toBe(posts);
+    // Settings says so once.
+    await on(a, () => markHeldImagesNoticed());
+    expect(await on(a, () => loadSyncStatus())).toMatchObject({ heldImagesNoticed: true });
+
+    // B gets the notes and the two pictures the server took; the third is not there.
+    await sync(b);
+    expect((await notesOf(b))?.entries).toHaveLength(3);
+    expect(await imageOf(b, one.imageId ?? '')).toBe(picture(7));
+    expect(await imageOf(b, held)).toBeUndefined();
+
+    // Deleting a screenshot on B makes room: A sees the tombstone and sends the held picture.
+    at(2_000_000);
+    await on(b, () => notesRepo.removeEntry(VIDEO, two.id));
+    await sync(b);
+    await sync(a);
+    expect(server.record('image', held)).toMatchObject({ deleted: false });
+    expect(await on(a, () => loadSyncStatus())).toMatchObject({
+      heldImages: 0,
+      heldImagesNoticed: false,
+    });
+    await sync(b);
+    expect(await imageOf(b, held)).toBe(picture(9));
+  });
+
+  it('a deletion on the same device makes room for its held-back screenshot', async () => {
+    server.imageLimit = 1;
+    const one = await addNote(a, 'One', picture(10));
+    const two = await addNote(a, 'Two', picture(11));
+    await sync(a);
+    expect((await meta(a))?.heldImages).toEqual({ [two.imageId ?? '']: expect.any(Number) });
+    at(2_000_000);
+    await on(a, () => notesRepo.removeEntry(VIDEO, one.id));
+    await sync(a);
+    await sync(a);
+    expect(server.record('image', two.imageId ?? '')).toMatchObject({ deleted: false });
+    expect((await meta(a))?.heldImages).toBeUndefined();
+  });
+
+  it('a hostile server cannot resurrect a deleted screenshot or move a picture to a note id', async () => {
+    const entry = await addNote(a, 'Note', picture(12));
+    const imageId = entry.imageId ?? '';
+    await sync(a);
+    await sync(b);
+    const live = { ...stored('image', imageId) };
+    at(2_000_000);
+    await on(a, () => notesRepo.removeEntry(VIDEO, entry.id));
+    await sync(a);
+    await sync(b);
+    // Replayed byte for byte: older than the deletion this device knows, so refused.
+    server.inject(live);
+    await sync(a);
+    await sync(b);
+    expect(await imageOf(a, imageId)).toBeUndefined();
+    expect(await imageOf(b, imageId)).toBeUndefined();
+    expect((await meta(b))?.lastError).toBeUndefined();
+    // Replayed as newer, or moved to the notes kind under the video id: neither decrypts.
+    server.inject({ ...live, updatedAt: 9_000_000 });
+    server.inject({ ...live, kind: 'notes', id: VIDEO, updatedAt: 9_000_001 });
+    await sync(a);
+    await sync(b);
+    expect(await imageOf(a, imageId)).toBeUndefined();
+    expect(await imageOf(b, imageId)).toBeUndefined();
+    expect(await notesOf(a)).toBeUndefined();
+    expect(await notesOf(b)).toBeUndefined();
+    expect((await meta(b))?.lastError).toBe(t('errorCloudDecrypt'));
+  });
+
+  it('a notes record that decrypts but names another video is skipped', async () => {
+    await addNote(a, 'Mine');
+    await sync(a);
+    await sync(b);
+    const notes = await notesOf(a);
+    if (notes === undefined) {
+      throw new Error('no notes');
+    }
+    const other = { ...notes, videoId: OTHER_VIDEO };
+    const recordMeta = { kind: 'notes', id: VIDEO, updatedAt: 9_000_000, deleted: false } as const;
+    server.inject({
+      ...recordMeta,
+      ...(await encryptRecord(rawKey, recordMeta, { ...other, updatedAt: 9_000_000 })),
+    });
+    await sync(b);
+    expect(await notesOf(b, OTHER_VIDEO)).toBeUndefined();
+    expect((await notesOf(b))?.entries.map((entry) => entry.text)).toEqual(['Mine']);
+  });
 });

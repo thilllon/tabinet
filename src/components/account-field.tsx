@@ -1,5 +1,5 @@
 import { KeyRound, LogOut, RefreshCw, RotateCw, Trash2 } from 'lucide-react';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 
 import { DeleteCloudDataDialog } from '@/components/delete-cloud-data-dialog';
 import { GoogleLogo } from '@/components/google-logo';
@@ -7,6 +7,7 @@ import { SettingsField } from '@/components/settings-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { CLOUD_IMAGE_LIMIT } from '@/constants';
 import { useCloudAccount } from '@/hooks/use-cloud-account';
 import { useCloudSync } from '@/hooks/use-cloud-sync';
 import { useErrorToast } from '@/hooks/use-toasts';
@@ -20,9 +21,10 @@ import {
   unlockWithPassphrase,
 } from '@/lib/cloud-auth';
 import { canSignInHere } from '@/lib/cloud-config';
+import { markHeldImagesNoticed } from '@/lib/cloud-sync';
 import { formatDateTime } from '@/lib/display-format';
 import { reportError } from '@/lib/error-message';
-import { joinSentences, t, tp } from '@/lib/i18n';
+import { formatNumber, joinSentences, t, tp } from '@/lib/i18n';
 import type { CloudKeySetup } from '@/types';
 
 interface AccountFieldProps {
@@ -44,6 +46,25 @@ export function AccountField({ onNotice, onError }: AccountFieldProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const syncing = useCloudSync(cloud.state === 'ready');
   useErrorToast(syncing.lastError);
+
+  // Screenshots the server refused over its cap: said once, as a toast, and remembered as said.
+  const { heldImages, heldImagesNoticed } = syncing;
+  const noticeRef = useRef(onNotice);
+  noticeRef.current = onNotice;
+  const heldShown = useRef(false);
+  useEffect(() => {
+    if (heldImages === 0) {
+      // Every picture went up: a later refusal is news again.
+      heldShown.current = false;
+      return;
+    }
+    if (heldImagesNoticed || heldShown.current) {
+      return;
+    }
+    heldShown.current = true;
+    noticeRef.current(tp('settingsAccountImagesHeld', heldImages, formatNumber(CLOUD_IMAGE_LIMIT)));
+    markHeldImagesNoticed().catch((err: unknown) => reportError('held screenshots notice', err));
+  }, [heldImages, heldImagesNoticed]);
 
   const startSync = () => {
     void syncing.sync().then((synced) => {

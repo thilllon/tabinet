@@ -206,12 +206,16 @@ describe('routes', () => {
       next: 7,
       hasMore: false,
     });
-    expect(server.requests[0]?.url).toBe(`${API}/v1/records?since=3&limit=50`);
+    expect(server.requests[0]?.url).toBe(
+      `${API}/v1/records?since=3&kinds=session%2Csettings%2Cnotes%2Cimage&limit=50`,
+    );
     const err: unknown = await getRecords('tok', 3, undefined, { fetch: server.fetch }).catch(
       (e: unknown) => e,
     );
     expect(errorMessage(err)).toBe(t('errorCloudBadResponse'));
-    expect(server.requests[1]?.url).toBe(`${API}/v1/records?since=3`);
+    expect(server.requests[1]?.url).toBe(
+      `${API}/v1/records?since=3&kinds=session%2Csettings%2Cnotes%2Cimage`,
+    );
   });
 
   it('postRecords sends the records and reads applied and stale results', async () => {
@@ -232,5 +236,27 @@ describe('routes', () => {
       url: `${API}/v1/records`,
       body: { records: [record] },
     });
+  });
+
+  it('reads notes and screenshot records, and a screenshot refused over the cap', async () => {
+    const page = {
+      records: [
+        { ...RECORD, kind: 'notes', id: 'dQw4w9WgXcQ' },
+        { ...RECORD, kind: 'image', id: 'img-1' },
+      ],
+      next: 9,
+      hasMore: false,
+    };
+    const get = fakeFetch(jsonResponse(200, page));
+    expect((await getRecords('tok', 0, undefined, { fetch: get.fetch })).records).toEqual(
+      page.records,
+    );
+    const refused = [{ kind: 'image', id: 'img-1', status: 'rejected', reason: 'image_limit' }];
+    const post = fakeFetch(jsonResponse(200, { results: refused }));
+    const { seq: _seq, ...record } = RECORD;
+    expect(await postRecords('tok', [record], { fetch: post.fetch })).toEqual(refused);
+    // A kind this version does not know is still a bad answer.
+    const odd = fakeFetch(jsonResponse(200, { ...page, records: [{ ...RECORD, kind: 'photo' }] }));
+    await expect(getRecords('tok', 0, undefined, { fetch: odd.fetch })).rejects.toThrow();
   });
 });
