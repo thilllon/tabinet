@@ -1,4 +1,4 @@
-import { ChevronRight, Clock, FolderOpen, LayoutGrid, Undo2 } from 'lucide-react';
+import { ChevronRight, Clock, FolderOpen, LayoutGrid, NotebookPen, Undo2 } from 'lucide-react';
 import { useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import { formatRoute, type Route } from '@/lib/app-route';
 import { formatDateTime } from '@/lib/display-format';
 import { formatNumber, t, tp } from '@/lib/i18n';
+import { videoTitle } from '@/lib/notes-export';
 import { browserHandlesClick } from '@/lib/row-link';
 import { HISTORY_OPEN_KEY, readUiState, writeUiState } from '@/lib/ui-state';
 import { cn } from '@/lib/utils';
-import type { SessionSummary } from '@/types';
+import type { NotesSummary, SessionSummary } from '@/types';
 
 interface SidebarNavProps {
   route: Route;
@@ -17,6 +18,9 @@ interface SidebarNavProps {
   saved: SessionSummary[];
   /** Automatic snapshots, newest first. */
   history: SessionSummary[];
+  /** Videos with YouTube notes, newest first. */
+  notes: NotesSummary[];
+  notesLoading: boolean;
   windowCount: number;
   tabCount: number;
   /** The snapshot promoted after a restart, if it is still the newest one. */
@@ -105,7 +109,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * The left column: what you have (open tabs, saved sessions, automatic snapshots) as one list, so
+ * The left column: what you have (open tabs, saved sessions, YouTube notes, automatic snapshots) as one list, so
  * the main pane only ever shows what is selected. Snapshots stay folded away - they are a safety
  * net, not something to browse - except right after a restart, when the recovered one is called
  * out here instead of in a banner over the page.
@@ -114,6 +118,8 @@ export function SidebarNav({
   route,
   saved,
   history,
+  notes,
+  notesLoading,
   windowCount,
   tabCount,
   recoveredId,
@@ -180,6 +186,29 @@ export function SidebarNav({
               current={route.view === 'saved' && route.id === summary.id}
               route={{ view: 'saved', id: summary.id }}
               onClick={() => onNavigate({ view: 'saved', id: summary.id })}
+            />
+          ))}
+        </ul>
+      )}
+
+      <SectionLabel>{t('appNavNotes')}</SectionLabel>
+      {notesLoading ? (
+        <p className="px-2 text-xs text-muted-foreground">{t('commonLoading')}</p>
+      ) : notes.length === 0 ? (
+        <p className="px-2 text-xs text-muted-foreground">{t('appNavNoNotes')}</p>
+      ) : (
+        <ul className="contents">
+          {notes.map((summary) => (
+            <NavItem
+              key={summary.videoId}
+              icon={<NotebookPen />}
+              label={videoTitle(summary)}
+              sub={tp('notesEntryCount', summary.entryCount)}
+              time={t('notesUpdatedAt', formatDateTime(summary.updatedAt))}
+              meta={undefined}
+              current={route.view === 'notes' && route.videoId === summary.videoId}
+              route={{ view: 'notes', videoId: summary.videoId }}
+              onClick={() => onNavigate({ view: 'notes', videoId: summary.videoId })}
             />
           ))}
         </ul>

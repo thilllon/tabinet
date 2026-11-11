@@ -1508,7 +1508,7 @@
     "description": "Accessible name of the search box at the top of the app page. One word."
   },
   "searchInputTitle": {
-    "message": "Search open tabs, saved sessions and their addresses",
+    "message": "Search open tabs, saved sessions, their addresses and your notes",
     "description": "Tooltip of the search box at the top of the app page."
   },
   "searchPlaceholder": {
@@ -2182,5 +2182,81 @@
   "notesScreenshotFailed": {
     "message": "Could not take a screenshot of the video.",
     "description": "Error toast when a screenshot of the video failed for any other reason."
+  },
+  "appNavNotes": {
+    "message": "Notes",
+    "description": "Sidebar section heading above the list of YouTube videos with notes. Shown in uppercase. Keep short."
+  },
+  "appNavNoNotes": {
+    "message": "Notes you take on YouTube videos show here.",
+    "description": "Shown in the sidebar's Notes section when no YouTube video has notes yet."
+  },
+  "notesEntryCount_one": {
+    "message": "$1 note",
+    "description": "How many notes a YouTube video has: second line of its row in the sidebar and under its title on the app page. $1 is the count."
+  },
+  "notesEntryCount_other": {
+    "message": "$1 notes",
+    "description": "How many notes a YouTube video has: second line of its row in the sidebar and under its title on the app page. $1 is the count."
+  },
+  "notesUpdatedAt": {
+    "message": "Updated $1",
+    "description": "When a video's notes last changed: third line of its sidebar row and under its title on the app page. $1 is the date and time, already formatted."
+  },
+  "notesUntitledVideo": {
+    "message": "Untitled video",
+    "description": "Stands in for the title of a YouTube video whose title was not known when its notes were taken."
+  },
+  "searchGroupNotes": {
+    "message": "Notes",
+    "description": "Heading of the search results group listing matching YouTube notes. Shown in small capitals; short."
+  },
+  "notesOpenAt": {
+    "message": "Open the video at $1",
+    "description": "Tooltip of a note's time on the app page, a link that opens the video at that moment. $1 is the time, such as 1:23."
+  },
+  "notesSwitchedToVideo": {
+    "message": "Switched to the tab already showing this video.",
+    "description": "Toast after a note's time or the Open video button went to a tab that already showed the video."
+  },
+  "notesDeletedAll": {
+    "message": "Deleted the notes on “$1”.",
+    "description": "Toast after every note on a video was deleted. $1 is the video's title."
+  },
+  "notesOpenVideo": {
+    "message": "Open video",
+    "description": "Button on a video's notes page that opens the video. Button text, short."
+  },
+  "notesOpenVideoTitle": {
+    "message": "Open the video on YouTube, or go to its tab if it is already open",
+    "description": "Tooltip of the Open video button on a video's notes page."
+  },
+  "notesExportMarkdown": {
+    "message": "Export Markdown",
+    "description": "Button on a video's notes page that saves the notes as one Markdown file. Button text, short."
+  },
+  "notesExportMarkdownTitle": {
+    "message": "Save these notes as one Markdown file, with the links to each moment and the screenshots inside",
+    "description": "Tooltip of the Export Markdown button on a video's notes page."
+  },
+  "notesDeleteAll": {
+    "message": "Delete all notes",
+    "description": "Menu item on a video's notes page that deletes every note on the video (it asks first)."
+  },
+  "notesDeleteAllTitle": {
+    "message": "Delete all notes on this video?",
+    "description": "Title of the dialog that asks before every note on a video is deleted."
+  },
+  "notesDeleteAllBody_one": {
+    "message": "The $1 note on “$2” will be removed from this device, with its screenshot. This cannot be undone.",
+    "description": "Text of the dialog that asks before every note on a video is deleted. $1 is how many notes, $2 the video's title."
+  },
+  "notesDeleteAllBody_other": {
+    "message": "All $1 notes on “$2” will be removed from this device, with their screenshots. This cannot be undone.",
+    "description": "Text of the dialog that asks before every note on a video is deleted. $1 is how many notes, $2 the video's title."
+  },
+  "notesPageHint": {
+    "message": "Notes are written in the YouTube notes side panel while the video plays. A note's time opens the video at that moment.",
+    "description": "Grey line under a video's title on its notes page, saying where notes are written and what a note's time does."
   }
 }

@@ -14,6 +14,8 @@ import { SidebarResizer } from '@/components/sidebar-resizer';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { UnreadableSessionRow } from '@/components/unreadable-session-row';
+import { useNotesIndex } from '@/hooks/use-notes-index';
+import { useNotesSearchEntries } from '@/hooks/use-notes-search-entries';
 import { useOpenWindows } from '@/hooks/use-open-windows';
 import { useRestore } from '@/hooks/use-restore';
 import { useRoute } from '@/hooks/use-route';
@@ -67,6 +69,7 @@ import type { OpenScope, RestoreTarget } from '@/lib/session-restore';
 import { ACTION_MS, NOTICE_MS } from '@/lib/toast-queue';
 import { readSidebarWidth, writeSidebarWidth } from '@/lib/ui-state';
 import { currentWindowTarget, goToTab, openTabInBackground } from '@/lib/window-actions';
+import { NotesPage } from '@/pages/notes';
 import { OpenTabsPage } from '@/pages/open-tabs';
 import { SessionPage } from '@/pages/session';
 import { SettingsPage } from '@/pages/settings';
@@ -171,7 +174,17 @@ export function App() {
   const [limitPerSource, setLimitPerSource] = useState(DEFAULT_LIMIT_PER_SOURCE);
   const [highlight, setHighlight] = useState(NO_HIGHLIGHT);
   const [pendingActivation, setPendingActivation] = useState<string | undefined>(undefined);
-  const { corpus, warming, ensureLoaded } = useSearchCorpus({ summaries: sessions, openWindows });
+  const {
+    corpus: tabCorpus,
+    warming,
+    ensureLoaded,
+  } = useSearchCorpus({
+    summaries: sessions,
+    openWindows,
+  });
+  const { notes: noteVideos, loading: notesLoading, error: notesError } = useNotesIndex();
+  const noteEntries = useNotesSearchEntries(noteVideos);
+  const corpus = useMemo(() => [...tabCorpus, ...noteEntries], [tabCorpus, noteEntries]);
 
   const { saved, history } = useMemo(() => splitByKind(sessions), [sessions]);
   const recovered = recoveredSnapshot(history);
@@ -396,6 +409,13 @@ export function App() {
       return;
     }
     setError(undefined);
+    if (item.kind === 'note') {
+      // A note is shown among its video's notes, where its time links to the video.
+      if (item.entry.videoId !== undefined) {
+        go({ view: 'notes', videoId: item.entry.videoId });
+      }
+      return;
+    }
     if (item.kind === 'session') {
       // A matching session name goes to that session rather than opening 90 tabs on one Enter.
       go({ view: item.summary.kind === 'history' ? 'auto' : 'saved', id: item.summary.id });
@@ -440,10 +460,22 @@ export function App() {
     return id === undefined ? undefined : sessions.find((summary) => summary.id === id);
   }, [page, sessions]);
 
+  const selectedNotes = useMemo(
+    () =>
+      page.view === 'notes'
+        ? noteVideos.find((summary) => summary.videoId === page.videoId)
+        : undefined,
+    [page, noteVideos],
+  );
+
   // A session deleted in another tab (or by the snapshot ring) leaves its address pointing at
-  // nothing; fall back to the list rather than showing an empty pane.
+  // nothing; fall back to the list rather than showing an empty pane. The same for a video whose
+  // last note was deleted (here, or in the side panel).
   useEffect(() => {
-    if (!loading && selected === undefined && (page.view === 'saved' || page.view === 'auto')) {
+    const gone =
+      (!loading && selected === undefined && (page.view === 'saved' || page.view === 'auto')) ||
+      (!notesLoading && selectedNotes === undefined && page.view === 'notes');
+    if (gone) {
       if (settingsOpen) {
         // Deleted from inside Settings ("Delete all data"): the dialog stays, the pane behind it
         // changes. Navigating would close the dialog under the user's hands.
@@ -452,7 +484,7 @@ export function App() {
       }
       navigate(HOME, true);
     }
-  }, [loading, selected, page, settingsOpen, navigate, resetPage]);
+  }, [loading, selected, notesLoading, selectedNotes, page, settingsOpen, navigate, resetPage]);
 
   const main = () => {
     if (searching) {
@@ -514,6 +546,16 @@ export function App() {
         />
       );
     }
+    if (page.view === 'notes' && selectedNotes !== undefined) {
+      return (
+        <NotesPage
+          key={selectedNotes.videoId}
+          summary={selectedNotes}
+          onNotice={announce}
+          onDeleted={() => navigate(HOME, true)}
+        />
+      );
+    }
     if (page.view === 'auto' && selected !== undefined) {
       return (
         <SnapshotPage
@@ -550,6 +592,7 @@ export function App() {
   // the quota notice keeps a line, because it carries a way to the storage meter.
   useErrorToast(error, show);
   useErrorToast(indexError, show);
+  useErrorToast(notesError, show);
   const banners = (
     <>{quotaFull && <QuotaNotice onShowStorage={() => go({ view: 'settings' })} />}</>
   );
@@ -648,6 +691,8 @@ export function App() {
               route={page}
               saved={saved}
               history={history}
+              notes={noteVideos}
+              notesLoading={notesLoading}
               windowCount={openWindows.windows.length}
               tabCount={openWindows.windows.reduce((count, win) => count + win.tabs.length, 0)}
               recoveredId={recovered?.id}

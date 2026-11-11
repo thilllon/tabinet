@@ -17,6 +17,7 @@ export type Route =
   | { view: 'settings'; focus?: SettingsFocus }
   | { view: 'saved'; id: string }
   | { view: 'auto'; id: string }
+  | { view: 'notes'; videoId: string }
   | { view: 'search'; query: string };
 
 /** What an unknown, empty or malformed hash resolves to. */
@@ -61,6 +62,9 @@ export function parseRoute(hash: string): Route {
   if (head === 'search') {
     return { view: 'search', query: tail };
   }
+  if (head === 'notes') {
+    return { view: 'notes', videoId: tail };
+  }
   return HOME;
 }
 
@@ -76,6 +80,8 @@ export function formatRoute(route: Route): string {
       return `#auto/${encodeURIComponent(route.id)}`;
     case 'search':
       return `#search/${encodeURIComponent(route.query)}`;
+    case 'notes':
+      return `#notes/${encodeURIComponent(route.videoId)}`;
   }
 }
 

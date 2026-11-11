@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  entriesFromNotes,
   entriesFromOpenWindows,
   entriesFromSession,
   matchSessionName,
@@ -11,7 +12,7 @@ import {
   splitOnMatches,
   tokenize,
 } from '@/lib/search-engine';
-import type { Session } from '@/types';
+import { NOTES_SCHEMA_VERSION, type Session, type VideoNotes } from '@/types';
 
 function hostOf(url: string): string {
   try {
@@ -441,6 +442,7 @@ describe('search', () => {
         bySource: {
           open: { entries: [], count: 0, hasMore: false },
           saved: { entries: [], count: 0, hasMore: false },
+          notes: { entries: [], count: 0, hasMore: false },
           history: { entries: [], count: 0, hasMore: false },
         },
       });
@@ -697,5 +699,64 @@ describe('resultPlace', () => {
     expect(resultPlace({ source: 'history', sessionName: 'Snap', windowIndex: 0 })).toBe(
       'Snap · Window 1',
     );
+  });
+});
+
+describe('notes', () => {
+  const notes: VideoNotes = {
+    schemaVersion: NOTES_SCHEMA_VERSION,
+    videoId: 'dQw4w9WgXcQ',
+    url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    title: 'Rust ownership explained',
+    createdAt: 1,
+    updatedAt: 5_000,
+    entries: [
+      {
+        id: 'n1',
+        at: 83.6,
+        text: 'Borrow checker rules\n- one mutable',
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      { id: 'n2', at: 200, text: '', imageId: 'img', createdAt: 2, updatedAt: 2 },
+    ],
+  };
+
+  it('builds one entry per note, linking the video at its second', () => {
+    const entries = entriesFromNotes(notes);
+    expect(entries).toHaveLength(2);
+    expect(entries[0]).toMatchObject({
+      source: 'notes',
+      title: 'Borrow checker rules\n- one mutable',
+      sessionName: 'Rust ownership explained',
+      sessionUpdatedAt: 5_000,
+      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=83s',
+      hostname: 'www.youtube.com',
+      videoId: 'dQw4w9WgXcQ',
+      noteId: 'n1',
+      at: 83.6,
+    });
+    expect(entries[0].sessionId).toBeUndefined();
+  });
+
+  it('finds a note by its text, and every note of a video by the video title', () => {
+    const corpus = entriesFromNotes(notes);
+    expect(search(corpus, 'borrow mutable').bySource.notes.entries.map((e) => e.noteId)).toEqual([
+      'n1',
+    ]);
+    expect(search(corpus, 'ownership').bySource.notes.count).toBe(2);
+    expect(search(corpus, 'nothing-like-this').total).toBe(0);
+  });
+
+  it('counts notes in a source of their own', () => {
+    const saved = entry({ title: 'Borrow guide' });
+    const history = entry({ source: 'history', title: 'Borrow guide' });
+    const result = search([history, ...entriesFromNotes(notes), saved], 'borrow', {
+      includeHistory: true,
+    });
+    expect(result.bySource.saved.count).toBe(1);
+    expect(result.bySource.notes.count).toBe(1);
+    expect(result.bySource.history.count).toBe(1);
+    expect(result.total).toBe(3);
   });
 });

@@ -8,9 +8,10 @@ import {
   currentWindowTarget,
   goToTab,
   openTabInBackground,
+  openVideoAt,
 } from '@/lib/window-actions';
 
-import { getChromeFake } from './chrome-fake';
+import { fakeMedia, getChromeFake } from './chrome-fake';
 
 beforeEach(() => {
   // A rejected action logs Chrome's original message; the page shows it in the UI language.
@@ -190,5 +191,64 @@ describe('openTabInBackground', () => {
 
     // Chrome's English message is shown in the UI language; the original goes to the console.
     expect(result).toEqual({ ok: false, reason: t('errorTabsBusy') });
+  });
+});
+
+describe('openVideoAt', () => {
+  const ID = 'dQw4w9WgXcQ';
+
+  async function videoTab(url = `https://www.youtube.com/watch?v=${ID}`) {
+    const other = await chrome.windows.create({ url: 'https://other.example/' });
+    const tab = await chrome.tabs.create({ windowId: 1, url, active: false });
+    if (tab.id === undefined || other?.id === undefined) {
+      throw new Error('expected ids');
+    }
+    return tab.id;
+  }
+
+  it('opens the video at that second in a background tab when it is not open', async () => {
+    await chrome.tabs.create({ url: 'https://decoy.test' });
+    const fake = getChromeFake();
+    fake.state.createdTabs.length = 0;
+
+    expect(await openVideoAt(ID, 83.7)).toEqual({ ok: true, switched: false });
+    expect(fake.state.createdTabs).toEqual([
+      { url: `https://www.youtube.com/watch?v=${ID}&t=83s`, active: false },
+    ]);
+  });
+
+  it('loads the time into the open tab and brings it forward without access to YouTube', async () => {
+    const tabId = await videoTab(`https://youtu.be/${ID}`);
+    const fake = getChromeFake();
+    fake.state.createdTabs.length = 0;
+
+    expect(await openVideoAt(ID, 12)).toEqual({ ok: true, switched: true });
+    const tab = fake.state.tabs.get(tabId);
+    expect(tab?.url).toBe(`https://www.youtube.com/watch?v=${ID}&t=12s`);
+    expect(tab?.active).toBe(true);
+    expect(fake.state.windows.get(1)?.focused).toBe(true);
+    expect(fake.state.createdTabs).toEqual([]);
+  });
+
+  it('moves the playing video instead of reloading it with access to YouTube', async () => {
+    const tabId = await videoTab();
+    const fake = getChromeFake();
+    fake.state.grantedOrigins.add('https://*.youtube.com/*');
+    const video = fakeMedia('VIDEO', { currentTime: 400, duration: 600 });
+    fake.state.pageMedia.set(tabId, [video]);
+
+    expect(await openVideoAt(ID, 30)).toEqual({ ok: true, switched: true });
+    expect(video.currentTime).toBe(30);
+    expect(fake.state.tabs.get(tabId)?.url).toBe(`https://www.youtube.com/watch?v=${ID}`);
+    expect(fake.state.tabs.get(tabId)?.active).toBe(true);
+  });
+
+  it('only brings an open video forward when no time is given', async () => {
+    const tabId = await videoTab();
+    const fake = getChromeFake();
+
+    expect(await openVideoAt(ID)).toEqual({ ok: true, switched: true });
+    expect(fake.state.tabs.get(tabId)?.url).toBe(`https://www.youtube.com/watch?v=${ID}`);
+    expect(fake.state.tabs.get(tabId)?.active).toBe(true);
   });
 });

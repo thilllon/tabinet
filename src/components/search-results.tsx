@@ -1,13 +1,15 @@
-import { RotateCcw } from 'lucide-react';
+import { NotebookPen, RotateCcw } from 'lucide-react';
 import { useEffect } from 'react';
 
 import { Favicon } from '@/components/favicon';
 import { Button } from '@/components/ui/button';
+import { formatRoute } from '@/lib/app-route';
 import { formatSessionMeta, hostnameOf } from '@/lib/display-format';
 import { formatNumber, t, tp } from '@/lib/i18n';
 import { browserHandlesClick, hrefFor } from '@/lib/row-link';
 import { resultPlace, splitOnMatches } from '@/lib/search-engine';
 import type { SearchGroup, SearchItem } from '@/lib/search-nav';
+import { formatTimestamp } from '@/lib/youtube-video';
 
 interface SearchResultsProps {
   /** Grouped rows from `buildSearchGroups()`; `startIndex` addresses the flattened list. */
@@ -125,6 +127,66 @@ function TabResultRow({
   );
 }
 
+/**
+ * A YouTube note: its time, its text (or that it is a screenshot) and the video it is on. A link
+ * to the video's notes on this page, where the time links to the video itself.
+ */
+function NoteResultRow({
+  item,
+  tokens,
+  index,
+  highlighted,
+  onHighlight,
+  onActivate,
+}: {
+  item: Extract<SearchItem, { kind: 'note' }>;
+  tokens: string[];
+  index: number;
+  highlighted: boolean;
+  onHighlight(index: number): void;
+  onActivate(index: number): void;
+}) {
+  const { entry } = item;
+  const time = formatTimestamp(entry.at ?? 0);
+  const text = entry.title.replace(/\s+/g, ' ').trim();
+  const video = entry.sessionName === '' ? t('notesUntitledVideo') : entry.sessionName;
+  return (
+    <li>
+      <a
+        id={rowId(index)}
+        href={formatRoute({ view: 'notes', videoId: entry.videoId ?? '' })}
+        title={entry.title.length > 0 ? `${entry.title}\n${video}` : video}
+        aria-current={highlighted ? 'true' : undefined}
+        onMouseEnter={() => onHighlight(index)}
+        onFocus={() => onHighlight(index)}
+        onClick={(event) => {
+          if (browserHandlesClick(event)) {
+            return;
+          }
+          event.preventDefault();
+          onActivate(index);
+        }}
+        className={`${ROW} w-full min-w-0 ${highlighted ? 'bg-accent' : 'hover:bg-accent'}`}
+      >
+        <NotebookPen aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+        <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+          {time}
+        </span>
+        <span className="min-w-0 flex-1 truncate">
+          {text === '' ? (
+            <span className="text-muted-foreground">{t('notesScreenshotAt', time)}</span>
+          ) : (
+            <Highlighted text={text} tokens={tokens} />
+          )}
+        </span>
+        <span className="max-w-64 shrink-0 truncate text-xs text-muted-foreground">
+          <Highlighted text={video} tokens={tokens} />
+        </span>
+      </a>
+    </li>
+  );
+}
+
 function SessionResultRow({
   item,
   tokens,
@@ -225,6 +287,19 @@ export function SearchResults({
               <ul className="mt-1">
                 {group.items.map((item, offset) => {
                   const index = group.startIndex + offset;
+                  if (item.kind === 'note') {
+                    return (
+                      <NoteResultRow
+                        key={item.key}
+                        item={item}
+                        tokens={tokens}
+                        index={index}
+                        highlighted={index === highlight}
+                        onHighlight={onHighlight}
+                        onActivate={onActivate}
+                      />
+                    );
+                  }
                   return item.kind === 'session' ? (
                     <SessionResultRow
                       key={item.key}

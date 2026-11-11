@@ -1404,7 +1404,7 @@
     "description": "Accessible name of the search box at the top of the app page. One word."
   },
   "searchInputTitle": {
-    "message": "開いているタブ、保存したセッション、そのアドレスを検索",
+    "message": "開いているタブ、保存したセッション、そのアドレス、メモを検索",
     "description": "Tooltip of the search box at the top of the app page."
   },
   "searchPlaceholder": {
@@ -2014,5 +2014,73 @@
   "notesScreenshotFailed": {
     "message": "動画のスクリーンショットを撮れませんでした。",
     "description": "Error toast when a screenshot of the video failed for any other reason."
+  },
+  "appNavNotes": {
+    "message": "メモ",
+    "description": "Sidebar section heading above the list of YouTube videos with notes. Shown in uppercase. Keep short."
+  },
+  "appNavNoNotes": {
+    "message": "YouTube 動画に書いたメモがここに表示されます。",
+    "description": "Shown in the sidebar's Notes section when no YouTube video has notes yet."
+  },
+  "notesEntryCount_other": {
+    "message": "メモ $1 件",
+    "description": "How many notes a YouTube video has: second line of its row in the sidebar and under its title on the app page. $1 is the count."
+  },
+  "notesUpdatedAt": {
+    "message": "更新: $1",
+    "description": "When a video's notes last changed: third line of its sidebar row and under its title on the app page. $1 is the date and time, already formatted."
+  },
+  "notesUntitledVideo": {
+    "message": "タイトルのない動画",
+    "description": "Stands in for the title of a YouTube video whose title was not known when its notes were taken."
+  },
+  "searchGroupNotes": {
+    "message": "メモ",
+    "description": "Heading of the search results group listing matching YouTube notes. Shown in small capitals; short."
+  },
+  "notesOpenAt": {
+    "message": "$1 から動画を開く",
+    "description": "Tooltip of a note's time on the app page, a link that opens the video at that moment. $1 is the time, such as 1:23."
+  },
+  "notesSwitchedToVideo": {
+    "message": "この動画を開いていたタブに切り替えました。",
+    "description": "Toast after a note's time or the Open video button went to a tab that already showed the video."
+  },
+  "notesDeletedAll": {
+    "message": "「$1」のメモを削除しました。",
+    "description": "Toast after every note on a video was deleted. $1 is the video's title."
+  },
+  "notesOpenVideo": {
+    "message": "動画を開く",
+    "description": "Button on a video's notes page that opens the video. Button text, short."
+  },
+  "notesOpenVideoTitle": {
+    "message": "YouTube で動画を開きます。すでに開いている場合はそのタブに移動します",
+    "description": "Tooltip of the Open video button on a video's notes page."
+  },
+  "notesExportMarkdown": {
+    "message": "Markdown でエクスポート",
+    "description": "Button on a video's notes page that saves the notes as one Markdown file. Button text, short."
+  },
+  "notesExportMarkdownTitle": {
+    "message": "このメモを 1 つの Markdown ファイルに保存します。各時点へのリンクとスクリーンショットも含まれます",
+    "description": "Tooltip of the Export Markdown button on a video's notes page."
+  },
+  "notesDeleteAll": {
+    "message": "メモをすべて削除",
+    "description": "Menu item on a video's notes page that deletes every note on the video (it asks first)."
+  },
+  "notesDeleteAllTitle": {
+    "message": "この動画のメモをすべて削除しますか？",
+    "description": "Title of the dialog that asks before every note on a video is deleted."
+  },
+  "notesDeleteAllBody_other": {
+    "message": "「$2」のメモ $1 件をスクリーンショットと一緒にすべてこの端末から削除します。この操作は元に戻せません。",
+    "description": "Text of the dialog that asks before every note on a video is deleted. $1 is how many notes, $2 the video's title."
+  },
+  "notesPageHint": {
+    "message": "メモは動画を見ながら YouTube メモのサイドパネルで書きます。メモの時間を押すと、その時点から動画が開きます。",
+    "description": "Grey line under a video's title on its notes page, saying where notes are written and what a note's time does."
   }
 }
