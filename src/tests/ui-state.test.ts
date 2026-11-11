@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { HISTORY_OPEN_KEY, readUiState, writeUiState } from '@/lib/ui-state';
+import {
+  clampSidebarWidth,
+  DEFAULT_SIDEBAR_WIDTH,
+  HISTORY_OPEN_KEY,
+  MAX_SIDEBAR_WIDTH,
+  MIN_SIDEBAR_WIDTH,
+  readUiState,
+  writeUiState,
+} from '@/lib/ui-state';
 
 /** Installs a stand-in for the `sessionStorage` vitest's Node environment does not provide. */
 function installSessionStorage(store: Pick<Storage, 'getItem' | 'setItem'>): void {
@@ -54,5 +62,19 @@ describe('readUiState / writeUiState', () => {
     });
     expect(readUiState(HISTORY_OPEN_KEY)).toBeUndefined();
     expect(() => writeUiState(HISTORY_OPEN_KEY, 'true')).not.toThrow();
+  });
+});
+
+describe('clampSidebarWidth', () => {
+  it('keeps the width between the bounds', () => {
+    expect(clampSidebarWidth(300)).toBe(300);
+    expect(clampSidebarWidth(10)).toBe(MIN_SIDEBAR_WIDTH);
+    expect(clampSidebarWidth(9000)).toBe(MAX_SIDEBAR_WIDTH);
+  });
+
+  it('rounds to whole pixels and falls back for a value that is not a number', () => {
+    expect(clampSidebarWidth(260.6)).toBe(261);
+    expect(clampSidebarWidth(Number.NaN)).toBe(DEFAULT_SIDEBAR_WIDTH);
+    expect(clampSidebarWidth(Number.POSITIVE_INFINITY)).toBe(DEFAULT_SIDEBAR_WIDTH);
   });
 });

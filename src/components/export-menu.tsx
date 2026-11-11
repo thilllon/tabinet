@@ -27,10 +27,9 @@ import {
   exportedNotice,
   exportFormatItems,
   exportScopeName,
-  nothingToExportNotice,
 } from '@/lib/export-actions';
 import { t } from '@/lib/i18n';
-import { countTabs } from '@/lib/restore-summary';
+import { countTabs } from '@/lib/restore-messages';
 import { scopeToSession, serialize, toMarkdown, toText } from '@/lib/session-export';
 import { sessionRepo } from '@/lib/session-repo';
 import type { ExportFormat, Session, SessionSummary } from '@/types';
@@ -94,7 +93,7 @@ export function ExportMenu({
       }
       const scoped = scopeToSession(buildExportScope(body, windowIndex, groupIndex));
       if (countTabs(scoped) === 0) {
-        onNotice(nothingToExportNotice());
+        onNotice(t('expNothingToExport'));
         return;
       }
       await run(scoped, exportScopeName(body, windowIndex, groupIndex));

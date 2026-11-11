@@ -12,13 +12,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { WindowTree } from '@/components/window-tree';
 import { useSessionBody } from '@/hooks/use-session-body';
-import { useErrorToast } from '@/hooks/use-toast';
+import { useErrorToast } from '@/hooks/use-toasts';
 import { formatDateTime, formatSessionMeta } from '@/lib/display-format';
 import { reportError } from '@/lib/error-message';
 import { joinFacts, t, tp } from '@/lib/i18n';
-import { openSavedTab } from '@/lib/open-saved-tab';
 import { historyOriginLabel } from '@/lib/session-list';
 import { sessionRepo } from '@/lib/session-repo';
+import { openSavedTab } from '@/lib/window-actions';
 import type { Session, SessionSummary } from '@/types';
 
 /** Stands in for the bold Keep word while the explainer sentence is translated (private use). */

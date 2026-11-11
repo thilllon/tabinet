@@ -1,14 +1,5 @@
 import { type MessageKey, t } from '@/lib/i18n';
-import type { Session, SessionOrigin, SessionSummary, UnreadableSession } from '@/types';
-
-/** Returns a copy of `session` that contains only `windows[windowIndex]`. */
-export function pickWindow(session: Session, windowIndex: number): Session {
-  const window = session.windows[windowIndex];
-  if (windowIndex < 0 || window === undefined) {
-    throw new RangeError(`Session ${session.id} has no window at index ${windowIndex}`);
-  }
-  return { ...session, windows: [window] };
-}
+import type { SessionOrigin, SessionSummary, UnreadableSession } from '@/types';
 
 /**
  * Splits the index into the two lists the sidebar shows separately: `kind: 'saved'` in the
@@ -29,16 +20,6 @@ export function splitByKind(summaries: readonly SessionSummary[]): {
     (summary.kind === 'history' ? history : saved).push(summary);
   }
   return { saved, history };
-}
-
-/**
- * What the saved list says instead of a session this build cannot read: the store was
- * written by a newer Tabinet and the fix is an update, not a repair. The row stays inert
- * (no restore / rename / export / expand) but keeps Delete, so the user is never stuck with an
- * entry they can neither open nor get rid of.
- */
-export function unreadableSessionMessage(): string {
-  return t('sessionUnreadableMessage');
 }
 
 /** The version that wrote it, for the row's second line: "schema v2". */

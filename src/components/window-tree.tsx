@@ -1,5 +1,4 @@
-import type { ReactNode } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 
 import { GroupSection } from '@/components/group-section';
 import { TabRow, type TabRowSelection } from '@/components/tab-row';
@@ -7,8 +6,13 @@ import { Button } from '@/components/ui/button';
 import { windowStateLabel } from '@/lib/display-format';
 import { formatNumber, t, tp } from '@/lib/i18n';
 import { ROW_ACTIONS_CLASS } from '@/lib/row-actions';
-import { hiddenTabCount, initialTabPage, nextTabPage, showMoreLabel } from '@/lib/tab-paging';
-import { segmentTabs } from '@/lib/tab-segments';
+import {
+  hiddenTabCount,
+  initialTabPage,
+  nextTabPage,
+  segmentTabs,
+  showMoreLabel,
+} from '@/lib/tab-rows';
 import type { WindowSnapshot } from '@/types';
 
 interface WindowTreeProps {
@@ -45,7 +49,7 @@ interface WindowTreeProps {
  * host renders it inside a `role="tree"` (the open-windows pane, a saved session's or a
  * snapshot's view), so the whole window → group → tab structure is one ARIA tree.
  *
- * Large windows are paged (`tab-paging.ts`): a 10,000-tab window mounts 200 rows and grows a page
+ * Large windows are paged (`tab-rows.ts`): a 10,000-tab window mounts 200 rows and grows a page
  * per click, and every mounted row carries `content-visibility: auto` (see `index.css`) so the
  * ones off screen cost no layout.
  */

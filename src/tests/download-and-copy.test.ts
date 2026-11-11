@@ -1,11 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  clipboardUnavailableMessage,
-  copyFailureMessage,
-  copyText,
-  downloadDescriptor,
-} from '@/lib/download-and-copy';
+import { copyFailureMessage, copyText, downloadDescriptor } from '@/lib/download-and-copy';
+import { t } from '@/lib/i18n';
 
 const DATE = new Date(2026, 7, 29, 14, 3);
 
@@ -55,7 +51,7 @@ describe('copyText', () => {
     stubClipboard(undefined);
     await expect(copyText('x')).resolves.toEqual({
       ok: false,
-      error: clipboardUnavailableMessage(),
+      error: t('expClipboardUnavailable'),
     });
   });
 });

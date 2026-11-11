@@ -215,7 +215,7 @@ select:not(:disabled),
 
 /*
  * Large sessions. A session can hold thousands of tabs, and even with the
- * row paging in `tab-paging.ts` a few hundred rows are mounted at once. `content-visibility:
+ * row paging in `tab-rows.ts` a few hundred rows are mounted at once. `content-visibility:
  * auto` lets Chrome skip layout, paint and style work for the ones scrolled out of view, while
  * keeping them in the DOM - so find-in-page, the tab order and the accessibility tree still see
  * them (unlike `content-visibility: hidden`).

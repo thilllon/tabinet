@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { reportError } from '@/lib/error-message';
+import { isQuotaError, reportError } from '@/lib/error-message';
 import { formatNumber, t, tp } from '@/lib/i18n';
 import {
   buildImportPreview,
@@ -29,7 +29,6 @@ import {
 import { type ImportFormat, importSessions } from '@/lib/session-import';
 import { sessionRepo } from '@/lib/session-repo';
 import { revealStorageMeter } from '@/lib/storage-meter';
-import { isQuotaError } from '@/lib/storage-quota';
 import type { Session } from '@/types';
 
 /** Extensions the picker offers; every one of them is handled by a parser in session-import.ts. */

@@ -6,7 +6,7 @@ import {
   MAX_SIDEBAR_WIDTH,
   MIN_SIDEBAR_WIDTH,
   SIDEBAR_WIDTH_STEP,
-} from '@/lib/sidebar-width';
+} from '@/lib/ui-state';
 
 interface SidebarResizerProps {
   width: number;

@@ -28,13 +28,13 @@ type PluralBase = PluralBaseOf<MessageKey>;
 type Substitution = string | number;
 
 /** One entry of a `messages.json`, as far as filling it in is concerned. */
-export interface CatalogEntry {
+interface CatalogEntry {
   message: string;
   placeholders?: Record<string, { content: string }>;
 }
 
 /** A whole `messages.json`: entries by message name. */
-export type Catalog = Record<string, CatalogEntry>;
+type Catalog = Record<string, CatalogEntry>;
 
 /** Reads one language's packaged `messages.json`; tests pass one that reads `public/_locales`. */
 export type CatalogReader = (locale: SupportedLocale) => Promise<unknown>;

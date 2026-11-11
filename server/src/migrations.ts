@@ -9,7 +9,7 @@ export interface MigrationDb {
 
 const FILE_PATTERN = /^\d{3}_[a-z0-9_]+\.sql$/;
 
-export const MIGRATIONS_DIR = path.resolve(import.meta.dirname, '../migrations');
+const MIGRATIONS_DIR = path.resolve(import.meta.dirname, '../migrations');
 
 /** The migration files in order: `NNN_name.sql`, anything else in the folder ignored. */
 export async function migrationFiles(dir = MIGRATIONS_DIR): Promise<string[]> {

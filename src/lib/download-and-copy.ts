@@ -68,10 +68,6 @@ export function downloadExport(
 
 type CopyResult = { ok: true } | { ok: false; error: string };
 
-export function clipboardUnavailableMessage(): string {
-  return t('expClipboardUnavailable');
-}
-
 export function copyFailureMessage(err: unknown): string {
   console.warn('[tabinet] copy failed', errorDetail(err));
   const reason = knownErrorText(err);
@@ -86,7 +82,7 @@ export function copyFailureMessage(err: unknown): string {
 export async function copyText(text: string): Promise<CopyResult> {
   const clipboard = typeof navigator === 'undefined' ? undefined : navigator.clipboard;
   if (clipboard === undefined || typeof clipboard.writeText !== 'function') {
-    return { ok: false, error: clipboardUnavailableMessage() };
+    return { ok: false, error: t('expClipboardUnavailable') };
   }
   try {
     await clipboard.writeText(text);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { removeTabFromSession, removeWindowFromSession } from '@/lib/session-edit';
+import { pickWindow, removeTabFromSession, removeWindowFromSession } from '@/lib/session-edit';
 import { contentHash } from '@/lib/session-hash';
 import type { Session, TabSnapshot, WindowSnapshot } from '@/types';
 
@@ -154,5 +154,38 @@ describe('removeWindowFromSession', () => {
 
     expect(() => removeWindowFromSession(session, 1)).toThrow(RangeError);
     expect(() => removeWindowFromSession(session, -1)).toThrow(RangeError);
+  });
+});
+
+describe('pickWindow', () => {
+  const session: Session = {
+    schemaVersion: 1,
+    id: 'abc',
+    kind: 'saved',
+    name: 'Fixture',
+    origin: 'manual',
+    createdAt: 1,
+    updatedAt: 2,
+    windows: [
+      makeWindow({ tabs: [tab('https://a.example/')] }),
+      makeWindow({ tabs: [tab('https://b.example/')] }),
+    ],
+  };
+
+  it('returns a session containing only the requested window', () => {
+    const picked = pickWindow(session, 1);
+    expect(picked.windows).toEqual([session.windows[1]]);
+    expect(picked.id).toBe('abc');
+    expect(picked.name).toBe('Fixture');
+  });
+
+  it('does not mutate the original session', () => {
+    pickWindow(session, 0);
+    expect(session.windows).toHaveLength(2);
+  });
+
+  it('throws a RangeError for an out-of-range index', () => {
+    expect(() => pickWindow(session, 2)).toThrow(RangeError);
+    expect(() => pickWindow(session, -1)).toThrow(RangeError);
   });
 });

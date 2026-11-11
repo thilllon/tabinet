@@ -14,18 +14,17 @@ import {
 import { Input } from '@/components/ui/input';
 import { WindowTree } from '@/components/window-tree';
 import { useSessionBody } from '@/hooks/use-session-body';
-import { useErrorToast } from '@/hooks/use-toast';
+import { useErrorToast } from '@/hooks/use-toasts';
 import { isCloudSyncEnabled } from '@/lib/cloud-config';
 import { formatDateTime, formatSessionMeta } from '@/lib/display-format';
 import { copyText } from '@/lib/download-and-copy';
 import { reportError } from '@/lib/error-message';
-import { copiedLinkNotice } from '@/lib/export-actions';
 import { joinFacts, t } from '@/lib/i18n';
 import { isComposingEnter } from '@/lib/ime-composition';
-import { openSavedTab } from '@/lib/open-saved-tab';
 import { removeTabFromSession, removeWindowFromSession } from '@/lib/session-edit';
 import { sessionRepo } from '@/lib/session-repo';
 import type { OpenScope } from '@/lib/session-restore';
+import { openSavedTab } from '@/lib/window-actions';
 import type { Session, SessionSummary } from '@/types';
 
 interface SessionPageProps {
@@ -200,7 +199,7 @@ export function SessionPage({
     void copyText(url).then((result) => {
       if (result.ok) {
         setError(undefined);
-        onNotice(copiedLinkNotice());
+        onNotice(t('expCopiedLink'));
         return;
       }
       setError(result.error);

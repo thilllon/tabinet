@@ -17,35 +17,30 @@ import { UnreadableSessionRow } from '@/components/unreadable-session-row';
 import { useOpenWindows } from '@/hooks/use-open-windows';
 import { useRestore } from '@/hooks/use-restore';
 import { useRoute } from '@/hooks/use-route';
-import { useSavedToasts } from '@/hooks/use-saved-toasts';
 import { useSearchCorpus } from '@/hooks/use-search-corpus';
 import { useSessionIndex } from '@/hooks/use-session-index';
 import { useSessionSettings } from '@/hooks/use-session-settings';
-import { ToastContext, useErrorToast } from '@/hooks/use-toast';
+import { ToastContext, useErrorToast, useSavedToasts } from '@/hooks/use-toasts';
 import { formatRoute, HOME, type Route, routeSessionId } from '@/lib/app-route';
-import { assembleOutcome } from '@/lib/assemble-notice';
-import { assembleTabs } from '@/lib/assemble-tabs';
+import { assembleOutcome, assembleTabs } from '@/lib/assemble-tabs';
 import { isCloudSyncEnabled } from '@/lib/cloud-config';
 import { syncNow } from '@/lib/cloud-sync';
 import { downloadExport } from '@/lib/download-and-copy';
-import { reportError } from '@/lib/error-message';
+import { isQuotaError, reportError } from '@/lib/error-message';
 import {
   type CollectProgress,
   collectProgressNotice,
   collectSessionBodies,
   canExportAll,
   exportAllNotice,
-  nothingToExportAllNotice,
   shouldReportProgress,
   shouldTickProgress,
 } from '@/lib/export-actions';
 import { t } from '@/lib/i18n';
 import { importedNotice } from '@/lib/import-preview';
-import { openTabInBackground } from '@/lib/open-in-background';
-import { openShortcutSettings } from '@/lib/open-shortcut-settings';
-import { needsRestoreConfirm } from '@/lib/restore-summary';
+import { isMacPlatform, openShortcutSettings, takeShortcutPrompt } from '@/lib/keyboard-shortcuts';
+import { needsRestoreConfirm } from '@/lib/restore-messages';
 import { browserHandlesClick } from '@/lib/row-link';
-import { nothingToSaveNotice } from '@/lib/save-notice';
 import { DEFAULT_LIMIT_PER_SOURCE, search } from '@/lib/search-engine';
 import {
   buildSearchGroups,
@@ -57,18 +52,20 @@ import {
   type SearchItem,
   sessionNameMatches,
 } from '@/lib/search-nav';
-import { type CaptureScope, captureSessionWithTabIds } from '@/lib/session-capture';
+import {
+  type CaptureScope,
+  captureSessionWithTabIds,
+  nothingToSaveNotice,
+} from '@/lib/session-capture';
+import { pickWindow } from '@/lib/session-edit';
 import { toJson } from '@/lib/session-export';
-import { pickWindow, recoveredSnapshot, splitByKind } from '@/lib/session-list';
+import { recoveredSnapshot, splitByKind } from '@/lib/session-list';
 import { ensureUniqueName } from '@/lib/session-naming';
 import { sessionRepo } from '@/lib/session-repo';
 import type { OpenScope, RestoreTarget } from '@/lib/session-restore';
-import { isMacPlatform } from '@/lib/shortcut-keys';
-import { takeShortcutPrompt } from '@/lib/shortcut-prompt';
-import { readSidebarWidth, writeSidebarWidth } from '@/lib/sidebar-width';
-import { isQuotaError } from '@/lib/storage-quota';
 import { ACTION_MS, NOTICE_MS } from '@/lib/toast-queue';
-import { currentWindowTarget, goToTab } from '@/lib/window-actions';
+import { readSidebarWidth, writeSidebarWidth } from '@/lib/ui-state';
+import { currentWindowTarget, goToTab, openTabInBackground } from '@/lib/window-actions';
 import { OpenTabsPage } from '@/pages/open-tabs';
 import { SessionPage } from '@/pages/session';
 import { SettingsPage } from '@/pages/settings';
@@ -123,7 +120,7 @@ export function App() {
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
-  // Dragged by the handle between the columns, kept in localStorage (see sidebar-width.ts).
+  // Dragged by the handle between the columns, kept in localStorage (see ui-state.ts).
   const [sidebarWidth, setSidebarWidth] = useState(readSidebarWidth);
   const { sessions, loading, error: indexError } = useSessionIndex();
   const openWindows = useOpenWindows();
@@ -275,7 +272,7 @@ export function App() {
         : undefined;
       const { sessions: bodies, skipped } = await collectSessionBodies(summaries, onProgress);
       if (bodies.length === 0) {
-        setNotice(nothingToExportAllNotice());
+        setNotice(t('expNothingToExportAll'));
         return;
       }
       downloadExport('backup', 'json', toJson(bodies, Date.now()));

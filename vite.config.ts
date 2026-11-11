@@ -90,7 +90,7 @@ const manifest = defineManifest((env) => {
       // Chrome's built-in command for the toolbar icon: a key bound to it fires `action.onClicked`
       // exactly as a click does, so the shortcut sorts (and snapshots) through the very same
       // listeners - there is no second code path to keep in step. Chrome ignores a description
-      // here; Settings supplies the name (src/lib/command-rows.ts).
+      // here; Settings supplies the name (src/lib/keyboard-shortcuts.ts).
       _execute_action: { suggested_key: { default: DEFAULT_SHORTCUTS._execute_action } },
       'save-session': { description: '__MSG_cmdSaveSession__' },
       'open-dashboard': { description: '__MSG_cmdOpenDashboard__' },

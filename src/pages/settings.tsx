@@ -14,14 +14,17 @@ import { DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/di
 import { Switch } from '@/components/ui/switch';
 import { YoutubeAccessField } from '@/components/youtube-access-field';
 import { useSessionSettings } from '@/hooks/use-session-settings';
-import { useErrorToast } from '@/hooks/use-toast';
+import { useErrorToast } from '@/hooks/use-toasts';
 import type { SettingsFocus } from '@/lib/app-route';
 import { isCloudSyncEnabled } from '@/lib/cloud-config';
-import { type CommandRow, commandRows, commandsFailed, commandsLoading } from '@/lib/command-rows';
 import { canExportAll } from '@/lib/export-actions';
 import { appliedUiLanguage, t } from '@/lib/i18n';
-import { openShortcutSettings } from '@/lib/open-shortcut-settings';
-import { isMacPlatform } from '@/lib/shortcut-keys';
+import {
+  type CommandRow,
+  commandRows,
+  isMacPlatform,
+  openShortcutSettings,
+} from '@/lib/keyboard-shortcuts';
 import {
   DEFAULT_SORT_SETTINGS,
   duplicateTabOptions,
@@ -402,10 +405,10 @@ export function SettingsPage({
           }
         >
           {commands === null && (
-            <p className="text-xs text-muted-foreground">{commandsLoading()}</p>
+            <p className="text-xs text-muted-foreground">{t('settingsShortcutsLoading')}</p>
           )}
           {commands === 'failed' && (
-            <p className="text-xs text-muted-foreground">{commandsFailed()}</p>
+            <p className="text-xs text-muted-foreground">{t('settingsShortcutsFailed')}</p>
           )}
           {Array.isArray(commands) &&
             commands.map((command) => (

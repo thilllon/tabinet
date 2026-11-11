@@ -1,9 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { reportError } from '@/lib/error-message';
-import { sessionRepo } from '@/lib/session-repo';
-import { isSettingsChange } from '@/lib/settings-change-event';
+import { SETTINGS_KEY, sessionRepo } from '@/lib/session-repo';
 import { DEFAULT_SESSION_SETTINGS, type SessionSettings } from '@/types';
+
+/**
+ * Does this `chrome.storage.onChanged` event touch `sessionSettings`? Mirrors `isIndexChange`
+ * (src/hooks/use-session-index.ts) for the settings key: session settings are device-local
+ * and live in `chrome.storage.local` only, so a `sync` change of the same name is never ours.
+ */
+export function isSettingsChange(
+  changes: Record<string, chrome.storage.StorageChange>,
+  area: string,
+): boolean {
+  return area === 'local' && Object.hasOwn(changes, SETTINGS_KEY);
+}
 
 interface SessionSettingsState {
   /** The stored settings; `DEFAULT_SESSION_SETTINGS` until the first read resolves. */

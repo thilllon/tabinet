@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useCloudAccount } from '@/hooks/use-cloud-account';
 import { useCloudSync } from '@/hooks/use-cloud-sync';
-import { useErrorToast } from '@/hooks/use-toast';
+import { useErrorToast } from '@/hooks/use-toasts';
 import {
   deleteCloudData,
   newPassphraseProblem,

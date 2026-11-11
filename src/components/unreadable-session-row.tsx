@@ -3,11 +3,11 @@ import { useRef, useState } from 'react';
 
 import { DeleteSessionDialog } from '@/components/delete-session-dialog';
 import { Button } from '@/components/ui/button';
-import { useErrorToast } from '@/hooks/use-toast';
+import { useErrorToast } from '@/hooks/use-toasts';
 import { formatDateTime } from '@/lib/display-format';
 import { reportError } from '@/lib/error-message';
 import { joinFacts, t } from '@/lib/i18n';
-import { unreadableSchemaLabel, unreadableSessionMessage } from '@/lib/session-list';
+import { unreadableSchemaLabel } from '@/lib/session-list';
 import { sessionRepo } from '@/lib/session-repo';
 import type { SessionSummary, UnreadableSession } from '@/types';
 
@@ -73,7 +73,7 @@ export function UnreadableSessionRow({
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             {joinFacts([
-              unreadableSessionMessage(),
+              t('sessionUnreadableMessage'),
               unreadableSchemaLabel(unreadable),
               summary.updatedAt > 0 ? t('sessionSavedAt', formatDateTime(summary.updatedAt)) : '',
             ])}

@@ -1,6 +1,6 @@
 import { LocalizedError, reportError } from '@/lib/error-message';
 import { t } from '@/lib/i18n';
-import type { RestoreTarget } from '@/lib/session-restore';
+import { loadSanitizeOptions, type RestoreTarget, sanitizeRestoreUrl } from '@/lib/session-restore';
 
 type ActionResult = { ok: true } | { ok: false; reason: string };
 
@@ -77,4 +77,71 @@ export async function currentWindowTarget(): Promise<RestoreTarget> {
     throw new LocalizedError(t('openNoCurrentWindow'));
   }
   return { kind: 'window', windowId: current.id };
+}
+
+type OpenTabResult = { ok: true } | { ok: false; reason: string };
+
+/**
+ * Opens one saved tab in a background tab, through the same sanitiser a restore uses:
+ * a snapshot url is whatever the page had at capture time (`data:`, `javascript:`, `blob:`, a
+ * foreign extension page), so it must never reach `chrome.tabs.create` unchecked. Never throws -
+ * a refused url and a rejected `tabs.create` both come back as `{ ok: false, reason }` for the
+ * caller to show inline.
+ */
+export async function openTabInBackground(url: string): Promise<OpenTabResult> {
+  try {
+    const options = await loadSanitizeOptions();
+    const safe = sanitizeRestoreUrl(url, options);
+    if (safe === null) {
+      return { ok: false, reason: t('openUnsupportedUrl') };
+    }
+    await chrome.tabs.create({ url: safe, active: false });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, reason: reportError('open tab', err) };
+  }
+}
+
+/**
+ * Clicking a tab in a saved session or a snapshot: a tab manager must not make tabs multiply, so
+ * a page that is already open is brought forward instead of opened a second time. Matching is on
+ * the exact stored URL - a saved `…/issues?page=2` is a different page from `…/issues`, and
+ * guessing which query strings are "the same page" would surprise more often than it would help.
+ */
+
+/** The open tab to jump to, or `undefined` when this URL is not open anywhere. */
+function pickOpenTab(
+  tabs: readonly chrome.tabs.Tab[],
+  url: string,
+): { tabId: number; windowId: number } | undefined {
+  for (const tab of tabs) {
+    if (tab.id === undefined || tab.windowId === undefined) {
+      continue;
+    }
+    // A tab still loading reports its destination in `pendingUrl` and an empty `url`.
+    const current = tab.url !== undefined && tab.url !== '' ? tab.url : tab.pendingUrl;
+    if (current === url) {
+      return { tabId: tab.id, windowId: tab.windowId };
+    }
+  }
+  return undefined;
+}
+
+type OpenSavedTabResult = { ok: true; switched: boolean } | { ok: false; reason: string };
+
+export async function openSavedTab(url: string): Promise<OpenSavedTabResult> {
+  let open: { tabId: number; windowId: number } | undefined;
+  try {
+    // No url filter: a match pattern cannot express "this exact URL, query string and all".
+    open = pickOpenTab(await chrome.tabs.query({}), url);
+  } catch {
+    // Reading the tab list is a convenience here; failing it just means opening a new tab.
+    open = undefined;
+  }
+  if (open === undefined) {
+    const opened = await openTabInBackground(url);
+    return opened.ok ? { ok: true, switched: false } : opened;
+  }
+  const jumped = await goToTab(open.tabId, open.windowId);
+  return jumped.ok ? { ok: true, switched: true } : jumped;
 }

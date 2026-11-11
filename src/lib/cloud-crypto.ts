@@ -10,7 +10,7 @@ import type { CloudKeySetup, CloudRecord, EncryptedPayload } from '@/types';
 /** PBKDF2 rounds for a new setup (OWASP's 2023 figure for PBKDF2-HMAC-SHA256). */
 export const KDF_ITERATIONS = 600_000;
 /** The text encrypted into `check`: decrypting it back proves the passphrase. */
-export const KEY_CHECK_TEXT = 'tabinet-key-check-v1';
+const KEY_CHECK_TEXT = 'tabinet-key-check-v1';
 
 /** The PBKDF2 rounds a key setup may ask for (the sync server refuses any other). */
 export const KDF_MIN_ITERATIONS = 100_000;
@@ -186,7 +186,7 @@ export async function keyMatchesSetup(rawKey: string, setup: CloudKeySetup): Pro
 export type CloudRecordMeta = Pick<CloudRecord, 'kind' | 'id' | 'updatedAt' | 'deleted'>;
 
 /** The prefix of every record's additional data; a new format gets a new version. */
-export const RECORD_AAD_VERSION = 'tabinet-record-v1';
+const RECORD_AAD_VERSION = 'tabinet-record-v1';
 
 /**
  * The AES-GCM additional data of a record: `tabinet-record-v1|<kind>|<id>|<updatedAt>|<0 or 1>`,
