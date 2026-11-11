@@ -156,15 +156,15 @@
     "description": "Label of the switch in Settings (and in the YouTube notes side panel) that grants or removes access to YouTube (needed to pause videos and for YouTube notes)."
   },
   "settingsYoutubeAccessOffHint": {
-    "message": "Aún no está permitido. Hace falta para pausar vídeos; Chrome te lo pregunta antes. Tabinet solo pausa los vídeos y, para las notas de YouTube, lee el tiempo y el título del vídeo y lo lleva al momento de una nota.",
+    "message": "Aún no está permitido. Hace falta para pausar vídeos; Chrome te lo pregunta antes. Tabinet solo pausa los vídeos y, para las notas de YouTube, lee el tiempo y el título del vídeo, lo lleva al momento de una nota y, cuando lo pides, hace una captura.",
     "description": "Grey hint under \"Access to YouTube\" while the access is not granted."
   },
   "settingsYoutubeAccessOnHint": {
-    "message": "Permitido. Haz clic derecho en el icono y elige «$1», o pulsa su combinación de teclas, para pausar todos los vídeos. Tabinet solo pausa los vídeos y, para las notas de YouTube, lee el tiempo y el título del vídeo y lo lleva al momento de una nota.",
+    "message": "Permitido. Haz clic derecho en el icono y elige «$1», o pulsa su combinación de teclas, para pausar todos los vídeos. Tabinet solo pausa los vídeos y, para las notas de YouTube, lee el tiempo y el título del vídeo, lo lleva al momento de una nota y, cuando lo pides, hace una captura.",
     "description": "Grey hint under \"Access to YouTube\" once the access is granted. $1 is the right-click menu item (cmdPauseYoutube), quoted."
   },
   "settingsYoutubeAccessAskedHint": {
-    "message": "«$1» necesita antes este acceso. Permítelo aquí y luego vuelve a elegir «$1» o pulsa su combinación de teclas. Tabinet solo pausa los vídeos y, para las notas de YouTube, lee el tiempo y el título del vídeo y lo lleva al momento de una nota.",
+    "message": "«$1» necesita antes este acceso. Permítelo aquí y luego vuelve a elegir «$1» o pulsa su combinación de teclas. Tabinet solo pausa los vídeos y, para las notas de YouTube, lee el tiempo y el título del vídeo, lo lleva al momento de una nota y, cuando lo pides, hace una captura.",
     "description": "Grey hint under \"Access to YouTube\" when the person arrived from the menu item or shortcut without the access yet: explains why Settings opened. $1 (twice) is the right-click menu item (cmdPauseYoutube), quoted."
   },
   "settingsYoutubeAllowed": {
@@ -2084,7 +2084,7 @@
     "description": "Shown in the YouTube notes side panel when the active tab is not a YouTube video."
   },
   "notesAccessHint": {
-    "message": "Hace falta para leer en qué punto va el vídeo y saltar al momento de una nota; Chrome te lo pregunta antes. Tabinet solo lee el tiempo y el título del vídeo.",
+    "message": "Hace falta para leer en qué punto va el vídeo, saltar al momento de una nota y hacer capturas; Chrome te lo pregunta antes. Tabinet solo lee el tiempo y el título del vídeo, y su imagen cuando haces una captura.",
     "description": "Grey hint under the \"Access to YouTube\" switch in the YouTube notes side panel, while the access is not granted."
   },
   "notesAccessDeclined": {
@@ -2142,5 +2142,45 @@
   "notesPlayerFailed": {
     "message": "No se pudo acceder al vídeo de esta pestaña. Vuelve a cargar la pestaña e inténtalo de nuevo.",
     "description": "Error toast when the notes side panel could not read or move the video in the tab."
+  },
+  "notesScreenshot": {
+    "message": "Captura",
+    "description": "Button in the notes side panel, next to \"Add note at\", that adds a note holding a picture of the video as it is on screen now. Keep it short (one or two words)."
+  },
+  "notesScreenshotTitle": {
+    "message": "Añadir una nota con una imagen del vídeo tal como se ve ahora",
+    "description": "Tooltip of the Screenshot button in the notes side panel."
+  },
+  "notesScreenshotAdded": {
+    "message": "Captura añadida en $1.",
+    "description": "Toast after a screenshot was added to the notes. $1 is its time in the video, such as 1:23."
+  },
+  "notesScreenshotAt": {
+    "message": "Captura en $1",
+    "description": "Title of the dialog that shows a note's screenshot large, and its alternative text. $1 is the note's time in the video, such as 1:23."
+  },
+  "notesEnlargeScreenshot": {
+    "message": "Ampliar la captura en $1",
+    "description": "Screen-reader name and tooltip of a note's small screenshot, a button that shows it large. $1 is the note's time, such as 1:23."
+  },
+  "notesScreenshotMissing": {
+    "message": "La captura ya no está guardada.",
+    "description": "Shown in place of a note's screenshot when the picture could not be found in storage."
+  },
+  "notesScreenshotNoVideo": {
+    "message": "No hay ningún vídeo en esta página que capturar.",
+    "description": "Error toast when the Screenshot button found no video on the YouTube page."
+  },
+  "notesScreenshotNotReady": {
+    "message": "El vídeo aún no muestra imagen. Deja que empiece a reproducirse e inténtalo de nuevo.",
+    "description": "Error toast when the video has not loaded a picture yet, so no screenshot could be taken."
+  },
+  "notesScreenshotBlocked": {
+    "message": "Este vídeo no permite hacer capturas.",
+    "description": "Error toast when Chrome refused to give the picture of the video (a protected video)."
+  },
+  "notesScreenshotFailed": {
+    "message": "No se pudo hacer una captura del vídeo.",
+    "description": "Error toast when a screenshot of the video failed for any other reason."
   }
 }

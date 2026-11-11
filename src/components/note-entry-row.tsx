@@ -2,6 +2,7 @@ import { Pencil, Trash2 } from 'lucide-react';
 import { memo, useState } from 'react';
 
 import { NoteComposer } from '@/components/note-composer';
+import { NoteThumbnail } from '@/components/note-thumbnail';
 import { Button } from '@/components/ui/button';
 import { t } from '@/lib/i18n';
 import { formatTimestamp } from '@/lib/youtube-video';
@@ -19,9 +20,11 @@ interface NoteEntryRowProps {
 }
 
 /**
- * One note: its time (a button that jumps the video there), its text as written (Markdown is not
- * rendered, only kept), and Edit and Delete. Editing swaps the text for the same box a new note
- * is written in. Memoized: the panel redraws on every toast and save, and the list stays as it is.
+ * One note: its time (a button that jumps the video there), its screenshot if it has one (a
+ * click enlarges it), its text as written (Markdown is not rendered, only kept), and Edit and
+ * Delete. A note with a screenshot may have no text. Editing swaps the text for the same box a new
+ * note is written in. Memoized: the panel redraws on every toast and save, and the list stays as
+ * it is.
  */
 export const NoteEntryRow = memo(function NoteEntryRow({
   entry,
@@ -85,17 +88,21 @@ export const NoteEntryRow = memo(function NoteEntryRow({
           </>
         )}
       </div>
+      {entry.imageId !== undefined && <NoteThumbnail imageId={entry.imageId} time={time} />}
       {editing ? (
         <NoteComposer
           label={t('notesEntryLabel', time)}
           defaultValue={entry.text}
+          allowEmpty={entry.imageId !== undefined}
           isMac={isMac}
           saving={saving}
           onSave={save}
           onCancel={() => setEditing(false)}
         />
       ) : (
-        <pre className="font-sans text-sm break-words whitespace-pre-wrap">{entry.text}</pre>
+        entry.text.trim() !== '' && (
+          <pre className="font-sans text-sm break-words whitespace-pre-wrap">{entry.text}</pre>
+        )
       )}
     </li>
   );

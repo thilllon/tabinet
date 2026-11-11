@@ -1,6 +1,6 @@
 import { isRecord } from '@/lib/import-guards';
 import { MalformedRecordError, UnknownSchemaVersionError } from '@/lib/session-migrate';
-import { canonicalVideoUrl } from '@/lib/youtube-video';
+import { canonicalVideoUrl, isImageDataUrl } from '@/lib/youtube-video';
 import {
   NOTES_SCHEMA_VERSION,
   type NoteEntry,
@@ -189,6 +189,13 @@ async function removeBodyAndIndex(notes: VideoNotes): Promise<void> {
   }
 }
 
+async function readImage(imageId: string): Promise<string | undefined> {
+  const key = noteImageKey(imageId);
+  const raw: Record<string, unknown> = await chrome.storage.local.get(key);
+  const value = raw[key];
+  return typeof value === 'string' && isImageDataUrl(value) ? value : undefined;
+}
+
 function imageIdsOf(entries: readonly NoteEntry[]): string[] {
   return entries.flatMap((entry) => (entry.imageId === undefined ? [] : [entry.imageId]));
 }
@@ -225,7 +232,15 @@ export interface NoteVideo {
 export interface NewNote {
   at: number;
   text: string;
-  imageId?: string;
+  /** A screenshot to keep with the note, as a base64 image data URL (`isImageDataUrl`). */
+  image?: string;
+}
+
+/** A deleted note as `removeEntry` hands it back, with its picture, so Undo can put both back. */
+export interface RemovedNote {
+  entry: NoteEntry;
+  /** The screenshot's data URL, when the note had one and it was still stored. */
+  image?: string;
 }
 
 export interface NoteEdit {
@@ -247,9 +262,14 @@ export const notesRepo = {
   /**
    * Adds one note to a video, creating the video's notes on the first one, and returns the stored
    * entry. The title is refreshed from `video` when it carries one (YouTube titles change).
+   * A screenshot is stored first, in the same lock, so `reconcile()` can never find it between
+   * its write and the note that references it. Rejects an image that is not an image data URL.
    */
   addEntry(video: NoteVideo, note: NewNote, now: number = Date.now()): Promise<NoteEntry> {
     return withNotesLock(async () => {
+      if (note.image !== undefined && !isImageDataUrl(note.image)) {
+        throw new MalformedRecordError('A note screenshot must be an image data URL');
+      }
       const existing = await readBody(video.videoId);
       const entry: NoteEntry = {
         id: crypto.randomUUID(),
@@ -258,8 +278,10 @@ export const notesRepo = {
         createdAt: now,
         updatedAt: now,
       };
-      if (note.imageId !== undefined) {
-        entry.imageId = note.imageId;
+      if (note.image !== undefined) {
+        const imageId = crypto.randomUUID();
+        await chrome.storage.local.set({ [noteImageKey(imageId)]: note.image });
+        entry.imageId = imageId;
       }
       const notes: VideoNotes = existing ?? {
         schemaVersion: NOTES_SCHEMA_VERSION,
@@ -281,18 +303,21 @@ export const notesRepo = {
   },
 
   /**
-   * Puts back an entry exactly as it was (the Undo of a deletion), creating the video's notes
-   * again if that was its last one. An entry with the same id is replaced. Its image is kept only
-   * if it is still stored.
+   * Puts back a deleted note exactly as it was (the Undo of a deletion), with its screenshot,
+   * creating the video's notes again if that was its last one. An entry with the same id is
+   * replaced. Without the picture's data (or with data that is not an image) the reference is kept
+   * only if an image is still stored under it.
    */
-  restoreEntry(video: NoteVideo, entry: NoteEntry, now: number = Date.now()): Promise<void> {
+  restoreEntry(video: NoteVideo, removed: RemovedNote, now: number = Date.now()): Promise<void> {
     return withNotesLock(async () => {
+      const { entry, image } = removed;
       const existing = await readBody(video.videoId);
       const restored: NoteEntry = { ...entry };
       if (restored.imageId !== undefined) {
         const key = noteImageKey(restored.imageId);
-        const raw: Record<string, unknown> = await chrome.storage.local.get(key);
-        if (typeof raw[key] !== 'string') {
+        if (image !== undefined && isImageDataUrl(image)) {
+          await chrome.storage.local.set({ [key]: image });
+        } else if ((await readImage(restored.imageId)) === undefined) {
           delete restored.imageId;
         }
       }
@@ -342,30 +367,37 @@ export const notesRepo = {
   },
 
   /**
-   * Deletes one note and its image, and returns it (for an Undo), or `undefined` when it was
+   * Deletes one note and its image, and returns both (for an Undo), or `undefined` when it was
    * already gone. Deleting a video's last note deletes the video's notes.
    */
   removeEntry(
     videoId: string,
     entryId: string,
     now: number = Date.now(),
-  ): Promise<NoteEntry | undefined> {
+  ): Promise<RemovedNote | undefined> {
     return withNotesLock(async () => {
       const notes = await readBody(videoId);
       const target = notes?.entries.find((entry) => entry.id === entryId);
       if (notes === undefined || target === undefined) {
         return undefined;
       }
+      const removed: RemovedNote = { entry: target };
+      if (target.imageId !== undefined) {
+        const image = await readImage(target.imageId);
+        if (image !== undefined) {
+          removed.image = image;
+        }
+      }
       const rest = notes.entries.filter((entry) => entry.id !== entryId);
       if (rest.length === 0) {
         await removeBodyAndIndex(notes);
-        return target;
+        return removed;
       }
       await writeBodyAndIndex({ ...notes, updatedAt: after(notes.updatedAt, now), entries: rest });
       if (target.imageId !== undefined) {
         await chrome.storage.local.remove(noteImageKey(target.imageId));
       }
-      return target;
+      return removed;
     });
   },
 
@@ -384,23 +416,9 @@ export const notesRepo = {
     });
   },
 
-  /**
-   * Stores a screenshot (a data URL) and returns its id, to be passed to `addEntry`. Stored before
-   * the entry that references it; if that write never happens, `reconcile()` removes it.
-   */
-  putImage(dataUrl: string): Promise<string> {
-    return withNotesLock(async () => {
-      const imageId = crypto.randomUUID();
-      await chrome.storage.local.set({ [noteImageKey(imageId)]: dataUrl });
-      return imageId;
-    });
-  },
-
-  async getImage(imageId: string): Promise<string | undefined> {
-    const key = noteImageKey(imageId);
-    const raw: Record<string, unknown> = await chrome.storage.local.get(key);
-    const value = raw[key];
-    return typeof value === 'string' ? value : undefined;
+  /** A note's screenshot as an image data URL, or `undefined` when it is gone or not an image. */
+  getImage(imageId: string): Promise<string | undefined> {
+    return readImage(imageId);
   },
 
   /**

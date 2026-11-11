@@ -1,4 +1,5 @@
 import { isRecord } from '@/lib/import-guards';
+import { isImageDataUrl } from '@/lib/youtube-video';
 
 /**
  * The YouTube notes panel's view of the player in a tab: read its time, title, length and whether
@@ -110,4 +111,130 @@ export function pausePlayer(tabId: number): Promise<PlayerState | null> {
 
 export function playPlayer(tabId: number): Promise<PlayerState | null> {
   return controlPlayer(tabId, 'play');
+}
+
+// ---------------------------------------------------------------------------
+// Screenshots
+// ---------------------------------------------------------------------------
+
+/** Widest screenshot kept, in pixels; a larger frame is scaled down to it. */
+export const FRAME_MAX_WIDTH = 1280;
+/** WebP quality of a screenshot, 0 to 1. */
+export const FRAME_QUALITY = 0.8;
+
+/** Why a frame could not be taken. */
+export type FrameFailure =
+  /** The page has no video. */
+  | 'noVideo'
+  /** The video has no picture yet (not loaded, or no size). */
+  | 'notReady'
+  /** The browser refused to read the picture (a tainted canvas). */
+  | 'blocked'
+  /** Anything else: no 2D canvas, or the encoder gave no image. */
+  | 'failed';
+
+export type FrameResult =
+  | {
+      ok: true;
+      /** The picture, a `data:image/...;base64,` URL (WebP in Chrome). */
+      dataUrl: string;
+      width: number;
+      height: number;
+      /** Seconds into the video when the frame was taken. */
+      currentTime: number;
+      /** `document.title`, as for `PlayerState.title`. */
+      title: string;
+    }
+  | { ok: false; reason: FrameFailure };
+
+/**
+ * Runs inside the YouTube page, like `controlPlayerInPage`, and so is self-contained: it repeats
+ * the way that function finds the player. Draws the video's current frame into a canvas, scaled
+ * down to at most `maxWidth` pixels wide, and returns it as a WebP data URL at `quality`.
+ * YouTube's video comes through Media Source Extensions from its own origin, so the canvas is not
+ * tainted; a page where it is anyway makes `toDataURL` throw a `SecurityError`, reported as
+ * `blocked`. Nothing is left in the page.
+ */
+export function captureFrameInPage(maxWidth: number, quality: number): FrameResult {
+  const videos = Array.from(document.querySelectorAll<HTMLVideoElement>('video'));
+  const video =
+    videos.find(
+      (element) =>
+        typeof element.closest === 'function' && element.closest('#movie_player') !== null,
+    ) ?? videos[0];
+  if (video === undefined) {
+    return { ok: false, reason: 'noVideo' };
+  }
+  const sourceWidth = video.videoWidth;
+  const sourceHeight = video.videoHeight;
+  // HAVE_CURRENT_DATA (2): a frame is there to draw.
+  if (!(sourceWidth > 0) || !(sourceHeight > 0) || !(video.readyState >= 2)) {
+    return { ok: false, reason: 'notReady' };
+  }
+  const scale = sourceWidth > maxWidth ? maxWidth / sourceWidth : 1;
+  const width = Math.max(1, Math.round(sourceWidth * scale));
+  const height = Math.max(1, Math.round(sourceHeight * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext('2d');
+  if (context === null) {
+    return { ok: false, reason: 'failed' };
+  }
+  let dataUrl: string;
+  try {
+    context.drawImage(video, 0, 0, width, height);
+    dataUrl = canvas.toDataURL('image/webp', quality);
+  } catch (err) {
+    const blocked =
+      typeof err === 'object' && err !== null && 'name' in err && err.name === 'SecurityError';
+    return { ok: false, reason: blocked ? 'blocked' : 'failed' };
+  }
+  // An encoder that cannot write the type falls back to PNG; an empty canvas gives "data:,".
+  if (!dataUrl.startsWith('data:image/')) {
+    return { ok: false, reason: 'failed' };
+  }
+  return {
+    ok: true,
+    dataUrl,
+    width,
+    height,
+    currentTime: Number.isFinite(video.currentTime) ? video.currentTime : 0,
+    title: typeof document.title === 'string' ? document.title : '',
+  };
+}
+
+const FRAME_FAILURES: readonly FrameFailure[] = ['noVideo', 'notReady', 'blocked', 'failed'];
+
+function isFrameResult(value: unknown): value is FrameResult {
+  if (!isRecord(value)) {
+    return false;
+  }
+  if (value.ok === false) {
+    return FRAME_FAILURES.some((reason) => reason === value.reason);
+  }
+  return (
+    value.ok === true &&
+    typeof value.dataUrl === 'string' &&
+    isImageDataUrl(value.dataUrl) &&
+    typeof value.width === 'number' &&
+    typeof value.height === 'number' &&
+    typeof value.currentTime === 'number' &&
+    typeof value.title === 'string'
+  );
+}
+
+/**
+ * Takes the current frame of the video in `tabId` (see `captureFrameInPage`). Resolves with the
+ * picture or the reason there is none; rejects when Chrome refuses the injection (no access to
+ * YouTube, the tab closed or is discarded).
+ */
+export async function captureFrame(tabId: number): Promise<FrameResult> {
+  const results = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: captureFrameInPage,
+    args: [FRAME_MAX_WIDTH, FRAME_QUALITY],
+  });
+  const result: unknown = results[0]?.result;
+  return isFrameResult(result) ? result : { ok: false, reason: 'failed' };
 }

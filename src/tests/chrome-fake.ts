@@ -93,6 +93,23 @@ export interface FakeMediaElement {
   pause(): void;
   /** Starts playing; like the real one it returns a promise. */
   play(): Promise<void>;
+  /** The picture's size in pixels; 0 until the video has loaded (audio is always 0). */
+  videoWidth: number;
+  videoHeight: number;
+  /** `HTMLMediaElement.readyState`: 0 (nothing) to 4; a frame can be drawn from 2. */
+  readyState: number;
+  /** Drawing it taints a canvas, so `toDataURL` throws a `SecurityError`, as in a real page. */
+  tainted: boolean;
+}
+
+/** A canvas the fake page made, recorded in `state.pageCanvases` with what was drawn on it. */
+export interface FakeCanvas {
+  width: number;
+  height: number;
+  /** The `drawImage` calls: the element and the size it was drawn at. */
+  drawn: { source: unknown; width: number; height: number }[];
+  /** The type and quality `toDataURL` was asked for. */
+  encoded: { type: string; quality: unknown }[];
 }
 
 /** A playing (or paused) media element at `currentTime`, for `state.pageMedia`. */
@@ -102,13 +119,29 @@ export function fakeMedia(
     paused = false,
     currentTime = 0,
     duration = Number.NaN,
-  }: { paused?: boolean; currentTime?: number; duration?: number } = {},
+    videoWidth = 0,
+    videoHeight = 0,
+    readyState = videoWidth > 0 ? 4 : 0,
+    tainted = false,
+  }: {
+    paused?: boolean;
+    currentTime?: number;
+    duration?: number;
+    videoWidth?: number;
+    videoHeight?: number;
+    readyState?: number;
+    tainted?: boolean;
+  } = {},
 ): FakeMediaElement {
   return {
     tagName,
     paused,
     currentTime,
     duration,
+    videoWidth,
+    videoHeight,
+    readyState,
+    tainted,
     pause() {
       this.paused = true;
     },
@@ -154,6 +187,8 @@ interface FakeState {
   pageMedia: Map<number, FakeMediaElement[]>;
   /** Every `chrome.scripting.executeScript` call that reached a page, by tab id. */
   injectedTabs: number[];
+  /** Every canvas an injected function created, in order. */
+  pageCanvases: FakeCanvas[];
   /**
    * Every `chrome.sidePanel.open` call, in order. Chrome requires a user gesture for it, which the
    * fake does not model; a test checks the call was made straight from the menu or command.
@@ -311,6 +346,7 @@ export function createChromeFake(): ChromeFake {
     permissionAnswer: true,
     pageMedia: new Map(),
     injectedTabs: [],
+    pageCanvases: [],
     sidePanelOpens: [],
     sidePanelBehavior: { openPanelOnActionClick: false },
     authTokenAnswer: new Error('The user did not approve access.'),
@@ -1255,6 +1291,56 @@ export function createChromeFake(): ChromeFake {
   /** Injections waiting on a frozen tab, by tab id; `thawTab` lets them run. */
   const frozenWaiters = new Map<number, (() => void)[]>();
 
+  /**
+   * A canvas in a fake page: `getContext('2d').drawImage` records what was drawn, and
+   * `toDataURL` answers like Chrome's: a SecurityError once a tainted element was drawn, `data:,`
+   * for a canvas with no size, else a data URL of the type asked for whose payload spells out the
+   * size and quality (`<width>x<height>q<quality>`, base64).
+   */
+  function fakeCanvas() {
+    const record: FakeCanvas = { width: 300, height: 150, drawn: [], encoded: [] };
+    state.pageCanvases.push(record);
+    let tainted = false;
+    return {
+      get width() {
+        return record.width;
+      },
+      set width(value: number) {
+        record.width = value;
+      },
+      get height() {
+        return record.height;
+      },
+      set height(value: number) {
+        record.height = value;
+      },
+      getContext(kind: string) {
+        if (kind !== '2d') {
+          return null;
+        }
+        return {
+          drawImage(source: unknown, _x: number, _y: number, width: number, height: number) {
+            if (typeof source === 'object' && source !== null && 'tainted' in source) {
+              tainted ||= source.tainted === true;
+            }
+            record.drawn.push({ source, width, height });
+          },
+        };
+      },
+      toDataURL(type = 'image/png', quality?: unknown) {
+        record.encoded.push({ type, quality });
+        if (tainted) {
+          throw new DOMException('Tainted canvases may not be exported.', 'SecurityError');
+        }
+        if (record.width === 0 || record.height === 0) {
+          return 'data:,';
+        }
+        const payload = btoa(`${record.width}x${record.height}q${String(quality)}`);
+        return `data:${type};base64,${payload}`;
+      },
+    };
+  }
+
   const scripting = {
     async executeScript<Args extends unknown[], Result>(
       injection: chrome.scripting.ScriptInjection<Args, Result>,
@@ -1291,6 +1377,12 @@ export function createChromeFake(): ChromeFake {
             .map((part) => part.trim().toUpperCase())
             .filter((part) => part !== '');
           return media.filter((element) => wanted.includes(element.tagName));
+        },
+        createElement(tagName: string) {
+          if (tagName.toLowerCase() !== 'canvas') {
+            throw new Error(`The fake page only creates a canvas, not <${tagName}>.`);
+          }
+          return fakeCanvas();
         },
       };
       const previous = Object.getOwnPropertyDescriptor(globalThis, 'document');

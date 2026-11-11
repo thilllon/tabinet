@@ -128,3 +128,8 @@ export function sameActiveVideo(a: ActiveVideo | null, b: ActiveVideo | null): b
   }
   return a.tabId === b.tabId && a.videoId === b.videoId && a.title === b.title;
 }
+
+/** A base64 `data:` URL of a WebP, PNG or JPEG picture: the only images notes keep. */
+export function isImageDataUrl(value: string): boolean {
+  return /^data:image\/(?:webp|png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/.test(value);
+}
