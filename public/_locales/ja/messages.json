@@ -1882,5 +1882,21 @@
   "settingsAccountStoreOnlyHint": {
     "message": "ログインは Chrome ウェブストアからインストールした版でのみ使えます。",
     "description": "Grey hint under \"Google account\" in Settings in an unpacked or developer build, where Google sign-in cannot work; the Sign in button is disabled."
+  },
+  "shortcutPromptMessage": {
+    "message": "Chrome は $1 の推奨ショートカットを設定していません。Chrome で設定できます。",
+    "description": "One-time toast on the app page when Chrome left suggested keyboard shortcuts unbound (it applies them only on a fresh install). $1 is a list of shortcutPromptItem entries joined with the language's \"and\"."
+  },
+  "shortcutPromptItem": {
+    "message": "$1($2)",
+    "description": "One entry of the list in shortcutPromptMessage. $1 is the command's short name, $2 its suggested key (e.g. Option + Shift + A)."
+  },
+  "shortcutPromptSortName": {
+    "message": "並べ替え",
+    "description": "Short name of the sort command (the toolbar icon click) in shortcutPromptMessage."
+  },
+  "shortcutPromptButton": {
+    "message": "キーを設定",
+    "description": "Button on the shortcuts toast that opens Chrome's keyboard shortcuts page. Keep it short."
   }
 }

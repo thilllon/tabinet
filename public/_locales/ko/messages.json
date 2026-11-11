@@ -1874,5 +1874,21 @@
   "settingsAccountStoreOnlyHint": {
     "message": "로그인은 Chrome 웹 스토어에서 설치한 버전에서만 됩니다.",
     "description": "Grey hint under \"Google account\" in Settings in an unpacked or developer build, where Google sign-in cannot work; the Sign in button is disabled."
+  },
+  "shortcutPromptMessage": {
+    "message": "Chrome이 $1의 추천 단축키를 설정하지 않았습니다. Chrome에서 설정할 수 있습니다.",
+    "description": "One-time toast on the app page when Chrome left suggested keyboard shortcuts unbound (it applies them only on a fresh install). $1 is a list of shortcutPromptItem entries joined with the language's \"and\"."
+  },
+  "shortcutPromptItem": {
+    "message": "$1($2)",
+    "description": "One entry of the list in shortcutPromptMessage. $1 is the command's short name, $2 its suggested key (e.g. Option + Shift + A)."
+  },
+  "shortcutPromptSortName": {
+    "message": "정렬",
+    "description": "Short name of the sort command (the toolbar icon click) in shortcutPromptMessage."
+  },
+  "shortcutPromptButton": {
+    "message": "단축키 설정",
+    "description": "Button on the shortcuts toast that opens Chrome's keyboard shortcuts page. Keep it short."
   }
 }

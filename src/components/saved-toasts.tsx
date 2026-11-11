@@ -5,6 +5,8 @@ import { cn } from '@/lib/utils';
 
 interface SavedToastsProps {
   toasts: readonly Toast[];
+  /** Takes a toast down; called after its button ran. */
+  onDismiss(id: number): void;
 }
 
 /**
@@ -25,7 +27,7 @@ interface SavedToastsProps {
  * re-using the same region reads each new line once instead of registering three regions that
  * re-announce the whole stack.
  */
-export function SavedToasts({ toasts }: SavedToastsProps) {
+export function SavedToasts({ toasts, onDismiss }: SavedToastsProps) {
   return (
     <div
       // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a live region for a stack of toasts, not a form's <output>.
@@ -51,6 +53,19 @@ export function SavedToasts({ toasts }: SavedToastsProps) {
             )
           )}
           {toast.message}
+          {toast.action !== undefined && (
+            // The stack ignores the pointer; only the button takes clicks back.
+            <button
+              type="button"
+              className="pointer-events-auto shrink-0 rounded-full px-2 py-0.5 font-medium text-primary underline-offset-2 hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+              onClick={() => {
+                toast.action?.run();
+                onDismiss(toast.id);
+              }}
+            >
+              {toast.action.label}
+            </button>
+          )}
         </div>
       ))}
     </div>

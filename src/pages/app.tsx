@@ -42,6 +42,7 @@ import {
 import { t } from '@/lib/i18n';
 import { importedNotice } from '@/lib/import-preview';
 import { openTabInBackground } from '@/lib/open-in-background';
+import { openShortcutSettings } from '@/lib/open-shortcut-settings';
 import { needsRestoreConfirm } from '@/lib/restore-summary';
 import { browserHandlesClick } from '@/lib/row-link';
 import { nothingToSaveNotice } from '@/lib/save-notice';
@@ -62,9 +63,11 @@ import { pickWindow, recoveredSnapshot, splitByKind } from '@/lib/session-list';
 import { ensureUniqueName } from '@/lib/session-naming';
 import { sessionRepo } from '@/lib/session-repo';
 import type { OpenScope, RestoreTarget } from '@/lib/session-restore';
+import { isMacPlatform } from '@/lib/shortcut-keys';
+import { takeShortcutPrompt } from '@/lib/shortcut-prompt';
 import { readSidebarWidth, writeSidebarWidth } from '@/lib/sidebar-width';
 import { isQuotaError } from '@/lib/storage-quota';
-import { NOTICE_MS } from '@/lib/toast-queue';
+import { ACTION_MS, NOTICE_MS } from '@/lib/toast-queue';
 import { currentWindowTarget, goToTab } from '@/lib/window-actions';
 import { OpenTabsView } from '@/pages/open-tabs-view';
 import { SessionDetail } from '@/pages/session-detail';
@@ -133,12 +136,28 @@ export function App() {
   const [importOpen, setImportOpen] = useState(false);
   // Notices ("Exported …", "Saved …") are toasts, not a line above the content: a line pushes the
   // whole pane down when it appears and back up when it goes, which reads as the page shaking.
-  const { toasts, show } = useSavedToasts();
+  const { toasts, show, dismiss: dismissToast } = useSavedToasts();
   const setNotice = useCallback(
     (message: string, key?: string) => show(message, { ms: NOTICE_MS, plain: true, key }),
     [show],
   );
   const [error, setError] = useState<string | undefined>(undefined);
+
+  // Once per command: a suggested key Chrome left unbound (it binds them on a fresh install only).
+  useEffect(() => {
+    takeShortcutPrompt(isMacPlatform(navigator.userAgent)).then(
+      (message) => {
+        if (message !== undefined) {
+          show(message, {
+            ms: ACTION_MS,
+            plain: true,
+            action: { label: t('shortcutPromptButton'), run: () => void openShortcutSettings() },
+          });
+        }
+      },
+      (err: unknown) => console.warn('[tabinet] shortcut prompt:', err),
+    );
+  }, [show]);
   // A write that failed on the storage quota: one fixed sentence plus a way to the meter, rather
   // than Chrome's "Resource::kQuotaBytes quota exceeded" in the error banner.
   const [quotaFull, setQuotaFull] = useState(false);
@@ -518,7 +537,7 @@ export function App() {
 
   // One stack for the whole page, drawn inside the Settings dialog while that is open for the
   // same reason as the progress toast below.
-  const toastStack = <SavedToasts toasts={toasts} />;
+  const toastStack = <SavedToasts toasts={toasts} onDismiss={dismissToast} />;
 
   const progressToast = (
     <ProgressToast
