@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { dropToast, TOAST_MS, type Toast, upsertToast } from '@/lib/toast-queue';
+import { dropToast, TOAST_MS, type Toast, type ToastAction, upsertToast } from '@/lib/toast-queue';
 
 export interface ToastOptions {
   /** How long it stays up. Default `TOAST_MS`. */
@@ -14,12 +14,16 @@ export interface ToastOptions {
   key?: string;
   /** An error rather than a notice. */
   tone?: 'error';
+  /** A button on the toast (give it a longer `ms`, e.g. `ACTION_MS`). */
+  action?: ToastAction;
 }
 
 interface SavedToasts {
   toasts: Toast[];
   /** Shows one toast; it removes itself after `options.ms`. */
   show(message: string, options?: ToastOptions): void;
+  /** Takes one toast down now (its button was pressed). */
+  dismiss(id: number): void;
 }
 
 /**
@@ -48,14 +52,14 @@ export function useSavedToasts(): SavedToasts {
   }, []);
 
   const show = useCallback((message: string, options: ToastOptions = {}) => {
-    const { ms = TOAST_MS, plain, key, tone } = options;
+    const { ms = TOAST_MS, plain, key, tone, action } = options;
     const standing = key === undefined ? undefined : keyed.current.get(key);
     const id = standing !== undefined && timers.current.has(standing) ? standing : nextId.current++;
     if (key !== undefined) {
       keyed.current.set(key, id);
     }
     clearTimeout(timers.current.get(id));
-    setToasts((list) => upsertToast(list, { id, message, plain, tone }));
+    setToasts((list) => upsertToast(list, { id, message, plain, tone, action }));
     timers.current.set(
       id,
       setTimeout(() => {
@@ -66,5 +70,11 @@ export function useSavedToasts(): SavedToasts {
     );
   }, []);
 
-  return { toasts, show };
+  const dismiss = useCallback((id: number) => {
+    clearTimeout(timers.current.get(id));
+    timers.current.delete(id);
+    setToasts((list) => dropToast(list, id));
+  }, []);
+
+  return { toasts, show, dismiss };
 }

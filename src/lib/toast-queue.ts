@@ -18,6 +18,9 @@ export const NOTICE_MS = 4000;
 /** How long an error stays up: it has to be read, and nothing else keeps it on screen. */
 export const ERROR_MS = 8000;
 
+/** How long a toast with a button stays up: long enough to read it and reach the button. */
+export const ACTION_MS = 12000;
+
 /** How many may be stacked at once; a fourth pushes the oldest out. */
 export const MAX_TOASTS = 3;
 
@@ -29,6 +32,13 @@ export interface Toast {
   plain?: boolean;
   /** An error: red-tinted, with a warning sign instead of the tick. */
   tone?: 'error';
+  /** A button on the toast; pressing it runs `run` and closes the toast. */
+  action?: ToastAction;
+}
+
+export interface ToastAction {
+  label: string;
+  run(): void;
 }
 
 /**
