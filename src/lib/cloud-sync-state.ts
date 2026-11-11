@@ -136,7 +136,7 @@ export function parseSyncMeta(value: unknown): CloudSyncMeta | undefined {
 }
 
 /** The context in `stored` (a `storage.local.get` result), or `null` when not ready. Pure. */
-export function contextFrom(stored: Record<string, unknown>, now: number): SyncContext | null {
+function contextFrom(stored: Record<string, unknown>, now: number): SyncContext | null {
   const account: unknown = stored[CLOUD_ACCOUNT_KEY];
   const rawKey: unknown = stored[CLOUD_SYNC_KEY];
   if (!isCloudAccount(account) || account.expiresAt <= now) {

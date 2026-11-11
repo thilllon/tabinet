@@ -1,6 +1,6 @@
 import { type KeySetup, RECORD_KINDS, type RecordInput, type RecordKind } from './types.js';
 
-export const MAX_RECORDS_PER_REQUEST = 100;
+const MAX_RECORDS_PER_REQUEST = 100;
 /**
  * The largest request body accepted, in bytes (4 MiB). Vercel refuses a body over 4.5 MB before
  * the function runs, with no CORS headers and no JSON, so the limit a client sizes its batches to
@@ -8,10 +8,10 @@ export const MAX_RECORDS_PER_REQUEST = 100;
  */
 export const MAX_BODY_BYTES = 4 * 1024 * 1024;
 /** The longest ciphertext accepted, counted in base64 characters (1 MiB). */
-export const MAX_CIPHERTEXT_CHARS = 1024 * 1024;
-export const MIN_ITERATIONS = 100_000;
-export const MAX_ITERATIONS = 10_000_000;
-export const DEFAULT_RECORDS_LIMIT = 500;
+const MAX_CIPHERTEXT_CHARS = 1024 * 1024;
+const MIN_ITERATIONS = 100_000;
+const MAX_ITERATIONS = 10_000_000;
+const DEFAULT_RECORDS_LIMIT = 500;
 
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 // One character class, not a group of four: it stays linear on a 1 MiB string.
@@ -45,7 +45,7 @@ function base64Within(value: unknown, min: number, max: number): value is string
 }
 
 /** The longest access token accepted. Google documents up to 2048 bytes; this leaves room. */
-export const MAX_ACCESS_TOKEN_LENGTH = 4096;
+const MAX_ACCESS_TOKEN_LENGTH = 4096;
 
 /** The Google access token in a sign-in body `{ accessToken }`, or null. */
 export function parseAccessToken(body: unknown): string | null {

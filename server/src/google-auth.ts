@@ -4,7 +4,7 @@ import type { GoogleIdentity } from './types.js';
 export const GOOGLE_TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo';
 
 /** How long Google is given to answer before the sign-in fails with a 500. */
-export const TOKENINFO_TIMEOUT_MS = 10_000;
+const TOKENINFO_TIMEOUT_MS = 10_000;
 
 /** The statuses tokeninfo answers for a token it does not accept (invalid, expired, revoked). */
 const TOKEN_REFUSED_STATUSES: ReadonlySet<number> = new Set([400, 401]);

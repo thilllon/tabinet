@@ -5,11 +5,12 @@ import type { RestoreProgress } from '@/hooks/use-restore';
 import { formatNumber, joinFacts, t, tp } from '@/lib/i18n';
 import {
   formatRate,
+  formatRestoreSummary,
   formatWindowLine,
-  lazyRestoreHint,
   lazyRestoreSummaryHint,
-} from '@/lib/restore-progress';
-import { formatRestoreSummary, restoreErrorLine, splitRestoreErrors } from '@/lib/restore-summary';
+  restoreErrorLine,
+  splitRestoreErrors,
+} from '@/lib/restore-messages';
 import type { RestoreResult } from '@/lib/session-restore';
 
 interface ProgressToastProps {
@@ -62,7 +63,9 @@ export function ProgressToast({
           <div className="flex-1 text-sm">
             {tp('restoreProgress', progress.total, formatNumber(progress.done))}
             {pace !== '' && <p className="text-xs text-muted-foreground">{pace}</p>}
-            {progress.lazy && <p className="text-xs text-muted-foreground">{lazyRestoreHint()}</p>}
+            {progress.lazy && (
+              <p className="text-xs text-muted-foreground">{t('restoreLazyHint')}</p>
+            )}
             <div className="mt-2 h-1.5 overflow-hidden rounded bg-muted">
               <div
                 className="h-full bg-primary transition-[width]"

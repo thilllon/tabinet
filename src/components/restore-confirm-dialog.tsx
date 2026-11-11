@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { joinSentences, t, tp } from '@/lib/i18n';
-import { countTabs, formatRestoreDestination } from '@/lib/restore-summary';
+import { countTabs, formatRestoreDestination } from '@/lib/restore-messages';
 import { isLazyRestore, type RestoreTarget } from '@/lib/session-restore';
 import type { Session, SessionSettings } from '@/types';
 

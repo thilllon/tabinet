@@ -4,6 +4,7 @@ import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { t } from '@/lib/i18n';
+import { isComposingEnter } from '@/lib/ime-composition';
 import { isEditableTarget } from '@/lib/search-nav';
 
 /** The query is committed 100 ms after the last keystroke, not on every one. */
@@ -90,7 +91,7 @@ export function SearchBar({ onQueryChange, onMove, onActivate }: SearchBarProps)
 
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
     // Enter (and Escape) while an IME composition is open belongs to the composition.
-    if (event.nativeEvent.isComposing || event.keyCode === 229) {
+    if (isComposingEnter(event)) {
       return;
     }
     if (event.key === 'Escape') {

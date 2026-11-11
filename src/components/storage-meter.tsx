@@ -5,7 +5,7 @@ import { DeleteAllDataDialog } from '@/components/delete-all-data-dialog';
 import { DeleteAllHistoryDialog } from '@/components/delete-all-history-dialog';
 import { Button } from '@/components/ui/button';
 import { isIndexChange } from '@/hooks/use-session-index';
-import { useErrorToast } from '@/hooks/use-toast';
+import { useErrorToast } from '@/hooks/use-toasts';
 import { reportError } from '@/lib/error-message';
 import { t, tp } from '@/lib/i18n';
 import { sessionRepo } from '@/lib/session-repo';

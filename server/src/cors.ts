@@ -2,10 +2,7 @@ const ALLOWED_METHODS = 'GET, POST, PUT, DELETE';
 const ALLOWED_HEADERS = 'Authorization, Content-Type';
 
 /** Whether a request's Origin is one we answer with CORS headers (exact match only). */
-export function isAllowedOrigin(
-  origin: string | null,
-  allowed: readonly string[],
-): origin is string {
+function isAllowedOrigin(origin: string | null, allowed: readonly string[]): origin is string {
   return origin !== null && allowed.includes(origin);
 }
 

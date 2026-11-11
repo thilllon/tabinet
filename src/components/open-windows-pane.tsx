@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { WindowSelectAll } from '@/components/window-select-all';
 import { WindowTree } from '@/components/window-tree';
-import { useErrorToast } from '@/hooks/use-toast';
+import { useErrorToast } from '@/hooks/use-toasts';
 import { formatNumber, t } from '@/lib/i18n';
 import type { OpenWindowView } from '@/lib/open-windows';
 import { selectionState, type TabSelection } from '@/lib/tab-selection';

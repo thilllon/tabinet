@@ -5,7 +5,7 @@ import { runMigrations } from '../src/migrations.js';
 import { createSqlStore, type Query, type Store } from '../src/store.js';
 
 export const ORIGIN = 'chrome-extension://bmbpmnfhfbdjdjpblimidmbohgccmjdg';
-export const BASE = 'https://sync.example.test';
+const BASE = 'https://sync.example.test';
 
 /** A real Postgres (PGlite) with the real migrations applied. */
 export async function createTestDb(): Promise<{ db: PGlite; query: Query; store: Store }> {

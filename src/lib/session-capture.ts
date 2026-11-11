@@ -1,3 +1,4 @@
+import { t } from '@/lib/i18n';
 import { contentHash } from '@/lib/session-hash';
 import { defaultSessionName } from '@/lib/session-naming';
 import { isSuspendedUrl, unwrapSuspendedUrl } from '@/lib/suspended-url';
@@ -324,4 +325,12 @@ export async function captureSessionWithTabIds(
     },
     tabIds,
   };
+}
+
+/** What a save that captured nothing says, worded for what was being saved. */
+export function nothingToSaveNotice(scope: CaptureScope): string {
+  if (typeof scope === 'object' && 'tabIds' in scope) {
+    return t('appNothingToSaveTabs');
+  }
+  return scope === 'all' ? t('appNothingToSaveAll') : t('appNothingToSaveWindow');
 }

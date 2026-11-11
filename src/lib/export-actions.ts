@@ -94,19 +94,6 @@ export function copiedMarkdownNotice(count: number): string {
   return tp('expCopiedMarkdown', count);
 }
 
-/**
- * The tab row's own "Copy link": one url, so it is a sentence rather than a count -
- * "Copied 1 link." would be counting to one. The multi-link notices above stay as they are.
- */
-export function copiedLinkNotice(): string {
-  return t('expCopiedLink');
-}
-
-/** Nothing was in scope - an empty group, or a window whose tabs were all removed. */
-export function nothingToExportNotice(): string {
-  return t('expNothingToExport');
-}
-
 // ---------------------------------------------------------------------------
 // Export all (JSON backup)
 // ---------------------------------------------------------------------------
@@ -153,11 +140,6 @@ export function exportAllNotice(exported: number, skipped: number): string {
  */
 export function canExportAll(summaries: readonly SessionSummary[]): boolean {
   return summaries.some((summary) => summary.unreadable === undefined);
-}
-
-/** Every body vanished between the click and the read (deleted in another window meanwhile). */
-export function nothingToExportAllNotice(): string {
-  return t('expNothingToExportAll');
 }
 
 /**

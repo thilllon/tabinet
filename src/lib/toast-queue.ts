@@ -6,7 +6,7 @@
  * three confirmations, not one flickering box, and must not grow without end either.
  *
  * Kept pure and separate from the component so the capping and expiry rules can be tested without
- * a DOM - the timers themselves live in `useSavedToasts` (src/hooks/use-saved-toasts.ts).
+ * a DOM - the timers themselves live in `useSavedToasts` (src/hooks/use-toasts.ts).
  */
 
 /** How long a one-word confirmation stays up. */

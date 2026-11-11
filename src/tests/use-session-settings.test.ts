@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { isSettingsChange } from '@/hooks/use-session-settings';
 import { INDEX_KEY, SETTINGS_KEY } from '@/lib/session-repo';
-import { isSettingsChange } from '@/lib/settings-change-event';
 
 describe('isSettingsChange', () => {
   it('is true when the session settings changed in local storage', () => {

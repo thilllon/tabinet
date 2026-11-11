@@ -1,6 +1,6 @@
 /**
  * Plain values the owner tunes: the default keys the manifest (`vite.config.ts`) and the Settings
- * view (`src/lib/command-rows.ts`) both read, the optional YouTube host permission, and the
+ * view (`src/lib/keyboard-shortcuts.ts`) both read, the optional YouTube host permission, and the
  * automatic lazy-restore threshold.
  *
  * `vite.config.ts` imports this file while building the manifest, in Node, so it must stay plain

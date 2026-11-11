@@ -143,7 +143,7 @@ export interface PauseResult {
  * How long `pauseYoutubeTabs()` waits for each tab's answer, so a page that runs nothing (a tab
  * Chrome froze) cannot hold up the result and the badge. A loaded page answers in milliseconds.
  */
-export const PAUSE_ANSWER_TIMEOUT_MS = 3000;
+const PAUSE_ANSWER_TIMEOUT_MS = 3000;
 
 const NO_ANSWER = Symbol('no answer');
 

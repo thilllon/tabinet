@@ -67,19 +67,19 @@ export const CLOUD_SYNC_ALARM = 'cloud-sync';
 /** The one-shot alarm about a minute after a local change. */
 export const CLOUD_SYNC_SOON_ALARM = 'cloud-sync-soon';
 export const SYNC_PERIOD_MINUTES = 15;
-export const SYNC_SOON_MINUTES = 1;
+const SYNC_SOON_MINUTES = 1;
 
 /** The Web Lock one sync holds from start to end, shared by the page and the worker. */
-export const SYNC_LOCK_NAME = 'tabinet:cloud-sync';
+const SYNC_LOCK_NAME = 'tabinet:cloud-sync';
 
 /** The id of the one settings record. */
-export const SETTINGS_RECORD_ID = 'settings';
+const SETTINGS_RECORD_ID = 'settings';
 
 /** What one `POST /v1/records` may carry: the server's 100 records, and 3.5 MiB of its 4 MiB body. */
 export const PUSH_MAX_RECORDS = 100;
 export const PUSH_MAX_BYTES = 3.5 * 1024 * 1024;
 /** The largest ciphertext the server accepts (1 MiB of base64). */
-export const MAX_CIPHERTEXT_CHARS = 1024 * 1024;
+const MAX_CIPHERTEXT_CHARS = 1024 * 1024;
 
 /** Record ids the server accepts. */
 const RECORD_ID = /^[A-Za-z0-9_-]{1,64}$/;
@@ -190,7 +190,7 @@ class RecordTooLargeError extends ExplainedError {
 }
 
 /** What a tombstone's ciphertext holds: the deletion, authenticated like any other record. */
-export const TOMBSTONE_PAYLOAD = { deleted: true } as const;
+const TOMBSTONE_PAYLOAD = { deleted: true } as const;
 
 /** Whether a decrypted tombstone says what its metadata says. Pure. */
 function isTombstonePayload(value: unknown): boolean {

@@ -1,9 +1,8 @@
 import { Pin } from 'lucide-react';
-import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 
 import { Favicon } from '@/components/favicon';
-import { useErrorToast } from '@/hooks/use-toast';
+import { useErrorToast } from '@/hooks/use-toasts';
 import { hostnameOf } from '@/lib/display-format';
 import { t } from '@/lib/i18n';
 import { ROW_ACTIONS_CLASS } from '@/lib/row-actions';
