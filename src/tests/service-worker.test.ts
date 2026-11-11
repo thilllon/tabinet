@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { STORE_EXTENSION_ID } from '@/constants';
 import { HISTORY_ALARM, HISTORY_FIRST_ALARM } from '@/lib/history-snapshots';
 import { toCatalog } from '@/lib/i18n';
 import { INDEX_KEY, SETTINGS_KEY } from '@/lib/session-repo';
@@ -155,10 +156,12 @@ describe('badge', () => {
     expect(fake.state.badge.text).toBe('');
   });
 
-  it('idleBadge is DEV only for the development mode that `pnpm dev` builds in', () => {
-    expect(idleBadge('development')).toEqual({ text: 'DEV', color: '#d9640a' });
-    expect(idleBadge('production')).toEqual({ text: '' });
-    expect(idleBadge('test')).toEqual({ text: '' });
+  it('idleBadge is DEV for every copy but the store item, and for the development mode', () => {
+    expect(idleBadge('development', STORE_EXTENSION_ID)).toEqual({ text: 'DEV', color: '#d9640a' });
+    expect(idleBadge('production', STORE_EXTENSION_ID)).toEqual({ text: '' });
+    expect(idleBadge('production', 'abcdefghijklmnopabcdefghijklmnop')).toEqual(DEV_BADGE);
+    expect(idleBadge('e2e', 'abcdefghijklmnopabcdefghijklmnop')).toEqual(DEV_BADGE);
+    expect(idleBadge('test', 'abcdefghijklmnopabcdefghijklmnop')).toEqual({ text: '' });
   });
 
   it('in a dev build, clearBadge and the 2 s clear restore DEV instead of emptying the badge', () => {

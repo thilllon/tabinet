@@ -1,3 +1,4 @@
+import { STORE_EXTENSION_ID } from '@/constants';
 import { formatRoute } from '@/lib/app-route';
 import { assembleTabs } from '@/lib/assemble-tabs';
 import { ensureSyncAlarm, handleCloudStorageChange, isSyncAlarm, syncNow } from '@/lib/cloud-sync';
@@ -54,15 +55,23 @@ const ERROR_BADGE_COLOR = '#d93025';
 const BADGE_CLEAR_MS = 2000;
 
 /**
- * A `pnpm dev` build sits in the toolbar next to the store build with the very same icon, so it
- * keeps a permanent DEV badge and the transient ✓ / ! badges return to it instead of to an empty one.
- * Keyed on the same Vite mode as the manifest's " Dev" name suffix (vite.config.ts), so the two
- * can never disagree; `vite build` is 'production' and vitest runs in 'test'.
+ * A local copy sits in the toolbar next to the store build with the very same icon, so it keeps a
+ * permanent DEV badge and the transient ✓ / ! badges return to it instead of to an empty one.
+ * Decided by the running extension id, not by how it was built: any copy that is not the store
+ * item (`pnpm dev`, a `pnpm build` of dist/ loaded unpacked, the e2e builds) has another id,
+ * because the manifest carries no `key`. The 'development' mode always counts, and vitest's
+ * 'test' mode never does unless stubbed, so the unit tests see an empty idle badge.
  */
 export const DEV_BADGE = { text: 'DEV', color: '#d9640a' } as const;
 
-export function idleBadge(mode: string): { text: string; color?: string } {
-  return mode === 'development' ? DEV_BADGE : { text: '' };
+export function idleBadge(
+  mode: string,
+  extensionId: string = chrome.runtime.id,
+): { text: string; color?: string } {
+  if (mode === 'development' || (mode !== 'test' && extensionId !== STORE_EXTENSION_ID)) {
+    return DEV_BADGE;
+  }
+  return { text: '' };
 }
 
 // The only timer in this module; re-armed (never stacked) so two saves in quick succession
