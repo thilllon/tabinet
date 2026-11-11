@@ -11,6 +11,8 @@ interface NoteComposerProps {
   label: string;
   /** The text being edited; empty for a new note. */
   defaultValue?: string;
+  /** Saving no text is fine: the note has a screenshot. */
+  allowEmpty?: boolean;
   isMac: boolean;
   saving: boolean;
   onSave(text: string): void;
@@ -20,11 +22,12 @@ interface NoteComposerProps {
 /**
  * A note's text box with Save and Cancel. Uncontrolled: typing redraws nothing, the text is read
  * when it is saved. Ctrl+Enter (Command+Enter on a Mac) saves, Escape cancels. An empty note is
- * refused on save, and the message goes as soon as the person types again.
+ * refused on save (unless `allowEmpty`), and the message goes as soon as the person types again.
  */
 export function NoteComposer({
   label,
   defaultValue = '',
+  allowEmpty = false,
   isMac,
   saving,
   onSave,
@@ -36,7 +39,7 @@ export function NoteComposer({
 
   const submit = () => {
     const text = box.current?.value ?? '';
-    if (text.trim() === '') {
+    if (!allowEmpty && text.trim() === '') {
       setEmpty(true);
       box.current?.focus();
       return;

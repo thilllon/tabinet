@@ -148,15 +148,15 @@
     "description": "Label of the switch in Settings (and in the YouTube notes side panel) that grants or removes access to YouTube (needed to pause videos and for YouTube notes)."
   },
   "settingsYoutubeAccessOffHint": {
-    "message": "아직 허용되지 않았습니다. 동영상을 일시중지하려면 필요하며, Chrome이 먼저 묻습니다. Tabinet은 YouTube에서 동영상을 일시중지하고, YouTube 메모를 위해 동영상의 시간과 제목을 읽고 메모한 시간으로 이동하는 일만 합니다.",
+    "message": "아직 허용되지 않았습니다. 동영상을 일시중지하려면 필요하며, Chrome이 먼저 묻습니다. Tabinet은 YouTube에서 동영상을 일시중지하고, YouTube 메모를 위해 동영상의 시간과 제목을 읽고 메모한 시간으로 이동하며, 요청할 때 스크린샷을 찍는 일만 합니다.",
     "description": "Grey hint under \"Access to YouTube\" while the access is not granted."
   },
   "settingsYoutubeAccessOnHint": {
-    "message": "허용됨. 아이콘을 마우스 오른쪽 버튼으로 클릭해 “$1”를 선택하거나 단축키를 누르면 모든 동영상이 일시중지됩니다. Tabinet은 YouTube에서 동영상을 일시중지하고, YouTube 메모를 위해 동영상의 시간과 제목을 읽고 메모한 시간으로 이동하는 일만 합니다.",
+    "message": "허용됨. 아이콘을 마우스 오른쪽 버튼으로 클릭해 “$1”를 선택하거나 단축키를 누르면 모든 동영상이 일시중지됩니다. Tabinet은 YouTube에서 동영상을 일시중지하고, YouTube 메모를 위해 동영상의 시간과 제목을 읽고 메모한 시간으로 이동하며, 요청할 때 스크린샷을 찍는 일만 합니다.",
     "description": "Grey hint under \"Access to YouTube\" once the access is granted. $1 is the right-click menu item (cmdPauseYoutube), quoted."
   },
   "settingsYoutubeAccessAskedHint": {
-    "message": "“$1”를 사용하려면 먼저 이 접근을 허용해야 합니다. 여기서 허용한 뒤 “$1”를 다시 선택하거나 단축키를 누르세요. Tabinet은 YouTube에서 동영상을 일시중지하고, YouTube 메모를 위해 동영상의 시간과 제목을 읽고 메모한 시간으로 이동하는 일만 합니다.",
+    "message": "“$1”를 사용하려면 먼저 이 접근을 허용해야 합니다. 여기서 허용한 뒤 “$1”를 다시 선택하거나 단축키를 누르세요. Tabinet은 YouTube에서 동영상을 일시중지하고, YouTube 메모를 위해 동영상의 시간과 제목을 읽고 메모한 시간으로 이동하며, 요청할 때 스크린샷을 찍는 일만 합니다.",
     "description": "Grey hint under \"Access to YouTube\" when the person arrived from the menu item or shortcut without the access yet: explains why Settings opened. $1 (twice) is the right-click menu item (cmdPauseYoutube), quoted."
   },
   "settingsYoutubeAllowed": {
@@ -1908,7 +1908,7 @@
     "description": "Shown in the YouTube notes side panel when the active tab is not a YouTube video."
   },
   "notesAccessHint": {
-    "message": "동영상의 현재 위치를 읽고 메모의 시간으로 이동하는 데 필요하며, Chrome이 먼저 묻습니다. Tabinet은 동영상의 시간과 제목만 읽습니다.",
+    "message": "동영상의 현재 위치를 읽고, 메모의 시간으로 이동하고, 스크린샷을 찍는 데 필요하며, Chrome이 먼저 묻습니다. Tabinet은 동영상의 시간과 제목, 그리고 스크린샷을 찍을 때의 화면만 읽습니다.",
     "description": "Grey hint under the \"Access to YouTube\" switch in the YouTube notes side panel, while the access is not granted."
   },
   "notesAccessDeclined": {
@@ -1966,5 +1966,45 @@
   "notesPlayerFailed": {
     "message": "이 탭의 동영상에 접근할 수 없습니다. 탭을 새로고침한 뒤 다시 시도하세요.",
     "description": "Error toast when the notes side panel could not read or move the video in the tab."
+  },
+  "notesScreenshot": {
+    "message": "스크린샷",
+    "description": "Button in the notes side panel, next to \"Add note at\", that adds a note holding a picture of the video as it is on screen now. Keep it short (one or two words)."
+  },
+  "notesScreenshotTitle": {
+    "message": "지금 보이는 동영상 화면을 담아 메모 추가",
+    "description": "Tooltip of the Screenshot button in the notes side panel."
+  },
+  "notesScreenshotAdded": {
+    "message": "$1 위치에 스크린샷을 추가했습니다.",
+    "description": "Toast after a screenshot was added to the notes. $1 is its time in the video, such as 1:23."
+  },
+  "notesScreenshotAt": {
+    "message": "$1 스크린샷",
+    "description": "Title of the dialog that shows a note's screenshot large, and its alternative text. $1 is the note's time in the video, such as 1:23."
+  },
+  "notesEnlargeScreenshot": {
+    "message": "$1 스크린샷 크게 보기",
+    "description": "Screen-reader name and tooltip of a note's small screenshot, a button that shows it large. $1 is the note's time, such as 1:23."
+  },
+  "notesScreenshotMissing": {
+    "message": "스크린샷이 더 이상 저장되어 있지 않습니다.",
+    "description": "Shown in place of a note's screenshot when the picture could not be found in storage."
+  },
+  "notesScreenshotNoVideo": {
+    "message": "이 페이지에는 캡처할 동영상이 없습니다.",
+    "description": "Error toast when the Screenshot button found no video on the YouTube page."
+  },
+  "notesScreenshotNotReady": {
+    "message": "동영상 화면이 아직 없습니다. 재생이 시작된 뒤 다시 시도하세요.",
+    "description": "Error toast when the video has not loaded a picture yet, so no screenshot could be taken."
+  },
+  "notesScreenshotBlocked": {
+    "message": "이 동영상은 스크린샷을 허용하지 않습니다.",
+    "description": "Error toast when Chrome refused to give the picture of the video (a protected video)."
+  },
+  "notesScreenshotFailed": {
+    "message": "동영상의 스크린샷을 찍지 못했습니다.",
+    "description": "Error toast when a screenshot of the video failed for any other reason."
   }
 }

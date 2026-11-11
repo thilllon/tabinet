@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  captureFrame,
+  captureFrameInPage,
   controlPlayerInPage,
+  FRAME_MAX_WIDTH,
+  FRAME_QUALITY,
   pausePlayer,
   playPlayer,
   readPlayer,
@@ -123,6 +127,72 @@ describe('the player in a YouTube tab', () => {
     // The fake rebuilds the function from its source, as Chrome does; one that leaned on an
     // import or a closure would have thrown in the tests above. This states the same directly.
     const rebuilt: unknown = new Function(`return (${controlPlayerInPage.toString()});`)();
+    expect(typeof rebuilt).toBe('function');
+  });
+});
+
+describe('a screenshot of the video', () => {
+  function frame(options: Parameters<typeof fakeMedia>[1] = {}) {
+    return [
+      fakeMedia('VIDEO', { currentTime: 61.5, videoWidth: 1920, videoHeight: 1080, ...options }),
+    ];
+  }
+
+  it('draws the frame, scaled to 1280 px wide and encodes it as WebP at 0.8', async () => {
+    grant();
+    const { tabId } = await videoTab(frame());
+
+    const result = await captureFrame(tabId);
+
+    expect(result).toEqual({
+      ok: true,
+      dataUrl: `data:image/webp;base64,${btoa('1280x720q0.8')}`,
+      width: 1280,
+      height: 720,
+      currentTime: 61.5,
+      title: '(1) Song - YouTube',
+    });
+    const [canvas] = getChromeFake().state.pageCanvases;
+    expect(canvas?.drawn).toHaveLength(1);
+    expect(canvas?.drawn[0]).toMatchObject({ width: 1280, height: 720 });
+    expect(canvas?.encoded).toEqual([{ type: 'image/webp', quality: FRAME_QUALITY }]);
+    expect(FRAME_MAX_WIDTH).toBe(1280);
+  });
+
+  it('keeps a frame narrower than the limit at its own size', async () => {
+    grant();
+    const { tabId } = await videoTab(frame({ videoWidth: 640, videoHeight: 360 }));
+
+    expect(await captureFrame(tabId)).toMatchObject({ ok: true, width: 640, height: 360 });
+  });
+
+  it('reports a page without a video, and a video with no picture yet', async () => {
+    grant();
+    const empty = await videoTab([]);
+    const loading = await videoTab([fakeMedia('VIDEO')]);
+    const stalled = await videoTab(frame({ readyState: 1 }));
+
+    expect(await captureFrame(empty.tabId)).toEqual({ ok: false, reason: 'noVideo' });
+    expect(await captureFrame(loading.tabId)).toEqual({ ok: false, reason: 'notReady' });
+    expect(await captureFrame(stalled.tabId)).toEqual({ ok: false, reason: 'notReady' });
+  });
+
+  it('reports a tainted canvas as blocked', async () => {
+    grant();
+    const { tabId } = await videoTab(frame({ tainted: true }));
+
+    expect(await captureFrame(tabId)).toEqual({ ok: false, reason: 'blocked' });
+  });
+
+  it('rejects without access to YouTube, and draws nothing', async () => {
+    const { tabId } = await videoTab(frame());
+
+    await expect(captureFrame(tabId)).rejects.toThrow(/Cannot access contents of the page/);
+    expect(getChromeFake().state.pageCanvases).toEqual([]);
+  });
+
+  it('survives serialization: it is self-contained', () => {
+    const rebuilt: unknown = new Function(`return (${captureFrameInPage.toString()});`)();
     expect(typeof rebuilt).toBe('function');
   });
 });

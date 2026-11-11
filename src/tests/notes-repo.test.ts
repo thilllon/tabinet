@@ -8,12 +8,20 @@ import {
   toNotesSummary,
 } from '@/lib/notes-repo';
 import { UnknownSchemaVersionError } from '@/lib/session-migrate';
-import { NOTES_SCHEMA_VERSION, type NotesIndex, type VideoNotes } from '@/types';
+import { NOTES_SCHEMA_VERSION, type NoteEntry, type NotesIndex, type VideoNotes } from '@/types';
 
 import { getChromeFake } from './chrome-fake';
 
 const A = 'aaaaaaaaaaa';
 const B = 'bbbbbbbbbbb';
+const PNG = 'data:image/webp;base64,AAAA';
+
+function imageIdOf(entry: NoteEntry): string {
+  if (entry.imageId === undefined) {
+    throw new Error('the note has no image');
+  }
+  return entry.imageId;
+}
 
 function stored<T>(key: string): T | undefined {
   // CAST: the test reads back what the repository itself wrote.
@@ -109,20 +117,19 @@ describe('notesRepo', () => {
   });
 
   it('deletes one note with its image, and the video with its last note', async () => {
-    const imageId = await notesRepo.putImage('data:image/webp;base64,AAAA');
     const first = await notesRepo.addEntry(
       { videoId: A, title: 'T' },
-      { at: 1, text: 'x', imageId },
+      { at: 1, text: '', image: PNG },
     );
     const second = await notesRepo.addEntry({ videoId: A, title: 'T' }, { at: 2, text: 'y' });
-    expect(await notesRepo.getImage(imageId)).toBe('data:image/webp;base64,AAAA');
+    const imageId = imageIdOf(first);
 
-    expect(await notesRepo.removeEntry(A, first.id)).toEqual(first);
-    expect(await notesRepo.getImage(imageId)).toBeUndefined();
+    expect(await notesRepo.removeEntry(A, first.id)).toEqual({ entry: first, image: PNG });
+    expect(stored(noteImageKey(imageId))).toBeUndefined();
     expect((await notesRepo.get(A))?.entries).toEqual([second]);
     expect(index()?.notes[0]?.entryCount).toBe(1);
 
-    expect(await notesRepo.removeEntry(A, second.id)).toEqual(second);
+    expect(await notesRepo.removeEntry(A, second.id)).toEqual({ entry: second });
     expect(stored(notesKey(A))).toBeUndefined();
     expect(index()?.notes).toEqual([]);
     expect(await notesRepo.removeEntry(A, second.id)).toBeUndefined();
@@ -143,32 +150,116 @@ describe('notesRepo', () => {
     expect(index()?.notes).toHaveLength(1);
   });
 
-  it('drops the image reference of a restored note whose image is gone', async () => {
-    const imageId = await notesRepo.putImage('data:image/webp;base64,AAAA');
-    const entry = await notesRepo.addEntry(
-      { videoId: A, title: 'T' },
-      { at: 1, text: 'x', imageId },
-    );
-    const removed = await notesRepo.removeEntry(A, entry.id);
-    if (removed === undefined) {
-      throw new Error('nothing removed');
-    }
-
-    await notesRepo.restoreEntry({ videoId: A, title: 'T' }, removed);
-
-    expect((await notesRepo.get(A))?.entries[0]?.imageId).toBeUndefined();
+  it('refuses a screenshot that is not an image and stores nothing', async () => {
+    await expect(
+      notesRepo.addEntry({ videoId: A, title: 'T' }, { at: 1, text: '', image: 'javascript:1' }),
+    ).rejects.toThrow();
+    expect(stored(notesKey(A))).toBeUndefined();
+    expect([...getChromeFake().state.local.keys()]).toEqual([]);
   });
 
-  it('deletes a whole video with its images', async () => {
-    const imageId = await notesRepo.putImage('data:image/webp;base64,AAAA');
-    await notesRepo.addEntry({ videoId: A, title: 'T' }, { at: 1, text: 'x', imageId });
-    await notesRepo.addEntry({ videoId: B, title: 'B' }, { at: 1, text: 'y' });
+  describe('screenshots', () => {
+    it('stores the image before the note that references it, under one id', async () => {
+      const writes: string[][] = [];
+      const local = chrome.storage.local;
+      const set = local.set.bind(local);
+      local.set = async (items: Record<string, unknown>) => {
+        writes.push(Object.keys(items));
+        return set(items);
+      };
 
-    await notesRepo.remove(A);
+      const entry = await notesRepo.addEntry(
+        { videoId: A, title: 'T' },
+        { at: 12, text: '', image: PNG },
+      );
 
-    expect(stored(notesKey(A))).toBeUndefined();
-    expect(stored(noteImageKey(imageId))).toBeUndefined();
-    expect(index()?.notes.map((s) => s.videoId)).toEqual([B]);
+      const imageId = imageIdOf(entry);
+      expect(writes).toEqual([[noteImageKey(imageId)], [notesKey(A)], [NOTES_INDEX_KEY]]);
+      expect(await notesRepo.getImage(imageId)).toBe(PNG);
+      expect(entry).toMatchObject({ at: 12, text: '' });
+    });
+
+    it('reads back only image data URLs', async () => {
+      getChromeFake().state.local.set(noteImageKey('bad'), 'javascript:alert(1)');
+      getChromeFake().state.local.set(noteImageKey('num'), 42);
+
+      expect(await notesRepo.getImage('bad')).toBeUndefined();
+      expect(await notesRepo.getImage('num')).toBeUndefined();
+      expect(await notesRepo.getImage('missing')).toBeUndefined();
+    });
+
+    it('brings the picture back with an undone deletion, also of the last note', async () => {
+      const entry = await notesRepo.addEntry(
+        { videoId: A, title: 'T' },
+        { at: 1, text: 'x', image: PNG },
+      );
+      const removed = await notesRepo.removeEntry(A, entry.id);
+      if (removed === undefined) {
+        throw new Error('nothing removed');
+      }
+      expect(stored(noteImageKey(imageIdOf(entry)))).toBeUndefined();
+
+      await notesRepo.restoreEntry({ videoId: A, title: 'T' }, removed);
+
+      expect((await notesRepo.get(A))?.entries).toEqual([entry]);
+      expect(await notesRepo.getImage(imageIdOf(entry))).toBe(PNG);
+      expect((await notesRepo.reconcile()).images).toBe(0);
+    });
+
+    it('drops the reference of a restored note whose picture is lost', async () => {
+      const entry = await notesRepo.addEntry(
+        { videoId: A, title: 'T' },
+        { at: 1, text: 'x', image: PNG },
+      );
+      const removed = await notesRepo.removeEntry(A, entry.id);
+      if (removed === undefined) {
+        throw new Error('nothing removed');
+      }
+
+      await notesRepo.restoreEntry({ videoId: A, title: 'T' }, { entry: removed.entry });
+
+      expect((await notesRepo.get(A))?.entries[0]?.imageId).toBeUndefined();
+    });
+
+    it('keeps the image when only the text of its note changes', async () => {
+      const entry = await notesRepo.addEntry(
+        { videoId: A, title: 'T' },
+        { at: 1, text: '', image: PNG },
+      );
+
+      await notesRepo.updateEntry(A, entry.id, { text: 'caption' });
+
+      expect((await notesRepo.get(A))?.entries[0]?.imageId).toBe(entry.imageId);
+      expect(await notesRepo.getImage(imageIdOf(entry))).toBe(PNG);
+    });
+
+    it("deletes a whole video with its images, and leaves other videos' images", async () => {
+      const a = await notesRepo.addEntry(
+        { videoId: A, title: 'T' },
+        { at: 1, text: '', image: PNG },
+      );
+      const b = await notesRepo.addEntry(
+        { videoId: B, title: 'B' },
+        { at: 1, text: '', image: PNG },
+      );
+
+      await notesRepo.remove(A);
+
+      expect(stored(notesKey(A))).toBeUndefined();
+      expect(stored(noteImageKey(imageIdOf(a)))).toBeUndefined();
+      expect(stored(noteImageKey(imageIdOf(b)))).toBe(PNG);
+      expect(index()?.notes.map((s) => s.videoId)).toEqual([B]);
+    });
+
+    it('keeps the images of live notes through a repair pass', async () => {
+      const entry = await notesRepo.addEntry(
+        { videoId: A, title: 'T' },
+        { at: 1, text: '', image: PNG },
+      );
+
+      expect((await notesRepo.reconcile()).images).toBe(0);
+      expect(await notesRepo.getImage(imageIdOf(entry))).toBe(PNG);
+    });
   });
 
   it('refuses to write over notes saved by a newer version', async () => {

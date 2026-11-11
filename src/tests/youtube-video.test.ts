@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   activeVideoOf,
   canonicalVideoUrl,
+  isImageDataUrl,
   cleanVideoTitle,
   entriesByTime,
   formatTimestamp,
@@ -158,5 +159,18 @@ describe('sameActiveVideo', () => {
     expect(sameActiveVideo(video, { ...video, tabId: 2 })).toBe(false);
     expect(sameActiveVideo(null, null)).toBe(true);
     expect(sameActiveVideo(video, null)).toBe(false);
+  });
+});
+
+describe('isImageDataUrl', () => {
+  it('accepts base64 WebP, PNG and JPEG data URLs only', () => {
+    expect(isImageDataUrl('data:image/webp;base64,UklGRg==')).toBe(true);
+    expect(isImageDataUrl('data:image/png;base64,iVBORw0K')).toBe(true);
+    expect(isImageDataUrl('data:image/jpeg;base64,/9j/')).toBe(true);
+    expect(isImageDataUrl('data:,')).toBe(false);
+    expect(isImageDataUrl('data:image/svg+xml;base64,PHN2Zz4=')).toBe(false);
+    expect(isImageDataUrl('data:text/html;base64,PGI+')).toBe(false);
+    expect(isImageDataUrl('javascript:alert(1)')).toBe(false);
+    expect(isImageDataUrl('data:image/webp;base64,AA"onerror=x')).toBe(false);
   });
 });

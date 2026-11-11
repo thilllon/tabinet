@@ -10,12 +10,19 @@ import { ToastContext, useErrorToast, useSavedToasts } from '@/hooks/use-toasts'
 import { useVideoNotes } from '@/hooks/use-video-notes';
 import { useYoutubeAccess } from '@/hooks/use-youtube-access';
 import { reportError } from '@/lib/error-message';
-import { t } from '@/lib/i18n';
+import { type MessageKey, t } from '@/lib/i18n';
 import { isMacPlatform } from '@/lib/keyboard-shortcuts';
 import { notesRepo } from '@/lib/notes-repo';
 import { ACTION_MS, ERROR_MS } from '@/lib/toast-queue';
 import { readNotesPause, writeNotesPause } from '@/lib/ui-state';
-import { pausePlayer, playPlayer, readPlayer, seekPlayer } from '@/lib/youtube-player';
+import {
+  captureFrame,
+  type FrameFailure,
+  pausePlayer,
+  playPlayer,
+  readPlayer,
+  seekPlayer,
+} from '@/lib/youtube-player';
 import {
   type ActiveVideo,
   cleanVideoTitle,
@@ -25,6 +32,14 @@ import {
 import type { NoteEntry } from '@/types';
 
 const IS_MAC = isMacPlatform(navigator.userAgent);
+
+/** The toast for each reason a screenshot could not be taken. */
+const FRAME_FAILURE_KEYS = {
+  noVideo: 'notesScreenshotNoVideo',
+  notReady: 'notesScreenshotNotReady',
+  blocked: 'notesScreenshotBlocked',
+  failed: 'notesScreenshotFailed',
+} as const satisfies Record<FrameFailure, MessageKey>;
 
 /** A note being written: where in the video, and whether the panel paused the video for it. */
 interface Draft {
@@ -110,6 +125,25 @@ export function NotesPanel() {
         setDraft(null);
         resumeIfPaused(current);
       }, fail)
+      .finally(() => setBusy(false));
+  };
+
+  // A note holding the frame on screen, at the time it was taken; text can be added with Edit.
+  const takeScreenshot = (active: ActiveVideo) => {
+    setBusy(true);
+    captureFrame(active.tabId)
+      .then(async (frame) => {
+        if (!frame.ok) {
+          showError(t(FRAME_FAILURE_KEYS[frame.reason]));
+          return;
+        }
+        const entry = await notesRepo.addEntry(
+          { videoId: active.videoId, title: cleanVideoTitle(frame.title) || active.title },
+          { at: frame.currentTime, text: '', image: frame.dataUrl },
+        );
+        show(t('notesScreenshotAdded', formatTimestamp(entry.at)));
+      }, playerFailed)
+      .catch(fail)
       .finally(() => setBusy(false));
   };
 
@@ -229,6 +263,7 @@ export function NotesPanel() {
                 pauseWhileWriting={pauseWhileWriting}
                 onPauseWhileWritingChange={choosePause}
                 onAdd={() => startNote(video)}
+                onScreenshot={() => takeScreenshot(video)}
               />
             )}
             {notes === undefined ? (
