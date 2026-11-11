@@ -72,7 +72,12 @@ interface CaptureTarget {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
-const DIST = path.join(ROOT, 'dist');
+/**
+ * The screenshots' build, out of sight and never dist/: it is built in the `store-screenshots`
+ * mode, which turns Google sign-in on in an unpacked copy (see canSignInHere), and dist/ is what
+ * the owner loads unpacked next to the store item, where that button can only fail.
+ */
+const DIST = path.join(ROOT, 'node_modules', '.cache', 'tabinet', 'store-screenshots');
 const ASSETS_DIR = path.join(ROOT, 'assets');
 const PROMO_TEMPLATE = path.join(__dirname, 'promo-template.html');
 const ICON_PATH = path.join(ROOT, 'public', 'img', 'logo-128.png');
@@ -373,8 +378,12 @@ class Preparation {
       return;
     }
     // `store-screenshots`: an unpacked copy that shows Settings as the store build does (Google
-    // sign-in available, see canSignInHere). release-it rebuilds dist/ normally before the zip.
-    execSync('pnpm build --mode store-screenshots', { cwd: ROOT, stdio: 'inherit' });
+    // sign-in available, see canSignInHere), built into DIST and never into dist/. The CLI's
+    // --outDir is relative to Vite's root, src/.
+    execSync(`pnpm build --mode store-screenshots --outDir ${JSON.stringify(DIST)}`, {
+      cwd: ROOT,
+      stdio: 'inherit',
+    });
     console.log('Build complete.');
   }
 
