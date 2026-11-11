@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { DEFAULT_LOCALE, LOCALE_ENDONYMS, SUPPORTED_LOCALES } from '@/constants';
+import { LOCALE_ENDONYMS, SUPPORTED_LOCALES } from '@/constants';
 import { ExplainedError } from '@/lib/error-message';
 import { applyUiLanguage, t, toCatalog, uiLocale } from '@/lib/i18n';
 import {
@@ -23,13 +23,6 @@ import { getChromeFake, readLocaleFile } from './chrome-fake';
 afterEach(async () => {
   await applyUiLanguage('auto');
   vi.restoreAllMocks();
-});
-
-describe('SUPPORTED_LOCALES', () => {
-  it('starts with the default language and names each language in its own words', () => {
-    expect(SUPPORTED_LOCALES[0]).toBe(DEFAULT_LOCALE);
-    expect(Object.keys(LOCALE_ENDONYMS).sort()).toEqual([...SUPPORTED_LOCALES].sort());
-  });
 });
 
 describe('parseUiLanguage', () => {

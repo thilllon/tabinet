@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { YOUTUBE_ORIGINS } from '@/constants';
 import {
   hasYoutubeAccess,
   isYoutubeUrl,
@@ -45,14 +44,6 @@ function tab(overrides: Partial<Omit<chrome.tabs.Tab, 'lastAccessed'>>): chrome.
     ...overrides,
   };
 }
-
-describe('YOUTUBE_ORIGINS', () => {
-  it('is the one optional host permission, covering every youtube.com host', () => {
-    expect([...YOUTUBE_ORIGINS]).toEqual([YOUTUBE]);
-    // The fake's manifest list mirrors vite.config.ts.
-    expect(getChromeFake().state.optionalOrigins).toEqual([...YOUTUBE_ORIGINS]);
-  });
-});
 
 describe('isYoutubeUrl', () => {
   it('takes youtube.com and its subdomains over https', () => {

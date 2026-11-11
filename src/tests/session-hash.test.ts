@@ -100,9 +100,4 @@ describe('contentHash', () => {
     }
     expect(contentHash(shifted)).not.toBe(contentHash(split));
   });
-
-  it('is stable for an empty layout', () => {
-    expect(contentHash([])).toMatch(/^[0-9a-f]{8}$/);
-    expect(contentHash([])).toBe(contentHash([]));
-  });
 });

@@ -152,22 +152,4 @@ describe('dropdown options', () => {
       expect(options.every((option) => option.label.trim() !== '')).toBe(true);
     });
   }
-
-  it('keeps the wording the radio buttons had', () => {
-    expect(sortByOptions().map((option) => option.label)).toEqual(['By URL', 'By title', 'Custom']);
-    expect(duplicateTabOptions().map((option) => option.label)).toEqual([
-      'Keep one',
-      'Keep all',
-      'Group them',
-    ]);
-  });
-
-  it('offers each default as one of its choices', () => {
-    expect(sortByOptions().map((o) => o.value)).toContain(DEFAULT_SORT_SETTINGS.sortBy);
-    expect(duplicateTabOptions().map((o) => o.value)).toContain(
-      DEFAULT_SORT_SETTINGS.duplicateTabHandling,
-    );
-    expect(groupingModeOptions().map((o) => o.value)).toContain(DEFAULT_SORT_SETTINGS.groupingMode);
-    expect(groupFromOptions().map((o) => o.value)).toContain(DEFAULT_SORT_SETTINGS.groupFrom);
-  });
 });

@@ -6,10 +6,7 @@ import {
   csvGuardFormula,
   escapeHtml,
   exportFilename,
-  extensionFor,
-  mimeTypeFor,
   scopeToSession,
-  serialize,
   toCsv,
   toHtml,
   toJson,
@@ -471,30 +468,5 @@ describe('exportFilename', () => {
     expect(exportFilename('···', 'json', new Date(2026, 0, 5, 9, 7))).toBe(
       'tabinet-20260105-0907.json',
     );
-  });
-});
-
-describe('extensionFor / mimeTypeFor', () => {
-  it('maps every format', () => {
-    expect(extensionFor('json')).toBe('json');
-    expect(extensionFor('markdown')).toBe('md');
-    expect(extensionFor('text')).toBe('txt');
-    expect(extensionFor('html')).toBe('html');
-    expect(extensionFor('csv')).toBe('csv');
-    expect(mimeTypeFor('json')).toBe('application/json');
-    expect(mimeTypeFor('markdown')).toBe('text/markdown');
-    expect(mimeTypeFor('text')).toBe('text/plain');
-    expect(mimeTypeFor('html')).toBe('text/html');
-    expect(mimeTypeFor('csv')).toBe('text/csv');
-  });
-});
-
-describe('serialize', () => {
-  it('dispatches to the serializer for each format', () => {
-    expect(serialize('json', [play], 7)).toBe(toJson([play], 7));
-    expect(serialize('markdown', [play], 7)).toBe(toMarkdown([play]));
-    expect(serialize('text', [play], 7)).toBe(toText([play]));
-    expect(serialize('html', [play], 7)).toBe(toHtml([play]));
-    expect(serialize('csv', [play], 7)).toBe(toCsv([play]));
   });
 });

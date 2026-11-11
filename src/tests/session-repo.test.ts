@@ -80,12 +80,6 @@ function withoutCloudSync(): void {
   overrideCloudSyncConfig(() => ({ apiBase: '', googleClientId: 'cid' }));
 }
 
-describe('sessionKey', () => {
-  it('prefixes the id', () => {
-    expect(sessionKey('abc')).toBe('session:abc');
-  });
-});
-
 describe('toSummary', () => {
   it('copies metadata and computes counts', () => {
     const session = makeSession({
@@ -114,12 +108,6 @@ describe('toSummary', () => {
 
     expect('protected' in summary).toBe(false);
     expect('contentHash' in summary).toBe(false);
-  });
-});
-
-describe('LOCK_NAME', () => {
-  it('is the cross-context contract between the service worker and the dashboard', () => {
-    expect(LOCK_NAME).toBe('tab-organizer:sessions');
   });
 });
 

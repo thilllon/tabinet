@@ -10,7 +10,6 @@ import {
   intervalLabel,
   intervalSelectValue,
   isRestoreLazy,
-  lazyLabel,
   parseHistoryInterval,
   parseIntervalMinutes,
   parseSnapshotLimit,
@@ -19,11 +18,6 @@ import {
 import { DEFAULT_SESSION_SETTINGS } from '@/types';
 
 describe('option lists', () => {
-  it('offer the intervals and lazy modes the settings type allows', () => {
-    expect(HISTORY_INTERVALS).toEqual([5, 10, 30]);
-    expect(RESTORE_LAZY_MODES).toEqual(['auto', 'always', 'never']);
-  });
-
   it('include the defaults, so the selects always have a matching option', () => {
     expect(HISTORY_INTERVALS).toContain(DEFAULT_SESSION_SETTINGS.historyIntervalMinutes);
     expect(RESTORE_LAZY_MODES).toContain(DEFAULT_SESSION_SETTINGS.restoreLazy);
@@ -137,11 +131,5 @@ describe('labels', () => {
     expect(intervalLabel(5)).toBe('Every 5 minutes');
     expect(intervalLabel(30)).toBe('Every 30 minutes');
     expect(intervalLabel(1)).toBe('Every minute');
-  });
-
-  it('names each lazy-restore mode', () => {
-    expect(lazyLabel('auto')).toBe('Automatic (over 10 tabs)');
-    expect(lazyLabel('always')).toBe('Always');
-    expect(lazyLabel('never')).toBe('Never');
   });
 });

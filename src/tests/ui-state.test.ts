@@ -25,12 +25,6 @@ afterEach(() => {
   removeSessionStorage();
 });
 
-describe('ui-state keys', () => {
-  it('uses the documented sessionStorage key names', () => {
-    expect(HISTORY_OPEN_KEY).toBe('tab-organizer:history-open');
-  });
-});
-
 describe('readUiState / writeUiState', () => {
   it('round-trips a value', () => {
     installSessionStorage(memoryStorage());

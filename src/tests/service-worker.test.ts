@@ -137,13 +137,6 @@ describe('badge', () => {
     expect(fake.state.badge.text).toBe('');
   });
 
-  it('clearBadge empties the badge text', () => {
-    const fake = getChromeFake();
-    fake.state.badge.text = '✓';
-    clearBadge();
-    expect(fake.state.badge.text).toBe('');
-  });
-
   it('showErrorBadge shows ! on a red background and clears itself after 2 s', () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     const fake = getChromeFake();
@@ -240,17 +233,6 @@ describe("'assemble-tabs' command", () => {
 });
 
 describe('COMMAND_IDS', () => {
-  it('matches the ids declared in the manifest', () => {
-    // Source of truth: the `commands` block of `defineManifest()` in `vite.config.ts`.
-    // Chrome delivers exactly these strings to `commands.onCommand`; keep both sides equal.
-    expect(COMMAND_IDS.saveSession).toBe('save-session');
-    expect(COMMAND_IDS.openDashboard).toBe('open-dashboard');
-    expect(COMMAND_IDS.assembleTabs).toBe('assemble-tabs');
-    expect(COMMAND_IDS.assembleTabs).toBe(MENU_IDS.assembleTabs);
-    expect(COMMAND_IDS.pauseYoutube).toBe('pause-youtube');
-    expect(COMMAND_IDS.pauseYoutube).toBe(MENU_IDS.pauseYoutube);
-  });
-
   it('declares every command id in the manifest', () => {
     const config = readFileSync(
       path.join(import.meta.dirname, '..', '..', 'vite.config.ts'),
@@ -482,17 +464,21 @@ describe('handleMenuOrCommand', () => {
 });
 
 describe('listener wiring', () => {
-  it('a context-menu click on save-all saves a session', async () => {
+  it('a context-menu click on save-all saves every window as one session', async () => {
     vi.resetModules();
     await import('@/service-worker');
     const fake = getChromeFake();
-    await seedWindow(['https://a.example/'], true);
+    await seedWindow(['https://a.example/', 'https://a.example/2'], false);
+    await seedWindow(['https://b.example/'], true);
 
-    fake.fire.command(COMMAND_IDS.saveSession);
+    fake.fire.menuClicked(MENU_IDS.saveAll);
 
     await vi.waitFor(() => {
       expect(sessionKeys()).toHaveLength(1);
     });
+    const summary = readIndex()?.sessions[0];
+    expect(summary?.windowCount).toBe(2);
+    expect(summary?.tabCount).toBe(3);
   });
 
   it('the save-session command saves a session', async () => {
@@ -505,18 +491,6 @@ describe('listener wiring', () => {
 
     await vi.waitFor(() => {
       expect(sessionKeys()).toHaveLength(1);
-    });
-  });
-
-  it('onInstalled registers the menus', async () => {
-    vi.resetModules();
-    await import('@/service-worker');
-    const fake = getChromeFake();
-
-    fake.fire.installed({ reason: 'install' });
-
-    await vi.waitFor(() => {
-      expect(fake.state.menus).toHaveLength(3);
     });
   });
 

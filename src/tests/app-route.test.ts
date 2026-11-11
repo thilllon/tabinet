@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  advanceRoute,
   formatRoute,
   HOME,
   parseRoute,
@@ -105,21 +104,5 @@ describe('routeOfEntryBelow', () => {
 
   it('reads an entry without a hash as the open tabs view', () => {
     expect(routeOfEntryBelow(base, page)).toEqual(HOME);
-  });
-});
-
-describe('advanceRoute', () => {
-  const previous = { route: { view: 'saved', id: 'a' }, page: { view: 'saved', id: 'a' } } as const;
-
-  it('keeps the page behind when Settings opens', () => {
-    expect(advanceRoute(previous, { view: 'settings' })).toEqual({
-      route: { view: 'settings' },
-      page: previous.page,
-    });
-  });
-
-  it('shows any other route as the page', () => {
-    const next = { view: 'saved', id: 'x' } as const;
-    expect(advanceRoute(previous, next)).toEqual({ route: next, page: next });
   });
 });

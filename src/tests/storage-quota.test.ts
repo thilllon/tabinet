@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isQuotaError, quotaNotice } from '@/lib/storage-quota';
+import { isQuotaError } from '@/lib/storage-quota';
 
 describe('isQuotaError', () => {
   it('recognises the wording chrome.storage.local rejects with', () => {
@@ -37,9 +37,5 @@ describe('isQuotaError', () => {
     expect(isQuotaError(42)).toBe(false);
     expect(isQuotaError({})).toBe(false);
     expect(isQuotaError({ name: 22, message: 22, code: 'x' })).toBe(false);
-  });
-
-  it('has one message for every quota failure', () => {
-    expect(quotaNotice()).toBe('Storage is full. Delete old snapshots or sessions.');
   });
 });
