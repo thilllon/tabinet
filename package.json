@@ -1,7 +1,7 @@
 {
   "name": "tabinet",
   "displayName": "Tabinet",
-  "version": "8.4.0",
+  "version": "9.0.0",
   "description": "Sort and group every tab in one click, then save and restore whole windows as sessions. Works offline; sync is optional, encrypted.",
   "keywords": [
     "chrome-extension",

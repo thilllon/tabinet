@@ -51,6 +51,10 @@ const ROOT = path.resolve(__dirname, '..');
  * `screenshot-1280x800.png` is captured from `app.html#settings` with nothing seeded, so it is the
  * Settings dialog over an empty page: useful as context, useless as a first impression. It goes
  * last.
+ *
+ * The store takes at most five, so `dashboard-restore.png` (the large-restore confirm dialog) is
+ * shot for the website but not uploaded: the sessions screenshot already shows what a restore
+ * brings back.
  */
 const SCREENSHOTS: { from: string; as: string; caption: string }[] = [
   {
@@ -59,14 +63,14 @@ const SCREENSHOTS: { from: string; as: string; caption: string }[] = [
     caption: 'Save whole windows as a session - tab groups, pinned tabs and order all come back',
   },
   {
-    from: 'dashboard-search.png',
-    as: '02-search-1280x800.png',
-    caption: 'Search every open tab and every saved session at once',
+    from: 'dashboard-notes.png',
+    as: '02-youtube-notes-1280x800.png',
+    caption: 'Timestamped notes and screenshots on YouTube videos, a click away from that moment',
   },
   {
-    from: 'dashboard-restore.png',
-    as: '03-restore-1280x800.png',
-    caption: 'Restore a session into new windows, or into the one you are in',
+    from: 'dashboard-search.png',
+    as: '03-search-1280x800.png',
+    caption: 'Search every open tab, saved session and note at once',
   },
   {
     from: 'dashboard-history.png',

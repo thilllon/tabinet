@@ -5,7 +5,7 @@ import { ko } from './copy-ko';
 import type { Locale } from './locales';
 
 /** The screenshots the home page shows next to its feature rows. */
-export type FeatureShot = 'restore' | 'history' | 'search' | 'settings';
+export type FeatureShot = 'restore' | 'notes' | 'history' | 'search' | 'settings';
 
 export interface FeatureRow {
   shot: FeatureShot;

@@ -239,11 +239,11 @@ tabinet/
 │   │   ├── selection.ts       # Open tabs selection checks (tick, range, copy, close, save & close): pnpm build && pnpm e2e:selection
 │   │   ├── browser.ts         # launchExtension() - a real Chromium with dist/ loaded (shared with screenshots)
 │   │   ├── server.ts          # startDemoServer() - 127.0.0.1 fixture pages (the QA browser has no network)
-│   │   └── fixtures.ts        # Session fixtures seeded straight into chrome.storage.local
+│   │   └── fixtures.ts        # Session and YouTube notes fixtures seeded straight into chrome.storage.local
 │   ├── zip.ts                 # Packages dist/ into release/Tabinet-<version>.zip for Web Store (archiver 8)
 │   ├── zip-name.ts            # zipFileName(): the zip's name from package.json displayName, never the manifest's
 │   │                          #   __MSG_extName__ (shared with store-bundle.ts; test in src/tests/)
-│   ├── prepare-registration.ts # Store-asset pipeline (build, Settings + the four dashboard-*.png screenshots,
+│   ├── prepare-registration.ts # Store-asset pipeline (build, Settings + the five dashboard-*.png screenshots,
 │   │                          #   promo images); every optional step has a SKIP_* flag;
 │   │                          #   LOCALES=en,ko,es,ja shoots Settings + dashboard per UI language into assets/<code>/
 │   ├── check-dashes.ts        # Fails on an em or en dash in any tracked file (run by `pnpm lint`)
@@ -699,7 +699,7 @@ Security scanning for JavaScript/TypeScript on every push and pull request to ma
 
 ### Release procedure (Chrome Web Store)
 
-`pnpm release` runs release-it (`.release-it.json`): `before:bump` executes `scripts/prepare-registration.ts` (build, Settings + the four `assets/dashboard-*.png` captures, promo tiles), then the version is bumped, `after:bump` runs `pnpm build` + `scripts/zip.ts` (→ `release/Tabinet-<version>.zip`, named from `package.json` `displayName`) + `scripts/store-bundle.ts` (→ `release/store-<version>/`, whose `SUBMIT.md` carries every text from `scripts/store-listing.ts`), and a GitHub release is created. It requires the `main` branch and hooks/CI green. Every optional step of `prepare-registration.ts` is skippable on its own (`SKIP_BUILD`, `SKIP_OPTIONS`, `SKIP_DASHBOARD`, `SKIP_PROMO`), so one asset can be regenerated without a full run; `pnpm exec tsx scripts/zip.ts` packages an existing `dist/` on its own.
+`pnpm release` runs release-it (`.release-it.json`): `before:bump` executes `scripts/prepare-registration.ts` (build, Settings + the five `assets/dashboard-*.png` captures (sessions, restore, YouTube notes, search, snapshots; fixture sessions and notes from `scripts/e2e/fixtures.ts`), promo tiles), then the version is bumped, `after:bump` runs `pnpm build` + `scripts/zip.ts` (→ `release/Tabinet-<version>.zip`, named from `package.json` `displayName`) + `scripts/store-bundle.ts` (→ `release/store-<version>/`, whose `SUBMIT.md` carries every text from `scripts/store-listing.ts`), and a GitHub release is created. It requires the `main` branch and hooks/CI green. Every optional step of `prepare-registration.ts` is skippable on its own (`SKIP_BUILD`, `SKIP_OPTIONS`, `SKIP_DASHBOARD`, `SKIP_PROMO`), so one asset can be regenerated without a full run; `pnpm exec tsx scripts/zip.ts` packages an existing `dist/` on its own.
 
 1. Release through a pull request like any change: on a `release/vX.Y.Z` branch regenerate whatever store assets changed (`tsx scripts/prepare-registration.ts` with the `SKIP_*` flags for the rest), set the version with `npm version X.Y.Z --no-git-tag-version`, and open a `chore: release vX.Y.Z` pull request. Before merging it, make sure `scripts/store-listing.ts`, `PRIVACY_POLICY.md` (Last Updated), `README.md` and this file describe what ships, and that `package.json` `description` (the store Summary) is ≤ 132 characters.
 2. After the merge, on an up-to-date `main`: `pnpm release --ci --no-increment --no-git.commit` with every `SKIP_*` flag set (the assets are already committed). release-it then only builds, zips, writes `release/store-<version>/`, and pushes the `vX.Y.Z` tag; nothing is committed to `main`. If it prints a "releases/new" link instead of creating the GitHub release (no `GITHUB_TOKEN`), create it with `gh release create vX.Y.Z --title vX.Y.Z --notes …`.

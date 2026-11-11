@@ -5,7 +5,7 @@
  *   1. Build the extension
  *   2. Launch Chrome with the built extension
  *   3. Generate Settings screenshots (1280x800)
- *   4. Generate Sessions dashboard screenshots (1280x800)
+ *   4. Generate Sessions dashboard screenshots, YouTube notes included (1280x800)
  *   5. Render the CWS promotional images
  *
  * Each step can be skipped by its flag. The process still exits 0 when only optional steps were
@@ -39,7 +39,13 @@ import type { Locator, Page } from '@playwright/test';
 
 import type { Session } from '../src/types';
 import { type ExtensionSession, launchExtension } from './e2e/browser';
-import { buildDashboardFixtures, seedSessions } from './e2e/fixtures';
+import {
+  buildDashboardFixtures,
+  buildNotesFixtures,
+  NOTES_FIXTURE_VIDEO_ID,
+  seedNotes,
+  seedSessions,
+} from './e2e/fixtures';
 import {
   DEFAULT_LISTING_LOCALE,
   isListingLocale,
@@ -86,10 +92,10 @@ const ICON_PATH = path.join(ROOT, 'public', 'img', 'logo-128.png');
 const CONTROL_TIMEOUT = 8000;
 
 /**
- * The fixture sessions' names and group titles as a person using that language would have typed
- * them; they show in the sidebar and the session view, so they are part of the screenshot. Keyed by
- * the English text in `scripts/e2e/fixtures.ts`; anything not listed stays English (tab titles
- * are web page titles, which stay as the sites wrote them).
+ * The fixture sessions' names, group titles and note texts as a person using that language would
+ * have typed them; they show in the sidebar, the session view and the notes page, so they are part
+ * of the screenshot. Keyed by the English text in `scripts/e2e/fixtures.ts`; anything not listed
+ * stays English (tab and video titles are web page titles, which stay as the sites wrote them).
  */
 const FIXTURE_TEXT: Record<Exclude<ListingLocale, 'en'>, Record<string, string>> = {
   ko: {
@@ -105,6 +111,14 @@ const FIXTURE_TEXT: Record<Exclude<ListingLocale, 'en'>, Record<string, string>>
     Specs: '명세',
     Benchmarks: '벤치마크',
     'Inbox zero': '받은편지함 비우기',
+    'Manifest first: name, permissions, and the service worker as the one entry point.':
+      '매니페스트부터: 이름, 권한, 그리고 유일한 진입점인 서비스 워커.',
+    'The service worker sleeps when idle.\n- register every listener at the top level\n- keep no state in memory':
+      '서비스 워커는 할 일이 없으면 잠든다.\n- 리스너는 모두 최상위에서 등록\n- 상태를 메모리에 두지 않기',
+    'Side panel: one HTML page, opened from a click.':
+      '사이드 패널: HTML 페이지 하나, 클릭으로 연다.',
+    'Line length: 45 to 75 characters reads best.': '한 줄 길이는 45~75자가 가장 읽기 좋다.',
+    'Pick one scale and stick to it.': '크기 단계는 하나만 정해서 계속 쓰기.',
   },
   es: {
     'Work - Monday morning': 'Trabajo - lunes por la mañana',
@@ -119,6 +133,15 @@ const FIXTURE_TEXT: Record<Exclude<ListingLocale, 'en'>, Record<string, string>>
     Specs: 'Especificaciones',
     Benchmarks: 'Pruebas de rendimiento',
     'Inbox zero': 'Bandeja vacía',
+    'Manifest first: name, permissions, and the service worker as the one entry point.':
+      'Primero el manifiesto: nombre, permisos y el service worker como único punto de entrada.',
+    'The service worker sleeps when idle.\n- register every listener at the top level\n- keep no state in memory':
+      'El service worker se duerme si no tiene trabajo.\n- registrar todos los listeners en el nivel superior\n- no guardar estado en memoria',
+    'Side panel: one HTML page, opened from a click.':
+      'Panel lateral: una página HTML que se abre con un clic.',
+    'Line length: 45 to 75 characters reads best.':
+      'Longitud de línea: entre 45 y 75 caracteres se lee mejor.',
+    'Pick one scale and stick to it.': 'Elegir una escala y no salirse de ella.',
   },
   ja: {
     'Work - Monday morning': '仕事 - 月曜の朝',
@@ -133,6 +156,14 @@ const FIXTURE_TEXT: Record<Exclude<ListingLocale, 'en'>, Record<string, string>>
     Specs: '仕様',
     Benchmarks: 'ベンチマーク',
     'Inbox zero': '受信トレイ整理',
+    'Manifest first: name, permissions, and the service worker as the one entry point.':
+      'まずマニフェスト: 名前、権限、唯一の入口になる Service Worker。',
+    'The service worker sleeps when idle.\n- register every listener at the top level\n- keep no state in memory':
+      'Service Worker は暇になると眠る。\n- リスナーはすべてトップレベルで登録\n- 状態をメモリに持たない',
+    'Side panel: one HTML page, opened from a click.':
+      'サイドパネル: HTML ページ 1 枚、クリックで開く。',
+    'Line length: 45 to 75 characters reads best.': '1 行は 45〜75 文字が読みやすい。',
+    'Pick one scale and stick to it.': 'サイズの段階は 1 つに決めて守る。',
   },
 };
 
@@ -197,13 +228,21 @@ function captureTarget(locale: ListingLocale): CaptureTarget {
   };
 }
 
+/** Translates one fixture text into `locale`; anything not in `FIXTURE_TEXT` stays English. */
+function fixtureText(locale: ListingLocale): (text: string) => string {
+  if (locale === 'en') {
+    return (text) => text;
+  }
+  const table = FIXTURE_TEXT[locale];
+  return (text) => table[text] ?? text;
+}
+
 /** The fixture sessions with their names and group titles in `locale`. */
 function localizeFixtures(sessions: Session[], locale: ListingLocale): Session[] {
   if (locale === 'en') {
     return sessions;
   }
-  const table = FIXTURE_TEXT[locale];
-  const tr = (text: string): string => table[text] ?? text;
+  const tr = fixtureText(locale);
   return sessions.map((session) => ({
     ...session,
     name: tr(session.name),
@@ -452,6 +491,8 @@ class Preparation {
     const fixtures = localizeFixtures(buildDashboardFixtures(), target.locale);
     const worker = await this.ext.worker();
     await seedSessions(worker, fixtures);
+    const notes = buildNotesFixtures(fixtureText(target.locale));
+    await seedNotes(worker, notes);
 
     const dashboardUrl = `chrome-extension://${this.extensionId}/app.html`;
     const page = await this.context.newPage();
@@ -548,6 +589,30 @@ class Preparation {
       if (!(await Preparation.isVisible(dialog))) {
         return 'the restore confirm dialog did not open';
       }
+      return null;
+    });
+
+    await shot('notes', async () => {
+      // One video's YouTube notes: the times, the texts and two screenshots.
+      const video = notes.find((entry) => entry.videoId === NOTES_FIXTURE_VIDEO_ID);
+      if (video === undefined) {
+        return 'no fixture video';
+      }
+      const entry = sidebarEntry(video.title);
+      if (!(await Preparation.isVisible(entry))) {
+        return `no sidebar entry for “${video.title}”`;
+      }
+      await entry.first().click();
+      await page
+        .locator('main')
+        .getByRole('heading', { name: video.title })
+        .waitFor({ timeout: CONTROL_TIMEOUT });
+      // The thumbnails are read from storage after the page draws; wait for both pictures.
+      await page
+        .locator('main img')
+        .nth(1)
+        .waitFor({ timeout: CONTROL_TIMEOUT })
+        .catch(() => undefined);
       return null;
     });
 

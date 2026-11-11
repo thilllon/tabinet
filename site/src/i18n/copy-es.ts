@@ -4,7 +4,7 @@ export const es: SiteCopy = {
   meta: {
     homeTitle: 'Tabinet - ordena, agrupa y guarda tus pestañas de Chrome',
     homeDescription:
-      'Una extensión de Chrome que ordena y agrupa todas tus pestañas con un clic, se ocupa de las duplicadas y guarda ventanas enteras como sesiones para recuperarlas después. Gratis, sin rastreo y sin que nada salga de tu equipo salvo que actives la sincronización cifrada opcional.',
+      'Una extensión de Chrome que ordena y agrupa todas tus pestañas con un clic, se ocupa de las duplicadas y guarda ventanas enteras como sesiones para recuperarlas después y toma notas con marca de tiempo en vídeos de YouTube. Gratis, sin rastreo y sin que nada salga de tu equipo salvo que actives la sincronización cifrada opcional.',
     supportTitle: 'Ayuda - Tabinet',
     supportDescription:
       'Respuestas a las dudas más comunes sobre Tabinet y cómo avisar de un problema o proponer una mejora.',
@@ -32,7 +32,7 @@ export const es: SiteCopy = {
   hero: {
     eyebrow: 'Extensión para Chrome',
     title: 'Un clic y cada pestaña vuelve a su sitio.',
-    lead: 'Tabinet ordena y agrupa las pestañas de tu ventana, elimina las duplicadas y guarda ventanas completas como sesiones que puedes recuperar cuando quieras. Todo se queda en tu equipo salvo que actives la sincronización.',
+    lead: 'Tabinet ordena y agrupa las pestañas de tu ventana, elimina las duplicadas y guarda ventanas completas como sesiones que puedes recuperar cuando quieras. ¿Ves un vídeo de YouTube? Toma notas con marca de tiempo a su lado. Todo se queda en tu equipo salvo que actives la sincronización.',
     imageAlt:
       'La página de Tabinet: las sesiones guardadas en la columna izquierda y, a la derecha, una sesión de dos ventanas con sus pestañas fijadas y grupos de pestañas',
     languages:
@@ -66,6 +66,18 @@ export const es: SiteCopy = {
         'Restaurar nunca borra la sesión guardada',
       ],
       alt: 'Tabinet pregunta «¿Restaurar 112 pestañas?» con la opción «Cargar las pestañas en diferido», sobre una sesión guardada de tres ventanas',
+    },
+    {
+      shot: 'notes',
+      kicker: 'Notas de YouTube',
+      title: 'Notas que saben en qué momento del vídeo estabas',
+      body: 'Abre Notas de YouTube desde el menú contextual o la página de Tabinet y el panel lateral de Chrome sigue el vídeo que estás viendo. Cada nota lleva la marca de tiempo del momento en que la tomaste, y un clic en ella devuelve el vídeo a ese punto.',
+      points: [
+        'Añade una nota en el momento actual, o una captura de lo que se ve en pantalla',
+        'El vídeo puede pausarse mientras escribes y sigue al guardar',
+        'Las notas de todos los vídeos en la página de Tabinet, con búsqueda y exportación a Markdown',
+      ],
+      alt: 'Las notas de YouTube de un vídeo en Tabinet: cuatro notas ordenadas por tiempo, dos de ellas con una captura del vídeo',
     },
     {
       shot: 'history',
@@ -160,7 +172,7 @@ export const es: SiteCopy = {
     startSteps: [
       'Agrega Tabinet desde Chrome Web Store y fija su icono en la barra de herramientas.',
       'Haz clic en el icono para ordenar la ventana en la que estás.',
-      'Haz clic con el botón derecho en el icono para ver ¡Reunir!, Guardar todas las ventanas como sesión y Pausar todos los vídeos de YouTube. Opciones abre la página de Tabinet, con tus sesiones y tu configuración.',
+      'Haz clic con el botón derecho en el icono para ver ¡Reunir!, Guardar todas las ventanas como sesión, Pausar todos los vídeos de YouTube y Notas de YouTube. Opciones abre la página de Tabinet, con tus sesiones, tus notas y tu configuración.',
     ],
     reportTitle: 'Avisar de un problema',
     reportLead:
@@ -217,6 +229,10 @@ export const es: SiteCopy = {
       {
         q: '¿Puede pausar todos mis vídeos de YouTube a la vez?',
         a: 'Sí. Haz clic con el botón derecho en el icono y elige Pausar todos los vídeos de YouTube, o pulsa su combinación de teclas (Alt+Mayús+P en una instalación nueva, Opción+Mayús+P en Mac; puedes asignarla o cambiarla en chrome://extensions/shortcuts). Todas las pestañas de YouTube de todas las ventanas se pausan donde estaban; nada se silencia ni se cierra, y repetirlo no reanuda nada. La primera vez se abre Configuración en su sección de YouTube para que permitas el acceso; después vuelve a elegirlo. La pausa solo pulsa pausa; las notas de YouTube, en el panel lateral, solo leen el tiempo y el título del vídeo, y el fotograma en pantalla cuando pulsas Captura. Puedes quitar el acceso en Configuración cuando quieras.',
+      },
+      {
+        q: '¿Cómo funcionan las notas de YouTube?',
+        a: 'Abre un vídeo de YouTube, haz clic con el botón derecho en el icono de Tabinet y elige Notas de YouTube (o usa el botón de la página de Tabinet, o una combinación de teclas que definas en chrome://extensions/shortcuts). Las notas se abren en el panel lateral de Chrome. La primera vez, activa allí Acceso a YouTube. Añadir nota guarda una nota en el momento actual, Captura guarda además lo que se ve en pantalla, y un clic en la marca de tiempo de una nota lleva el vídeo a ese punto. Las notas se quedan en tu equipo y solo se sincronizan, cifradas de extremo a extremo, si activas la sincronización. En la página de Tabinet encontrarás las notas de todos tus vídeos, con búsqueda y exportación a Markdown.',
       },
       {
         q: '¿Funciona en otros navegadores Chromium?',

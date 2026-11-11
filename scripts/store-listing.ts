@@ -21,40 +21,44 @@ import {
 
 /** Store listing > Description, per language: pasted as it is (no Markdown, at most 500). */
 export const STORE_DESCRIPTIONS: Record<ListingLocale, string> = {
-  en: `One click on the icon sorts every tab in the window by site, title or URL, groups them and clears duplicates.
+  en: `One click sorts the window's tabs by site, title or URL, groups them and clears duplicates.
 
-• Save windows as sessions and restore them later, with tab groups and pinned tabs
-• Automatic snapshots bring your tabs back after a crash
+• Save and restore windows as sessions, tab groups and pinned tabs included
+• Automatic snapshots bring tabs back after a crash
+• YouTube notes: timestamped notes and screenshots
 • Assemble! pulls every window into one
-• Search, import and export your sessions
+• Search, import and export sessions
 
-No tracking. Optional sync is end-to-end encrypted; without it, nothing leaves your device.
+No tracking. Optional sync is end-to-end encrypted; otherwise nothing leaves your device.
 
 Guide and FAQ: https://thilllon.github.io/tabinet/support/`,
   ko: `아이콘을 한 번 누르면 창의 모든 탭이 사이트, 제목, URL 순으로 정렬되고 그룹으로 묶이며 중복 탭이 정리됩니다.
 
 • 창을 세션으로 저장했다가 탭 그룹, 고정 탭까지 그대로 복원
 • 자동 스냅샷으로 브라우저가 꺼져도 탭 복구
+• YouTube 메모: 사이드 패널에서 시간이 표시된 메모와 스크린샷
 • 모두 모으기로 여러 창을 한 창에
 • 세션 검색, 가져오기, 내보내기
 
 추적은 없습니다. 동기화는 선택 기능이며 나만 아는 암호 문구로 종단 간 암호화됩니다. 동기화를 켜지 않으면 데이터는 기기 밖으로 나가지 않습니다.
 
 사용법과 FAQ: https://thilllon.github.io/tabinet/ko/support/`,
-  es: `Un clic en el icono ordena las pestañas de la ventana por sitio, título o URL, las agrupa y quita duplicados.
+  es: `Un clic ordena las pestañas por sitio, título o URL, las agrupa y quita duplicados.
 
-• Guarda ventanas como sesiones y restáuralas con sus grupos y pestañas fijadas
-• Las instantáneas automáticas recuperan tus pestañas tras un fallo
+• Guarda y restaura ventanas como sesiones, con grupos y pestañas fijadas
+• Instantáneas que recuperan pestañas tras un fallo
+• Notas de YouTube con marca de tiempo y capturas
 • ¡Reunir! junta todas las ventanas en una
 • Busca, importa y exporta sesiones
 
-Sin rastreo. Sincronización opcional cifrada de extremo a extremo; sin ella, nada sale del equipo.
+Sin rastreo. Sincronización opcional cifrada de extremo a extremo; si no, nada sale del equipo.
 
 Ayuda y guía: https://thilllon.github.io/tabinet/es/support/`,
   ja: `アイコンをクリックするだけで、ウィンドウ内のすべてのタブをサイト、タイトル、URL 順に並べ替え、グループにまとめ、重複タブを整理します。
 
 • ウィンドウをセッションとして保存し、タブグループや固定タブごと復元
 • 自動スナップショットで、クラッシュ後もタブを復旧
+• YouTube メモ: サイドパネルで時刻付きのメモとスクリーンショット
 • 集合！ですべてのウィンドウを 1 つに
 • セッションの検索、インポート、エクスポート
 
