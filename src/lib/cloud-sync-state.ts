@@ -67,6 +67,41 @@ export interface CloudSyncMeta {
    * change is not taken for an edit of this device's own; the next sync finishes writing them.
    */
   pendingSettings?: Record<string, unknown>;
+  /**
+   * YouTube notes (`kind: 'notes'`, one record per video). Absent until the first sync of a version
+   * that syncs notes, which marks every video's notes dirty and reads the feed again from the start.
+   */
+  notes?: RecordTrack;
+  /** Note screenshots (`kind: 'image'`, one record per picture); started together with `notes`. */
+  images?: RecordTrack;
+  /**
+   * Screenshots the server refused over its per-account cap, id to the stamp they were sent with.
+   * They stay on this device and are offered again once a screenshot is deleted (here or on another
+   * device), which makes room.
+   */
+  heldImages?: Record<string, number>;
+  /** Whether Settings has said that screenshots are held back, since the set last became non-empty. */
+  heldImagesNoticed?: boolean;
+}
+
+/**
+ * What one kind of record still has to send and what it has seen, by id: the same three maps the
+ * sessions have (`dirtySessions`, `deletedSessions`, `knownVersions`).
+ */
+export interface RecordTrack {
+  /** Changed here and not yet accepted by the server: id to the version (`updatedAt`) it has. */
+  dirty: Record<string, number>;
+  /** Deleted here and not yet accepted by the server: id to deletion time. */
+  deleted: Record<string, number>;
+  /** The newest version this device applied, deleted or had accepted, kept for good. */
+  known: Record<string, number>;
+}
+
+/** Which tracked kind a note-side change is about. */
+export type NoteRecordKind = 'notes' | 'images';
+
+export function emptyTrack(): RecordTrack {
+  return { dirty: {}, deleted: {}, known: {} };
 }
 
 /** What a sync runs with: the live account and the raw key, as stored on this device. */
@@ -89,6 +124,21 @@ function isStampMap(value: unknown): value is Record<string, number> {
   return isRecord(value) && !Array.isArray(value) && Object.values(value).every(isCount);
 }
 
+function parseTrack(value: unknown): RecordTrack | undefined | null {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (
+    !isRecord(value) ||
+    !isStampMap(value.dirty) ||
+    !isStampMap(value.deleted) ||
+    !isStampMap(value.known)
+  ) {
+    return null;
+  }
+  return { dirty: { ...value.dirty }, deleted: { ...value.deleted }, known: { ...value.known } };
+}
+
 /** The stored bookkeeping, or `undefined` when there is none or it is damaged. Pure. */
 export function parseSyncMeta(value: unknown): CloudSyncMeta | undefined {
   if (
@@ -105,8 +155,15 @@ export function parseSyncMeta(value: unknown): CloudSyncMeta | undefined {
     typeof value.settingsDirty !== 'boolean' ||
     !(value.settingsHash === undefined || typeof value.settingsHash === 'string') ||
     !(value.settingsSyncedAt === undefined || isCount(value.settingsSyncedAt)) ||
-    !(value.pendingSettings === undefined || isRecord(value.pendingSettings))
+    !(value.pendingSettings === undefined || isRecord(value.pendingSettings)) ||
+    !(value.heldImages === undefined || isStampMap(value.heldImages)) ||
+    !(value.heldImagesNoticed === undefined || typeof value.heldImagesNoticed === 'boolean')
   ) {
+    return undefined;
+  }
+  const notes = parseTrack(value.notes);
+  const images = parseTrack(value.images);
+  if (notes === null || images === null) {
     return undefined;
   }
   const meta: CloudSyncMeta = {
@@ -131,6 +188,17 @@ export function parseSyncMeta(value: unknown): CloudSyncMeta | undefined {
   }
   if (value.pendingSettings !== undefined) {
     meta.pendingSettings = { ...value.pendingSettings };
+  }
+  // Notes and screenshots are tracked together or not at all.
+  if (notes !== undefined && images !== undefined) {
+    meta.notes = notes;
+    meta.images = images;
+  }
+  if (value.heldImages !== undefined) {
+    meta.heldImages = { ...value.heldImages };
+  }
+  if (value.heldImagesNoticed !== undefined) {
+    meta.heldImagesNoticed = value.heldImagesNoticed;
   }
   return meta;
 }
@@ -282,6 +350,119 @@ export async function trackSessionChanges(
   await writeSyncMeta(withSessionChanges(meta, changes, now));
 }
 
+/** Note-side writes for the dirty sets (`notesRepo`, src/lib/notes-repo.ts). */
+export interface NoteChanges {
+  /** Videos whose notes were written, each with the notes' new `updatedAt`. */
+  notesChanged?: readonly (readonly [string, number])[];
+  /** Videos whose notes were deleted, each with the `updatedAt` they had. */
+  notesDeleted?: readonly (readonly [string, number])[];
+  /** Screenshots stored, or stored again by an Undo. */
+  imagesStored?: readonly string[];
+  /** Screenshots deleted. */
+  imagesDeleted?: readonly string[];
+}
+
+function hasNoteChanges(changes: NoteChanges): boolean {
+  return [
+    changes.notesChanged,
+    changes.notesDeleted,
+    changes.imagesStored,
+    changes.imagesDeleted,
+  ].some((list) => (list?.length ?? 0) > 0);
+}
+
+/** The newest version `track` has of `id`, pending or known, or 0. Pure. */
+export function trackVersion(track: RecordTrack, id: string): number {
+  return Math.max(track.dirty[id] ?? 0, track.deleted[id] ?? 0, track.known[id] ?? 0);
+}
+
+/** `meta` with `held` as its held-back screenshots; an empty set forgets that it was mentioned. Pure. */
+export function withHeldImages(meta: CloudSyncMeta, held: Record<string, number>): CloudSyncMeta {
+  const next: CloudSyncMeta = { ...meta };
+  if (Object.keys(held).length === 0) {
+    delete next.heldImages;
+    delete next.heldImagesNoticed;
+  } else {
+    next.heldImages = held;
+  }
+  return next;
+}
+
+/**
+ * `meta` with note-side `changes` recorded, `meta` itself while notes are not tracked yet. Notes
+ * work as sessions do (`withSessionChanges()`): a change carries the notes' `updatedAt`, a
+ * deletion is stamped `now` or just after it. A screenshot has no `updatedAt` of its own (its
+ * picture never changes), so its version is the moment it was stored or deleted, always past any
+ * version of it this device has seen: an Undo after a deletion that was already sent is newer than
+ * that tombstone. Pure.
+ */
+export function withNoteChanges(
+  meta: CloudSyncMeta,
+  changes: NoteChanges,
+  now: number,
+): CloudSyncMeta {
+  if (meta.notes === undefined || meta.images === undefined) {
+    return meta;
+  }
+  const notes: RecordTrack = {
+    dirty: { ...meta.notes.dirty },
+    deleted: { ...meta.notes.deleted },
+    known: { ...meta.notes.known },
+  };
+  const images: RecordTrack = {
+    dirty: { ...meta.images.dirty },
+    deleted: { ...meta.images.deleted },
+    known: { ...meta.images.known },
+  };
+  const held = { ...meta.heldImages };
+  for (const [id, updatedAt] of changes.notesChanged ?? []) {
+    notes.dirty[id] = updatedAt;
+    delete notes.deleted[id];
+  }
+  for (const [id, updatedAt] of changes.notesDeleted ?? []) {
+    const deletedAt = Math.max(now, updatedAt + 1);
+    notes.deleted[id] = deletedAt;
+    notes.known[id] = Math.max(notes.known[id] ?? 0, deletedAt);
+    delete notes.dirty[id];
+  }
+  for (const id of changes.imagesStored ?? []) {
+    images.dirty[id] = Math.max(now, trackVersion(images, id) + 1);
+    delete images.deleted[id];
+    delete held[id];
+  }
+  for (const id of changes.imagesDeleted ?? []) {
+    const deletedAt = Math.max(now, trackVersion(images, id) + 1);
+    images.deleted[id] = deletedAt;
+    images.known[id] = deletedAt;
+    delete images.dirty[id];
+    delete held[id];
+  }
+  return withHeldImages({ ...meta, notes, images }, held);
+}
+
+/**
+ * Records note-side writes in the dirty sets. `notesRepo` calls it from inside its own lock with
+ * the sessions lock taken too (always in that order: notes, then sessions, never the other way
+ * round). A no-op while cloud sync is unconfigured, and before a sync of this version started
+ * tracking notes (that start marks every note and screenshot dirty anyway).
+ */
+export async function trackNoteChanges(
+  changes: NoteChanges,
+  now: number = Date.now(),
+): Promise<void> {
+  if (!isCloudSyncEnabled() || !hasNoteChanges(changes)) {
+    return;
+  }
+  const meta = await readSyncMeta();
+  if (meta === undefined) {
+    return;
+  }
+  const next = withNoteChanges(meta, changes, now);
+  if (next !== meta) {
+    await writeSyncMeta(next);
+  }
+}
+
 /**
  * Whether a `storage.onChanged` change of `cloudSyncMeta` added something to send: a session id
  * that was not pending before (or is pending with a newer stamp), or settings that became dirty.
@@ -298,6 +479,10 @@ export function syncWorkGrew(oldValue: unknown, newValue: unknown): boolean {
   return (
     grew(previous?.dirtySessions, next.dirtySessions) ||
     grew(previous?.deletedSessions, next.deletedSessions) ||
+    grew(previous?.notes?.dirty, next.notes?.dirty ?? {}) ||
+    grew(previous?.notes?.deleted, next.notes?.deleted ?? {}) ||
+    grew(previous?.images?.dirty, next.images?.dirty ?? {}) ||
+    grew(previous?.images?.deleted, next.images?.deleted ?? {}) ||
     (next.settingsDirty &&
       (previous?.settingsDirty !== true || previous.settingsUpdatedAt !== next.settingsUpdatedAt))
   );
@@ -307,11 +492,20 @@ export function syncWorkGrew(oldValue: unknown, newValue: unknown): boolean {
 export interface SyncStatus {
   lastSyncAt: number | null;
   lastError: string | undefined;
+  /** Screenshots the server refused over its cap, kept on this device only. */
+  heldImages: number;
+  /** Whether Settings already said so (it does once, as a toast). */
+  heldImagesNoticed: boolean;
 }
 
 /** The last run's time and error for Settings; nothing before this account's first sync. */
 export async function loadSyncStatus(): Promise<SyncStatus> {
   const context = await loadSyncContext();
   const meta = context === null ? undefined : await readSyncMetaFor(context);
-  return { lastSyncAt: meta?.lastSyncAt ?? null, lastError: meta?.lastError };
+  return {
+    lastSyncAt: meta?.lastSyncAt ?? null,
+    lastError: meta?.lastError,
+    heldImages: Object.keys(meta?.heldImages ?? {}).length,
+    heldImagesNoticed: meta?.heldImagesNoticed === true,
+  };
 }

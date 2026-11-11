@@ -1724,7 +1724,7 @@
     "description": "Heading of the Settings section for signing in to cloud sync. One or two words."
   },
   "settingsAccountDescription": {
-    "message": "ログインすると、保存したセッションと設定を複数の端末でそろえられます。データは自分だけが知るパスフレーズで、この端末上で暗号化されます。",
+    "message": "ログインすると、保存したセッション、YouTube メモと設定を複数の端末でそろえられます。データは自分だけが知るパスフレーズで、この端末上で暗号化されます。",
     "description": "Explanation under the Account heading in Settings."
   },
   "settingsAccountGoogle": {
@@ -1800,7 +1800,7 @@
     "description": "Button in Settings that signs out of cloud sync on this device. Keep it short."
   },
   "settingsAccountSignedOut": {
-    "message": "ログアウトしました。この端末のセッションはそのまま残っています。",
+    "message": "ログアウトしました。この端末のセッションとメモはそのまま残っています。",
     "description": "Toast after signing out of cloud sync."
   },
   "settingsAccountDelete": {
@@ -1812,7 +1812,7 @@
     "description": "Title of the dialog that asks before deleting the cloud sync account."
   },
   "settingsAccountDeleteBody": {
-    "message": "アカウントと、同期サーバーに保存されたすべてのデータを削除します。元に戻せません。この端末のセッションは残ります。",
+    "message": "アカウントと、同期サーバーに保存されたすべてのデータを削除します。元に戻せません。この端末のセッションとメモは残ります。",
     "description": "Body of the dialog that asks before deleting the cloud sync account."
   },
   "settingsAccountDeleted": {
@@ -1834,6 +1834,10 @@
   "settingsAccountSynced": {
     "message": "同期しました。",
     "description": "Toast after \"Sync now\" finished."
+  },
+  "settingsAccountImagesHeld_other": {
+    "message": "スクリーンショット $1 枚を同期できませんでした。アカウントにはすでに上限の $2 枚があります。この端末には残っていて、スクリーンショットを削除すると同期されます。",
+    "description": "Toast in Settings > Account, shown once, when the sync server refused note screenshots because the account is at its limit. $1 is how many are held back on this device, $2 the limit (100)."
   },
   "errorCloudUnreachable": {
     "message": "同期サーバーに接続できません。接続を確認して、もう一度お試しください。",
@@ -1866,6 +1870,10 @@
   "errorCloudRecordTooLarge": {
     "message": "大きすぎて同期できないセッションがあります。このデバイスにだけ残ります。",
     "description": "Error when a saved session is too large for the sync server; it stays on this device only."
+  },
+  "errorCloudNoteTooLarge": {
+    "message": "メモまたはスクリーンショットが大きすぎて同期できません。この端末にだけ残ります。",
+    "description": "Error when one video's notes, or one note screenshot, is too large for the sync server; it stays on this device only."
   },
   "commonTryAgain": {
     "message": "再試行",

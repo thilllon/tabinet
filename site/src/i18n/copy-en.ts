@@ -135,7 +135,7 @@ export const en: SiteCopy = {
     points: [
       {
         title: 'Stays on the device',
-        body: 'Sessions and snapshots live in Chrome’s local extension storage. Snapshots never leave it; saved sessions do only if you turn on sync.',
+        body: 'Sessions, snapshots and YouTube notes live in Chrome’s local extension storage. Snapshots never leave it; saved sessions and notes do only if you turn on sync.',
       },
       {
         title: 'No account needed',
@@ -187,7 +187,7 @@ export const en: SiteCopy = {
       },
       {
         q: 'Does it send my browsing data anywhere?',
-        a: 'Not unless you sign in to sync. Without it, Tabinet makes no network requests at all and everything happens inside your browser. With sync on, your saved sessions and settings go to Tabinet’s sync server encrypted, so only you can read them; automatic snapshots never leave the device.',
+        a: 'Not unless you sign in to sync. Without it, Tabinet makes no network requests at all and everything happens inside your browser. With sync on, your saved sessions, YouTube notes and settings go to Tabinet’s sync server encrypted, so only you can read them; automatic snapshots never leave the device.',
       },
       {
         q: 'Where are my saved sessions stored?',
@@ -203,11 +203,11 @@ export const en: SiteCopy = {
       },
       {
         q: 'Can I move my sessions to another computer?',
-        a: 'Yes. Turn on sync on both computers and your saved sessions follow you. Or export everything as JSON and import that file on the other computer, or export as HTML and import it into Chrome’s bookmarks.',
+        a: 'Yes. Turn on sync on both computers and your saved sessions and YouTube notes follow you. Or export everything as JSON and import that file on the other computer, or export as HTML and import it into Chrome’s bookmarks.',
       },
       {
         q: 'How does sync work, and can the server read my tabs?',
-        a: 'Sync is optional and off until you click Sign in with Google in Settings, Account. You then create a sync passphrase; your saved sessions and settings are encrypted with it on your computer before they are sent, and the passphrase itself is never sent, so the server stores only data it cannot read. Snapshots never sync. If you forget the passphrase nobody can recover the copy in the cloud, but the sessions on your computers stay. Delete cloud data in the same place removes everything from the server. Sign-in uses Chrome’s own Google sign-in, so it may not work in other Chromium browsers.',
+        a: 'Sync is optional and off until you click Sign in with Google in Settings, Account. You then create a sync passphrase; your saved sessions, YouTube notes (with their screenshots) and settings are encrypted with it on your computer before they are sent, and the passphrase itself is never sent, so the server stores only data it cannot read. Snapshots never sync. The server keeps up to 100 screenshots per account; any more stay on the computer where you took them. If you forget the passphrase nobody can recover the copy in the cloud, but the sessions and notes on your computers stay. Delete cloud data in the same place removes everything from the server. Sign-in uses Chrome’s own Google sign-in, so it may not work in other Chromium browsers.',
       },
       {
         q: 'What if I do not like the result of a sort?',

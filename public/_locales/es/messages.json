@@ -1888,7 +1888,7 @@
     "description": "Heading of the Settings section for signing in to cloud sync. One or two words."
   },
   "settingsAccountDescription": {
-    "message": "Inicia sesión para mantener tus sesiones guardadas y tus ajustes al día en varios dispositivos. Se cifran en este dispositivo con una frase de contraseña que solo tú conoces.",
+    "message": "Inicia sesión para mantener tus sesiones guardadas, tus notas de YouTube y tus ajustes al día en varios dispositivos. Se cifran en este dispositivo con una frase de contraseña que solo tú conoces.",
     "description": "Explanation under the Account heading in Settings."
   },
   "settingsAccountGoogle": {
@@ -1968,7 +1968,7 @@
     "description": "Button in Settings that signs out of cloud sync on this device. Keep it short."
   },
   "settingsAccountSignedOut": {
-    "message": "Sesión cerrada. Tus sesiones de este dispositivo siguen aquí.",
+    "message": "Sesión cerrada. Tus sesiones y notas de este dispositivo siguen aquí.",
     "description": "Toast after signing out of cloud sync."
   },
   "settingsAccountDelete": {
@@ -1980,7 +1980,7 @@
     "description": "Title of the dialog that asks before deleting the cloud sync account."
   },
   "settingsAccountDeleteBody": {
-    "message": "Se eliminarán tu cuenta y todo lo guardado para ella en el servidor de sincronización. No se puede deshacer. Las sesiones de este dispositivo se quedan.",
+    "message": "Se eliminarán tu cuenta y todo lo guardado para ella en el servidor de sincronización. No se puede deshacer. Las sesiones y notas de este dispositivo se quedan.",
     "description": "Body of the dialog that asks before deleting the cloud sync account."
   },
   "settingsAccountDeleted": {
@@ -2002,6 +2002,14 @@
   "settingsAccountSynced": {
     "message": "Sincronizado.",
     "description": "Toast after \"Sync now\" finished."
+  },
+  "settingsAccountImagesHeld_one": {
+    "message": "$1 captura no se sincronizó: tu cuenta ya guarda $2 capturas, el máximo. Se queda en este dispositivo y se sincronizará cuando elimines una captura.",
+    "description": "Toast in Settings > Account, shown once, when the sync server refused note screenshots because the account is at its limit. $1 is how many are held back on this device, $2 the limit (100)."
+  },
+  "settingsAccountImagesHeld_other": {
+    "message": "$1 capturas no se sincronizaron: tu cuenta ya guarda $2 capturas, el máximo. Se quedan en este dispositivo y se sincronizarán cuando elimines una captura.",
+    "description": "Toast in Settings > Account, shown once, when the sync server refused note screenshots because the account is at its limit. $1 is how many are held back on this device, $2 the limit (100)."
   },
   "errorCloudUnreachable": {
     "message": "No se pudo conectar con el servidor de sincronización. Revisa la conexión e inténtalo de nuevo.",
@@ -2034,6 +2042,10 @@
   "errorCloudRecordTooLarge": {
     "message": "Una sesión es demasiado grande para sincronizarse. Solo se queda en este dispositivo.",
     "description": "Error when a saved session is too large for the sync server; it stays on this device only."
+  },
+  "errorCloudNoteTooLarge": {
+    "message": "Las notas de un vídeo o una captura son demasiado grandes para sincronizarse. Solo se quedan en este dispositivo.",
+    "description": "Error when one video's notes, or one note screenshot, is too large for the sync server; it stays on this device only."
   },
   "commonTryAgain": {
     "message": "Reintentar",

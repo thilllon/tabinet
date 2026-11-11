@@ -1,4 +1,10 @@
-import { type KeySetup, RECORD_KINDS, type RecordInput, type RecordKind } from './types.js';
+import {
+  DEFAULT_LISTED_KINDS,
+  type KeySetup,
+  RECORD_KINDS,
+  type RecordInput,
+  type RecordKind,
+} from './types.js';
 
 const MAX_RECORDS_PER_REQUEST = 100;
 /**
@@ -141,10 +147,34 @@ export function parseRecordsBody(body: unknown): RecordInput[] | null {
   return parsed;
 }
 
-/** `since` (default 0) and `limit` (1..500, default 500) from the query string, or null. */
-export function parseRecordsQuery(
-  params: URLSearchParams,
-): { since: number; limit: number } | null {
+export interface RecordsQuery {
+  since: number;
+  limit: number;
+  /** The kinds to list: the request's `kinds`, or `DEFAULT_LISTED_KINDS`. */
+  kinds: RecordKind[];
+}
+
+/**
+ * `kinds`: a comma-separated list of known kinds without repeats, e.g. `session,settings,notes`.
+ * Absent, the kinds every client version understands. Null when anything is wrong.
+ */
+function parseKinds(value: string | null): RecordKind[] | null {
+  if (value === null) {
+    return [...DEFAULT_LISTED_KINDS];
+  }
+  const parts = value.split(',');
+  const kinds: RecordKind[] = [];
+  for (const part of parts) {
+    if (!isRecordKind(part) || kinds.includes(part)) {
+      return null;
+    }
+    kinds.push(part);
+  }
+  return kinds;
+}
+
+/** `since` (default 0), `limit` (1..500, default 500) and `kinds` from the query string, or null. */
+export function parseRecordsQuery(params: URLSearchParams): RecordsQuery | null {
   const since = params.get('since') ?? '0';
   const limit = params.get('limit') ?? String(DEFAULT_RECORDS_LIMIT);
   if (!DIGITS.test(since) || !DIGITS.test(limit)) {
@@ -155,5 +185,9 @@ export function parseRecordsQuery(
   if (!Number.isSafeInteger(sinceValue) || limitValue < 1 || limitValue > DEFAULT_RECORDS_LIMIT) {
     return null;
   }
-  return { since: sinceValue, limit: limitValue };
+  const kinds = parseKinds(params.get('kinds'));
+  if (kinds === null) {
+    return null;
+  }
+  return { since: sinceValue, limit: limitValue, kinds };
 }

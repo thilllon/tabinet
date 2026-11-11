@@ -16,7 +16,13 @@ import {
 } from '@/lib/cloud-crypto';
 import { ExplainedError } from '@/lib/error-message';
 import { isRecord } from '@/lib/import-guards';
-import type { CloudKeySetup, CloudRecord, CloudRecordKind, CloudRecordWithSeq } from '@/types';
+import {
+  CLOUD_RECORD_KINDS,
+  type CloudKeySetup,
+  type CloudRecord,
+  type CloudRecordKind,
+  type CloudRecordWithSeq,
+} from '@/types';
 
 /** The token is missing, unknown or expired: the stored account is no longer signed in. */
 export class CloudUnauthorizedError extends ExplainedError {
@@ -57,9 +63,14 @@ export interface CloudRecordPage {
 export interface CloudWriteResult {
   kind: CloudRecordKind;
   id: string;
-  status: 'applied' | 'stale';
+  /**
+   * `applied`; `stale` with the newer `current`; or `rejected`: not stored, for `reason` (a
+   * screenshot over the account's cap, `image_limit`).
+   */
+  status: 'applied' | 'stale' | 'rejected';
   seq?: number;
   current?: CloudRecordWithSeq;
+  reason?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -105,7 +116,7 @@ export function isCloudKeySetup(value: unknown): value is CloudKeySetup {
 }
 
 function isKind(value: unknown): value is CloudRecordKind {
-  return value === 'session' || value === 'settings';
+  return CLOUD_RECORD_KINDS.some((kind) => kind === value);
 }
 
 function isRecordWithSeq(value: unknown): value is CloudRecordWithSeq {
@@ -126,8 +137,9 @@ function isWriteResult(value: unknown): value is CloudWriteResult {
     isRecord(value) &&
     isKind(value.kind) &&
     isString(value.id) &&
-    (value.status === 'applied' || value.status === 'stale') &&
+    (value.status === 'applied' || value.status === 'stale' || value.status === 'rejected') &&
     (value.seq === undefined || isCount(value.seq)) &&
+    (value.reason === undefined || isString(value.reason)) &&
     (value.current === undefined || isRecordWithSeq(value.current))
   );
 }
@@ -313,7 +325,11 @@ export async function putKeys(
   );
 }
 
-/** `GET /v1/records`: the caller's records changed after `since`, oldest change first. */
+/**
+ * `GET /v1/records`: the caller's records changed after `since`, oldest change first. It names every
+ * kind this version reads (`kinds=`): the server lists only the session and settings kinds to a
+ * client that names none, an older version that would refuse a page holding notes.
+ */
 export async function getRecords(
   token: string,
   since: number,
@@ -321,7 +337,7 @@ export async function getRecords(
   options: CloudApiOptions = {},
 ): Promise<CloudRecordPage> {
   const route = 'GET /v1/records';
-  const query = new URLSearchParams({ since: String(since) });
+  const query = new URLSearchParams({ since: String(since), kinds: CLOUD_RECORD_KINDS.join(',') });
   if (limit !== undefined) {
     query.set('limit', String(limit));
   }

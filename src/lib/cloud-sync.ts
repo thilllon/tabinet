@@ -1,13 +1,19 @@
 /**
- * The cloud sync engine (GitHub issue #170): moves saved sessions and the settings between this
- * device and the sync server (#165), end-to-end encrypted with the key from #166. Snapshots
- * (`kind: 'history'`) never sync; Keep turns one into a saved session, which then does.
+ * The cloud sync engine (GitHub issue #170): moves saved sessions, the settings and YouTube notes
+ * with their screenshots (#221) between this device and the sync server (#165), end-to-end
+ * encrypted with the key from #166. Snapshots (`kind: 'history'`) never sync; Keep turns one into
+ * a saved session, which then does.
  *
  * Records: a saved session is `{ kind: 'session', id, updatedAt }` with the whole `Session` body
  * encrypted inside; a deleted one is its tombstone (`deleted: true`, `updatedAt` = when it was
  * deleted, `TOMBSTONE_PAYLOAD` encrypted inside); the settings are one record
  * `{ kind: 'settings', id: 'settings' }` holding the sort settings, the session settings and the
- * language. Last writer wins by `updatedAt`, as on the server.
+ * language; one video's notes are `{ kind: 'notes', id: <videoId> }` with the whole `VideoNotes`
+ * inside, and one screenshot `{ kind: 'image', id: <imageId> }` with its data URL inside (its
+ * `updatedAt` is when it was stored or deleted: a picture never changes). Last writer wins by
+ * `updatedAt`, as on the server. The server keeps at most `CLOUD_IMAGE_LIMIT` live screenshots per
+ * account and refuses one more (`rejected`); such a picture stays on this device, is offered again
+ * once a screenshot is deleted, and Settings > Account says so once.
  *
  * The server is not trusted: every record, a tombstone included, is encrypted with its
  * `kind`/`id`/`updatedAt`/`deleted` as AES-GCM additional data (`encryptRecord()`), so a record
@@ -17,7 +23,7 @@
  * `syncNow()` pulls the change feed, then pushes what this device changed (the dirty sets in
  * `cloudSyncMeta`, `src/lib/cloud-sync-state.ts`). It runs under its own Web Lock, so the page and
  * the worker never sync at once; network calls happen outside the sessions lock, and every local
- * write goes through `sessionRepo` (`applyRemote()` for what the server sent).
+ * write goes through `sessionRepo` or `notesRepo` (`applyRemote()` for what the server sent).
  *
  * The settings apply path (`writeReceivedSettings()`) is the one place sessions code writes
  * `chrome.storage.sync`: the sort settings and `uiLanguage` live there, so applying settings from
@@ -45,21 +51,26 @@ import {
   type SyncContext,
   syncWorkGrew,
   withKnownVersion,
+  withHeldImages,
   writeSyncMeta,
 } from '@/lib/cloud-sync-state';
 import { errorMessage, ExplainedError } from '@/lib/error-message';
 import { uiLanguageReady } from '@/lib/i18n';
 import { isRecord, isSession } from '@/lib/import-guards';
+import { notesRepo, parseRemoteNotes } from '@/lib/notes-repo';
 import { fnv1a32 } from '@/lib/session-hash';
 import { normalizeSettings, SETTINGS_KEY, sessionRepo, withLock } from '@/lib/session-repo';
 import { parseSortSettings, SORT_SETTING_KEYS } from '@/lib/sort-settings';
 import { parseUiLanguage, UI_LANGUAGE_KEY, type UiLanguage } from '@/lib/ui-language';
+import { isImageDataUrl } from '@/lib/youtube-video';
 import type {
   CloudRecord,
+  CloudRecordKind,
   CloudRecordWithSeq,
   Session,
   SessionSettings,
   SortSettings,
+  VideoNotes,
 } from '@/types';
 
 /** The periodic sync alarm, every `SYNC_PERIOD_MINUTES` while ready. */
@@ -181,13 +192,30 @@ export function splitIntoBatches(
   return batches;
 }
 
-/** A session too big for the server: it stays on this device and the run reports it. */
+/** A record too big for the server: it stays on this device and the run reports it. */
 class RecordTooLargeError extends ExplainedError {
-  constructor(id: string) {
-    super(`Session ${id} is over the server's record size`, 'errorCloudRecordTooLarge');
+  constructor(kind: CloudRecordKind, id: string) {
+    super(
+      `The ${kind} record ${id} is over the server's record size`,
+      kind === 'session' ? 'errorCloudRecordTooLarge' : 'errorCloudNoteTooLarge',
+    );
     this.name = 'RecordTooLargeError';
   }
 }
+
+/** A write the server refused for a reason this version does not know. */
+class RecordRejectedError extends ExplainedError {
+  constructor(kind: string, id: string, reason: string | undefined) {
+    super(
+      `The server refused the ${kind} record ${id} (${reason ?? 'no reason'})`,
+      'errorCloudRejected',
+    );
+    this.name = 'RecordRejectedError';
+  }
+}
+
+/** Why the server refuses a screenshot over the account's cap (server/src/types.ts). */
+const IMAGE_LIMIT_REASON = 'image_limit';
 
 /** What a tombstone's ciphertext holds: the deletion, authenticated like any other record. */
 const TOMBSTONE_PAYLOAD = { deleted: true } as const;
@@ -340,6 +368,8 @@ interface RunState {
   pushed: number;
   /** Problems that did not stop the run (a record that does not decrypt, one too large). */
   problems: unknown[];
+  /** A screenshot tombstone reached the server in this run (pulled, or pushed and applied). */
+  imageDeletedOnServer: boolean;
 }
 
 /**
@@ -375,10 +405,13 @@ async function applyRecord(
     }
     return applySettingsRecord(run.context, settings, record.updatedAt, serverWinsTies);
   }
+  if (record.deleted && !isTombstonePayload(content)) {
+    throw new UnusableRecordError(record.kind, record.id);
+  }
+  if (record.kind === 'notes' || record.kind === 'image') {
+    return applyNotesRecord(record, content, serverWinsTies);
+  }
   if (record.deleted) {
-    if (!isTombstonePayload(content)) {
-      throw new UnusableRecordError(record.kind, record.id);
-    }
     const outcome = await sessionRepo.applyRemote(
       { type: 'deleted', id: record.id, updatedAt: record.updatedAt },
       { serverWinsTies },
@@ -390,6 +423,45 @@ async function applyRecord(
     throw new UnusableRecordError(record.kind, record.id);
   }
   const outcome = await sessionRepo.applyRemote({ type: 'session', session }, { serverWinsTies });
+  return outcome === 'applied';
+}
+
+/** A notes or screenshot record, through `notesRepo.applyRemote()`. Its content is already decrypted. */
+async function applyNotesRecord(
+  record: CloudRecord,
+  content: unknown,
+  serverWinsTies: boolean,
+): Promise<boolean> {
+  const { id, updatedAt } = record;
+  const options = { serverWinsTies };
+  if (record.kind === 'notes') {
+    if (record.deleted) {
+      const outcome = await notesRepo.applyRemote(
+        { type: 'notesDeleted', videoId: id, updatedAt },
+        options,
+      );
+      return outcome === 'applied';
+    }
+    const notes = parseRemoteNotes(content, id);
+    if (notes === null || notes.updatedAt !== updatedAt) {
+      throw new UnusableRecordError(record.kind, id);
+    }
+    return (await notesRepo.applyRemote({ type: 'notes', notes }, options)) === 'applied';
+  }
+  if (record.deleted) {
+    const outcome = await notesRepo.applyRemote(
+      { type: 'imageDeleted', imageId: id, updatedAt },
+      options,
+    );
+    return outcome === 'applied';
+  }
+  if (typeof content !== 'string' || !isImageDataUrl(content)) {
+    throw new UnusableRecordError(record.kind, id);
+  }
+  const outcome = await notesRepo.applyRemote(
+    { type: 'image', imageId: id, image: content, updatedAt },
+    options,
+  );
   return outcome === 'applied';
 }
 
@@ -505,7 +577,16 @@ async function pull(run: RunState): Promise<void> {
       run.options.pageSize,
       run.options,
     );
-    for (const record of page.records) {
+    // Screenshots after everything else on the page: a picture whose note is on the same page then
+    // lands after that note, never as an orphan the repair pass could take for a leftover.
+    const ordered = [
+      ...page.records.filter((record) => record.kind !== 'image'),
+      ...page.records.filter((record) => record.kind === 'image'),
+    ];
+    for (const record of ordered) {
+      if (record.kind === 'image' && record.deleted) {
+        run.imageDeletedOnServer = true;
+      }
       if (await applyRecordSafely(run, record, false)) {
         run.pulled += 1;
       }
@@ -518,11 +599,113 @@ async function pull(run: RunState): Promise<void> {
   }
 }
 
+/** Which bookkeeping set a pushed record came from. */
+type OutgoingSet = 'dirty' | 'deleted' | 'settings';
+
 /** One record to push and the bookkeeping entry it settles. */
 interface Outgoing {
   record: CloudRecord;
-  /** Which dirty set the record came from and the stamp it had when read. */
-  entry: { set: 'dirty' | 'deleted' | 'settings'; stamp: number; hash?: string };
+  /** Which set the record came from (of its kind) and the stamp it had when read. */
+  entry: { set: OutgoingSet; stamp: number; hash?: string };
+}
+
+/** The kinds tracked in a `RecordTrack` of `cloudSyncMeta`. */
+type TrackedKind = 'notes' | 'image';
+
+function trackKey(kind: TrackedKind): 'notes' | 'images' {
+  return kind === 'notes' ? 'notes' : 'images';
+}
+
+/** Encrypts one live record, or reports it too large (it then stays pending, and local). */
+async function outgoingRecord(
+  run: RunState,
+  recordMeta: { kind: CloudRecordKind; id: string; updatedAt: number },
+  value: unknown,
+  stamp: number,
+): Promise<Outgoing | undefined> {
+  const meta = { ...recordMeta, deleted: false };
+  const payload = await encryptRecord(run.context.rawKey, meta, value);
+  if (payload.ciphertext.length > MAX_CIPHERTEXT_CHARS) {
+    run.problems.push(new RecordTooLargeError(recordMeta.kind, recordMeta.id));
+    return undefined;
+  }
+  return { record: { ...meta, ...payload }, entry: { set: 'dirty', stamp } };
+}
+
+/** The tombstones of one kind\'s pending deletions. */
+async function outgoingTombstones(
+  run: RunState,
+  kind: CloudRecordKind,
+  deleted: Record<string, number>,
+): Promise<Outgoing[]> {
+  const outgoing: Outgoing[] = [];
+  for (const [id, deletedAt] of Object.entries(deleted)) {
+    if (!RECORD_ID.test(id)) {
+      continue;
+    }
+    const recordMeta = { kind, id, updatedAt: deletedAt, deleted: true };
+    const payload = await encryptRecord(run.context.rawKey, recordMeta, TOMBSTONE_PAYLOAD);
+    outgoing.push({
+      record: { ...recordMeta, ...payload },
+      entry: { set: 'deleted', stamp: deletedAt },
+    });
+  }
+  return outgoing;
+}
+
+/** The notes (`kind: 'notes'`) and screenshots (`kind: 'image'`) this device has to send. */
+async function collectNotesOutgoing(
+  run: RunState,
+  meta: CloudSyncMeta,
+): Promise<{ notes: Outgoing[]; images: Outgoing[] }> {
+  const notes: Outgoing[] = [];
+  const images: Outgoing[] = [];
+  if (meta.notes === undefined || meta.images === undefined) {
+    return { notes, images };
+  }
+  for (const [id, stamp] of Object.entries(meta.notes.dirty)) {
+    if (!RECORD_ID.test(id)) {
+      continue;
+    }
+    let body: VideoNotes | undefined;
+    try {
+      body = await notesRepo.get(id);
+    } catch {
+      body = undefined;
+    }
+    if (body === undefined) {
+      // Gone (its tombstone is pending instead) or unreadable here: nothing to send.
+      await updateMeta(run.context, (current) => dropEntry(current, 'notes', 'dirty', id, stamp));
+      continue;
+    }
+    const item = await outgoingRecord(
+      run,
+      { kind: 'notes', id, updatedAt: body.updatedAt },
+      body,
+      stamp,
+    );
+    if (item !== undefined) {
+      notes.push(item);
+    }
+  }
+  notes.push(...(await outgoingTombstones(run, 'notes', meta.notes.deleted)));
+  for (const [id, stamp] of Object.entries(meta.images.dirty)) {
+    if (!RECORD_ID.test(id)) {
+      continue;
+    }
+    const image = await notesRepo.getImage(id);
+    if (image === undefined) {
+      await updateMeta(run.context, (current) => dropEntry(current, 'image', 'dirty', id, stamp));
+      continue;
+    }
+    // A picture has no `updatedAt` of its own: the stamp it was stored with is its version.
+    const item = await outgoingRecord(run, { kind: 'image', id, updatedAt: stamp }, image, stamp);
+    if (item !== undefined) {
+      images.push(item);
+    }
+  }
+  images.push(...(await outgoingTombstones(run, 'image', meta.images.deleted)));
+  return { notes, images };
 }
 
 async function collectOutgoing(run: RunState): Promise<Outgoing[]> {
@@ -532,7 +715,6 @@ async function collectOutgoing(run: RunState): Promise<Outgoing[]> {
   if (meta === undefined) {
     return [];
   }
-  const { rawKey } = run.context;
   const outgoing: Outgoing[] = [];
 
   const dirtyIds = Object.keys(meta.dirtySessions).filter((id) => RECORD_ID.test(id));
@@ -545,29 +727,24 @@ async function collectOutgoing(run: RunState): Promise<Outgoing[]> {
     }
     if (body === undefined || body.kind !== 'saved') {
       // Gone (its tombstone is pending instead) or not a saved session: nothing to send.
-      await updateMeta(run.context, (current) => dropEntry(current, 'dirty', id, stamp));
+      await updateMeta(run.context, (current) => dropEntry(current, 'session', 'dirty', id, stamp));
       continue;
     }
-    const recordMeta = { kind: 'session', id, updatedAt: body.updatedAt, deleted: false } as const;
-    const payload = await encryptRecord(rawKey, recordMeta, body);
-    if (payload.ciphertext.length > MAX_CIPHERTEXT_CHARS) {
-      run.problems.push(new RecordTooLargeError(id));
-      continue;
+    const item = await outgoingRecord(
+      run,
+      { kind: 'session', id, updatedAt: body.updatedAt },
+      body,
+      stamp,
+    );
+    if (item !== undefined) {
+      outgoing.push(item);
     }
-    outgoing.push({ record: { ...recordMeta, ...payload }, entry: { set: 'dirty', stamp } });
   }
+  outgoing.push(...(await outgoingTombstones(run, 'session', meta.deletedSessions)));
 
-  for (const [id, deletedAt] of Object.entries(meta.deletedSessions)) {
-    if (!RECORD_ID.test(id)) {
-      continue;
-    }
-    const recordMeta = { kind: 'session', id, updatedAt: deletedAt, deleted: true } as const;
-    const payload = await encryptRecord(rawKey, recordMeta, TOMBSTONE_PAYLOAD);
-    outgoing.push({
-      record: { ...recordMeta, ...payload },
-      entry: { set: 'deleted', stamp: deletedAt },
-    });
-  }
+  // Notes before their screenshots, so another device reads a note before its picture.
+  const { notes, images } = await collectNotesOutgoing(run, meta);
+  outgoing.push(...notes);
 
   if (meta.settingsDirty) {
     const settings = await readLocalSettings();
@@ -577,7 +754,7 @@ async function collectOutgoing(run: RunState): Promise<Outgoing[]> {
       updatedAt: meta.settingsUpdatedAt,
       deleted: false,
     } as const;
-    const payload = await encryptRecord(rawKey, recordMeta, settings);
+    const payload = await encryptRecord(run.context.rawKey, recordMeta, settings);
     outgoing.push({
       record: { ...recordMeta, ...payload },
       entry: {
@@ -587,16 +764,31 @@ async function collectOutgoing(run: RunState): Promise<Outgoing[]> {
       },
     });
   }
+  outgoing.push(...images);
   return outgoing;
 }
 
-/** `meta` without the entry `id` of `set`, when it still has the `stamp` it was sent with. Pure. */
+/**
+ * `meta` without the entry `id` of `set` for `kind`, when it still has the `stamp` it was sent
+ * with. Pure.
+ */
 function dropEntry(
   meta: CloudSyncMeta,
+  kind: CloudRecordKind,
   set: 'dirty' | 'deleted',
   id: string,
   stamp: number,
 ): CloudSyncMeta {
+  if (kind === 'notes' || kind === 'image') {
+    const key = trackKey(kind);
+    const track = meta[key];
+    if (track === undefined || track[set][id] !== stamp) {
+      return meta;
+    }
+    const entries = { ...track[set] };
+    delete entries[id];
+    return { ...meta, [key]: { ...track, [set]: entries } };
+  }
   const key = set === 'dirty' ? 'dirtySessions' : 'deletedSessions';
   if (meta[key][id] !== stamp) {
     return meta;
@@ -606,14 +798,33 @@ function dropEntry(
   return { ...meta, [key]: entries };
 }
 
+/** `meta` with `stamp` remembered as a version of `id` of `kind`, never lowering it. Pure. */
+function withKnown(
+  meta: CloudSyncMeta,
+  kind: CloudRecordKind,
+  id: string,
+  stamp: number,
+): CloudSyncMeta {
+  if (kind !== 'notes' && kind !== 'image') {
+    return withKnownVersion(meta, id, stamp);
+  }
+  const key = trackKey(kind);
+  const track = meta[key];
+  if (track === undefined || (track.known[id] ?? 0) >= stamp) {
+    return meta;
+  }
+  return { ...meta, [key]: { ...track, known: { ...track.known, [id]: stamp } } };
+}
+
 /**
- * `meta` after the server accepted `item`; an entry changed again since is left pending. A session's
- * stamp is remembered in `knownVersions` either way, so the server cannot later pass off anything
- * older as new. Pure.
+ * `meta` after the server accepted `item`; an entry changed again since is left pending. A
+ * record's stamp is remembered in `knownVersions` (or its kind's `known`) either way, so the
+ * server cannot later pass off anything older as new. Pure.
  */
 export function afterApplied(
   meta: CloudSyncMeta,
   entry: Outgoing['entry'],
+  kind: CloudRecordKind,
   id: string,
 ): CloudSyncMeta {
   if (entry.set === 'settings') {
@@ -627,7 +838,47 @@ export function afterApplied(
       settingsSyncedAt: entry.stamp,
     };
   }
-  return withKnownVersion(dropEntry(meta, entry.set, id, entry.stamp), id, entry.stamp);
+  return withKnown(dropEntry(meta, kind, entry.set, id, entry.stamp), kind, id, entry.stamp);
+}
+
+/**
+ * `meta` after the server refused screenshot `id` over the account's cap: the picture is held back
+ * (it stays here and is offered again once a screenshot is deleted somewhere). An entry changed
+ * since is left pending. Pure.
+ */
+export function afterImageRefused(meta: CloudSyncMeta, id: string, stamp: number): CloudSyncMeta {
+  const dropped = dropEntry(meta, 'image', 'dirty', id, stamp);
+  if (dropped === meta) {
+    return meta;
+  }
+  return withHeldImages(dropped, { ...meta.heldImages, [id]: stamp });
+}
+
+/**
+ * `meta` with every held-back screenshot pending again, once a deletion made room on the server.
+ * One the server still refuses is held back again by that push. Pure.
+ */
+export function withHeldImagesReleased(meta: CloudSyncMeta): CloudSyncMeta {
+  const held = meta.heldImages;
+  if (held === undefined || meta.images === undefined) {
+    return meta;
+  }
+  const dirty = { ...meta.images.dirty };
+  for (const [id, stamp] of Object.entries(held)) {
+    if (meta.images.deleted[id] === undefined) {
+      dirty[id] = Math.max(dirty[id] ?? 0, stamp);
+    }
+  }
+  return { ...withHeldImages(meta, {}), images: { ...meta.images, dirty } };
+}
+
+/** After a screenshot was deleted on the server in this run, the held-back ones are offered again. */
+async function releaseHeldImages(run: RunState): Promise<void> {
+  if (!run.imageDeletedOnServer) {
+    return;
+  }
+  run.imageDeletedOnServer = false;
+  await updateMeta(run.context, withHeldImagesReleased);
 }
 
 async function push(run: RunState): Promise<void> {
@@ -635,14 +886,21 @@ async function push(run: RunState): Promise<void> {
   const byKey = new Map(outgoing.map((item) => [`${item.record.kind}:${item.record.id}`, item]));
   for (const batch of splitIntoBatches(outgoing.map((item) => item.record))) {
     const results = await postRecords(run.context.account.token, batch, run.options);
-    const applied: { id: string; entry: Outgoing['entry'] }[] = [];
+    const applied: { kind: CloudRecordKind; id: string; entry: Outgoing['entry'] }[] = [];
     for (const result of results) {
       const item = byKey.get(`${result.kind}:${result.id}`);
       if (item === undefined) {
         continue;
       }
       if (result.status === 'applied') {
-        applied.push({ id: result.id, entry: item.entry });
+        applied.push({ kind: result.kind, id: result.id, entry: item.entry });
+        if (result.kind === 'image' && item.record.deleted) {
+          run.imageDeletedOnServer = true;
+        }
+        continue;
+      }
+      if (result.status === 'rejected') {
+        await applyRejected(run, item, result.reason);
         continue;
       }
       // Stale: the server's copy is as new or newer and wins. Applying it drops the pending entry,
@@ -654,10 +912,30 @@ async function push(run: RunState): Promise<void> {
     if (applied.length > 0) {
       run.pushed += applied.length;
       await updateMeta(run.context, (meta) =>
-        applied.reduce((current, { id, entry }) => afterApplied(current, entry, id), meta),
+        applied.reduce(
+          (current, { kind, id, entry }) => afterApplied(current, entry, kind, id),
+          meta,
+        ),
       );
     }
   }
+}
+
+/**
+ * A write the server refused. A screenshot over the account's cap is held back, quietly: Settings
+ * says so once. Anything else stays pending and is reported.
+ */
+async function applyRejected(
+  run: RunState,
+  item: Outgoing,
+  reason: string | undefined,
+): Promise<void> {
+  const { kind, id, deleted } = item.record;
+  if (kind === 'image' && !deleted && reason === IMAGE_LIMIT_REASON) {
+    await updateMeta(run.context, (meta) => afterImageRefused(meta, id, item.entry.stamp));
+    return;
+  }
+  run.problems.push(new RecordRejectedError(kind, id, reason));
 }
 
 async function applyStale(
@@ -681,19 +959,30 @@ async function applyStale(
     const { set, stamp } = item.entry;
     if (set === 'deleted') {
       // A deletion stays pending: dropping it on the word of an unreadable record would leave
-      // nothing here to refuse a later replay of the session's old body with. It is offered again.
+      // nothing here to refuse a later replay of the record's old body with. It is offered again.
       return;
     }
     // The server's copy cannot be read here. This device's copy is kept untouched and no longer
     // offered, so the push does not repeat forever.
     if (set === 'dirty') {
-      await updateMeta(run.context, (meta) => dropEntry(meta, set, item.record.id, stamp));
+      const { kind, id } = item.record;
+      await updateMeta(run.context, (meta) => dropEntry(meta, kind, set, id, stamp));
     } else {
       await updateMeta(run.context, (meta) =>
         meta.settingsUpdatedAt === stamp ? { ...meta, settingsDirty: false } : meta,
       );
     }
   }
+}
+
+/** Remembers that Settings said screenshots are held back, so it says so only once. */
+export async function markHeldImagesNoticed(): Promise<void> {
+  await withLock(async () => {
+    const meta = await readSyncMeta();
+    if (meta?.heldImages !== undefined && meta.heldImagesNoticed !== true) {
+      await writeSyncMeta({ ...meta, heldImagesNoticed: true });
+    }
+  });
 }
 
 /** Records how the run ended: `lastSyncAt` and `lastError`, in the UI language. */
@@ -734,12 +1023,22 @@ export async function syncNow(options: SyncOptions = {}): Promise<SyncResult> {
       await ensureSyncAlarm();
       return { outcome: 'notReady', pulled: 0, pushed: 0 };
     }
-    const run: RunState = { context, options, pulled: 0, pushed: 0, problems: [] };
+    const run: RunState = {
+      context,
+      options,
+      pulled: 0,
+      pushed: 0,
+      problems: [],
+      imageDeletedOnServer: false,
+    };
     try {
       await startSyncMeta(context);
+      await notesRepo.startSyncTracking();
       await resumeSettingsApply(context);
       await pull(run);
+      await releaseHeldImages(run);
       await push(run);
+      await releaseHeldImages(run);
     } catch (err: unknown) {
       if (err instanceof CloudUnauthorizedError) {
         // Signed out on the server: forget the account like every other 401 (#166). The

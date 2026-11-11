@@ -18,12 +18,12 @@ function adapter(db: PGlite): MigrationDb {
 
 describe('migrations', () => {
   it('lists the shipped files in order', async () => {
-    expect(await migrationFiles()).toEqual(['001_init.sql']);
+    expect(await migrationFiles()).toEqual(['001_init.sql', '002_notes_images.sql']);
   });
 
   it('applies every migration once and records it', async () => {
     const db = new PGlite();
-    expect(await runMigrations(adapter(db))).toEqual(['001_init.sql']);
+    expect(await runMigrations(adapter(db))).toEqual(['001_init.sql', '002_notes_images.sql']);
     expect(await runMigrations(adapter(db))).toEqual([]);
     const tables = await db.query<{ tablename: string }>(
       "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename",

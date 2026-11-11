@@ -1,6 +1,13 @@
 /** The kinds of record a client may store. Anything else is refused with 400. */
-export const RECORD_KINDS = ['session', 'settings'] as const;
+export const RECORD_KINDS = ['session', 'settings', 'notes', 'image'] as const;
 export type RecordKind = (typeof RECORD_KINDS)[number];
+
+/**
+ * The kinds `GET /v1/records` lists when the request names none: the ones every client version
+ * understands. A version from before notes would refuse a page holding a kind it does not know, so
+ * `notes` and `image` records are listed only to a client that asks for them (`kinds=`).
+ */
+export const DEFAULT_LISTED_KINDS: readonly RecordKind[] = ['session', 'settings'];
 
 /** What a device needs to derive the encryption key from the passphrase and check it. */
 export interface KeySetup {
@@ -31,9 +38,13 @@ export interface StoredRecord extends RecordInput {
   seq: number;
 }
 
+/** Why a write was refused without being stale. */
+export type RejectReason = 'image_limit';
+
 export type ApplyResult =
   | { status: 'applied'; seq: number }
-  | { status: 'stale'; current: StoredRecord };
+  | { status: 'stale'; current: StoredRecord }
+  | { status: 'rejected'; reason: RejectReason };
 
 export interface GoogleIdentity {
   sub: string;

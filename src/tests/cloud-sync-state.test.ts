@@ -4,6 +4,7 @@ import { CLOUD_ACCOUNT_KEY, CLOUD_SYNC_KEY } from '@/lib/cloud-auth';
 import { overrideCloudSyncConfig } from '@/lib/cloud-config';
 import {
   afterApplied,
+  afterImageRefused,
   CLOUD_SYNC_ALARM,
   CLOUD_SYNC_SOON_ALARM,
   ensureSyncAlarm,
@@ -18,11 +19,13 @@ import {
   splitIntoBatches,
   SYNC_PERIOD_MINUTES,
   syncNow,
+  withHeldImagesReleased,
 } from '@/lib/cloud-sync';
 import {
   belongsTo,
   CLOUD_SYNC_META_KEY,
   type CloudSyncMeta,
+  emptyTrack,
   freshSyncMeta,
   keyFingerprint,
   parseSyncMeta,
@@ -30,15 +33,19 @@ import {
   type SyncContext,
   syncWorkGrew,
   withKnownVersion,
+  withNoteChanges,
   withSessionChanges,
 } from '@/lib/cloud-sync-state';
+import { notesRepo } from '@/lib/notes-repo';
 import { sessionRepo } from '@/lib/session-repo';
 import { DEFAULT_SORT_SETTINGS } from '@/lib/sort-settings';
 import {
   type CloudRecord,
   DEFAULT_SESSION_SETTINGS,
+  NOTES_SCHEMA_VERSION,
   SESSION_SCHEMA_VERSION,
   type Session,
+  type VideoNotes,
 } from '@/types';
 
 import { getChromeFake } from './chrome-fake';
@@ -365,8 +372,12 @@ describe('pure helpers', () => {
     expect(withKnownVersion(deleted, 's1', 5)).toBe(deleted);
     expect(withKnownVersion(deleted, 's1', 12).knownVersions).toEqual({ s1: 12 });
     // Accepted pushes are remembered too, also when the entry changed again since.
-    expect(afterApplied(meta, { set: 'dirty', stamp: 3 }, 's1').knownVersions).toEqual({ s1: 3 });
-    expect(afterApplied(meta, { set: 'dirty', stamp: 2 }, 's1').knownVersions).toEqual({ s1: 2 });
+    expect(afterApplied(meta, { set: 'dirty', stamp: 3 }, 'session', 's1').knownVersions).toEqual({
+      s1: 3,
+    });
+    expect(afterApplied(meta, { set: 'dirty', stamp: 2 }, 'session', 's1').knownVersions).toEqual({
+      s1: 2,
+    });
   });
 
   it('belongsTo follows the key alone, never the email the server reports', () => {
@@ -414,18 +425,27 @@ describe('pure helpers', () => {
 
   it('afterApplied clears only an entry that did not change since it was sent', () => {
     const meta = freshSyncMeta(CONTEXT, { s1: 5, s2: 6 });
-    expect(afterApplied(meta, { set: 'dirty', stamp: 5 }, 's1').dirtySessions).toEqual({ s2: 6 });
-    expect(afterApplied(meta, { set: 'dirty', stamp: 4 }, 's1').dirtySessions).toEqual({
+    expect(afterApplied(meta, { set: 'dirty', stamp: 5 }, 'session', 's1').dirtySessions).toEqual({
+      s2: 6,
+    });
+    expect(afterApplied(meta, { set: 'dirty', stamp: 4 }, 'session', 's1').dirtySessions).toEqual({
       s1: 5,
       s2: 6,
     });
-    const settings = afterApplied(meta, { set: 'settings', stamp: 0, hash: 'h' }, 'settings');
+    const settings = afterApplied(
+      meta,
+      { set: 'settings', stamp: 0, hash: 'h' },
+      'settings',
+      'settings',
+    );
     expect(settings).toMatchObject({
       settingsDirty: false,
       settingsHash: 'h',
       settingsSyncedAt: 0,
     });
-    expect(afterApplied(meta, { set: 'settings', stamp: 7, hash: 'h' }, 'settings')).toBe(meta);
+    expect(
+      afterApplied(meta, { set: 'settings', stamp: 7, hash: 'h' }, 'settings', 'settings'),
+    ).toBe(meta);
   });
 
   it('splitIntoBatches respects both the count and the byte limits, in order', () => {
@@ -583,5 +603,238 @@ describe('alarms', () => {
     expect(await syncNow({ fetch })).toMatchObject({ outcome: 'notReady' });
     expect(fetch).not.toHaveBeenCalled();
     expect(state.alarms.size).toBe(0);
+  });
+});
+
+describe('note tracking in notesRepo', () => {
+  const VIDEO = { videoId: 'dQw4w9WgXcQ', title: 'Video' };
+  const PICTURE = 'data:image/webp;base64,AAAA';
+
+  function startNotesTracking(): void {
+    startTracking({ notes: emptyTrack(), images: emptyTrack() });
+  }
+
+  beforeEach(() => {
+    configure();
+    signIn();
+  });
+
+  it('records notes written and deleted, and screenshots stored and deleted', async () => {
+    startNotesTracking();
+    vi.setSystemTime(10_000);
+    const entry = await notesRepo.addEntry(VIDEO, { at: 1, text: 'One', image: PICTURE });
+    const imageId = entry.imageId ?? '';
+    expect(storedMeta()?.notes?.dirty).toEqual({ [VIDEO.videoId]: 10_000 });
+    expect(storedMeta()?.images?.dirty).toEqual({ [imageId]: 10_000 });
+
+    vi.setSystemTime(11_000);
+    await notesRepo.updateEntry(VIDEO.videoId, entry.id, { text: 'One, edited' });
+    expect(storedMeta()?.notes?.dirty).toEqual({ [VIDEO.videoId]: 11_000 });
+
+    vi.setSystemTime(12_000);
+    const removed = await notesRepo.removeEntry(VIDEO.videoId, entry.id);
+    expect(storedMeta()?.notes).toEqual({
+      dirty: {},
+      deleted: { [VIDEO.videoId]: 12_000 },
+      known: { [VIDEO.videoId]: 12_000 },
+    });
+    expect(storedMeta()?.images?.deleted).toEqual({ [imageId]: 12_000 });
+    expect(storedMeta()?.images?.dirty).toEqual({});
+
+    // Undo in the same millisecond: still newer than the tombstone it answers.
+    await notesRepo.restoreEntry(VIDEO, removed ?? { entry });
+    expect(storedMeta()?.images?.dirty).toEqual({ [imageId]: 12_001 });
+    expect(storedMeta()?.images?.deleted).toEqual({});
+    expect(storedMeta()?.notes?.deleted).toEqual({});
+  });
+
+  it('tracks nothing before a sync of this version started tracking notes', async () => {
+    startTracking();
+    await notesRepo.addEntry(VIDEO, { at: 1, text: 'One', image: PICTURE });
+    expect(storedMeta()?.notes).toBeUndefined();
+  });
+
+  it('startSyncTracking marks every note and stored screenshot dirty and reads the feed again', async () => {
+    startTracking({ cursor: 42 });
+    vi.setSystemTime(10_000);
+    const withPicture = await notesRepo.addEntry(VIDEO, { at: 1, text: 'One', image: PICTURE });
+    expect(await notesRepo.startSyncTracking()).toBe(true);
+    const meta = storedMeta();
+    expect(meta?.cursor).toBe(0);
+    expect(meta?.notes?.dirty).toEqual({ [VIDEO.videoId]: 10_000 });
+    expect(meta?.images?.dirty).toEqual({ [withPicture.imageId ?? '']: 10_000 });
+    // Once.
+    expect(await notesRepo.startSyncTracking()).toBe(false);
+  });
+
+  it('notes are dormant while cloud sync is unconfigured', async () => {
+    overrideCloudSyncConfig(() => ({ apiBase: '', googleClientId: 'cid' }));
+    startNotesTracking();
+    await notesRepo.addEntry(VIDEO, { at: 1, text: 'One' });
+    expect(storedMeta()?.notes?.dirty).toEqual({});
+  });
+});
+
+describe('notesRepo.applyRemote', () => {
+  const VIDEO_ID = 'dQw4w9WgXcQ';
+  const PICTURE = 'data:image/webp;base64,AAAA';
+
+  function remoteNotes(updatedAt: number, text: string, imageId?: string): VideoNotes {
+    return {
+      schemaVersion: NOTES_SCHEMA_VERSION,
+      videoId: VIDEO_ID,
+      url: `https://www.youtube.com/watch?v=${VIDEO_ID}`,
+      title: 'Video',
+      createdAt: 1_000,
+      updatedAt,
+      entries: [{ id: 'e1', at: 3, text, imageId, createdAt: 1_000, updatedAt }],
+    };
+  }
+
+  beforeEach(() => {
+    configure();
+    signIn();
+    startTracking({ notes: emptyTrack(), images: emptyTrack() });
+  });
+
+  it('writes newer notes, ignores older ones and keeps a newer local copy pending', async () => {
+    expect(await notesRepo.applyRemote({ type: 'notes', notes: remoteNotes(2_000, 'v2') })).toBe(
+      'applied',
+    );
+    expect((await notesRepo.get(VIDEO_ID))?.entries[0].text).toBe('v2');
+    expect(storedMeta()?.notes?.known).toEqual({ [VIDEO_ID]: 2_000 });
+    expect(storedMeta()?.notes?.dirty).toEqual({});
+    expect(await notesRepo.applyRemote({ type: 'notes', notes: remoteNotes(1_500, 'v1') })).toBe(
+      'kept-local',
+    );
+    expect(storedMeta()?.notes?.dirty).toEqual({ [VIDEO_ID]: 2_000 });
+    expect(await notesRepo.applyRemote({ type: 'notes', notes: remoteNotes(2_000, 'tie') })).toBe(
+      'unchanged',
+    );
+  });
+
+  it('a newer tombstone deletes the notes and their screenshots, and a replay cannot bring them back', async () => {
+    await notesRepo.applyRemote({
+      type: 'image',
+      imageId: 'img1',
+      image: PICTURE,
+      updatedAt: 1_000,
+    });
+    await notesRepo.applyRemote({ type: 'notes', notes: remoteNotes(2_000, 'v2', 'img1') });
+    expect(await notesRepo.getImage('img1')).toBe(PICTURE);
+    expect(
+      await notesRepo.applyRemote({ type: 'notesDeleted', videoId: VIDEO_ID, updatedAt: 3_000 }),
+    ).toBe('applied');
+    expect(await notesRepo.get(VIDEO_ID)).toBeUndefined();
+    expect(await notesRepo.getImage('img1')).toBeUndefined();
+    expect(await notesRepo.listSummaries()).toEqual([]);
+    // The picture's own tombstone goes to the server too.
+    expect(Object.keys(storedMeta()?.images?.deleted ?? {})).toEqual(['img1']);
+    expect(await notesRepo.applyRemote({ type: 'notes', notes: remoteNotes(2_000, 'v2') })).toBe(
+      'unchanged',
+    );
+    expect(await notesRepo.get(VIDEO_ID)).toBeUndefined();
+  });
+
+  it('stores a screenshot before its note arrives, and refuses one that is not an image', async () => {
+    expect(
+      await notesRepo.applyRemote({ type: 'image', imageId: 'img1', image: PICTURE, updatedAt: 5 }),
+    ).toBe('applied');
+    expect(await notesRepo.getImage('img1')).toBe(PICTURE);
+    await expect(
+      notesRepo.applyRemote({
+        type: 'image',
+        imageId: 'img2',
+        image: 'javascript:1',
+        updatedAt: 5,
+      }),
+    ).rejects.toThrow();
+    expect(await notesRepo.getImage('img2')).toBeUndefined();
+  });
+
+  it('a screenshot tombstone older than the local picture deletes nothing', async () => {
+    await notesRepo.applyRemote({ type: 'image', imageId: 'img1', image: PICTURE, updatedAt: 5 });
+    expect(
+      await notesRepo.applyRemote({ type: 'imageDeleted', imageId: 'img1', updatedAt: 4 }),
+    ).toBe('kept-local');
+    expect(await notesRepo.getImage('img1')).toBe(PICTURE);
+    expect(
+      await notesRepo.applyRemote({ type: 'imageDeleted', imageId: 'img1', updatedAt: 6 }),
+    ).toBe('applied');
+    expect(await notesRepo.getImage('img1')).toBeUndefined();
+  });
+
+  it('does nothing before notes tracking started', async () => {
+    startTracking();
+    expect(await notesRepo.applyRemote({ type: 'notes', notes: remoteNotes(2_000, 'v2') })).toBe(
+      'unchanged',
+    );
+    expect(await notesRepo.get(VIDEO_ID)).toBeUndefined();
+  });
+});
+
+describe('note bookkeeping helpers', () => {
+  function tracked(overrides: Partial<CloudSyncMeta> = {}): CloudSyncMeta {
+    return {
+      ...freshSyncMeta(CONTEXT, {}),
+      notes: emptyTrack(),
+      images: emptyTrack(),
+      ...overrides,
+    };
+  }
+
+  it('parseSyncMeta reads bookkeeping from before notes, and refuses damaged note tracks', () => {
+    const meta = parseSyncMeta(freshSyncMeta(CONTEXT, {}));
+    expect(meta?.notes).toBeUndefined();
+    expect(parseSyncMeta(tracked())?.images).toEqual(emptyTrack());
+    expect(
+      parseSyncMeta({ ...tracked(), notes: { dirty: { a: -1 }, deleted: {}, known: {} } }),
+    ).toBe(undefined);
+    expect(parseSyncMeta({ ...tracked(), heldImages: { a: 'x' } })).toBeUndefined();
+  });
+
+  it('withNoteChanges leaves bookkeeping alone while notes are not tracked', () => {
+    const meta = freshSyncMeta(CONTEXT, {});
+    expect(withNoteChanges(meta, { notesChanged: [['v', 1]] }, 5)).toBe(meta);
+  });
+
+  it('a stored or deleted screenshot leaves the held-back set', () => {
+    const meta = tracked({ heldImages: { a: 1, b: 2 }, heldImagesNoticed: true });
+    const next = withNoteChanges(meta, { imagesDeleted: ['a'], imagesStored: ['b'] }, 10);
+    expect(next.heldImages).toBeUndefined();
+    expect(next.heldImagesNoticed).toBeUndefined();
+    expect(next.images?.dirty).toEqual({ b: 10 });
+    expect(next.images?.deleted).toEqual({ a: 10 });
+  });
+
+  it('a refused screenshot is held back, and offered again once room is made', () => {
+    const meta = tracked({ images: { dirty: { a: 5, b: 6 }, deleted: {}, known: {} } });
+    const held = afterImageRefused(meta, 'a', 5);
+    expect(held.images?.dirty).toEqual({ b: 6 });
+    expect(held.heldImages).toEqual({ a: 5 });
+    // Changed since it was sent: still pending, not held.
+    expect(afterImageRefused(meta, 'b', 1)).toBe(meta);
+    const released = withHeldImagesReleased({ ...held, heldImagesNoticed: true });
+    expect(released.images?.dirty).toEqual({ a: 5, b: 6 });
+    expect(released.heldImages).toBeUndefined();
+    expect(released.heldImagesNoticed).toBeUndefined();
+  });
+
+  it('syncWorkGrew counts new note and screenshot work', () => {
+    const before = tracked();
+    const after = withNoteChanges(before, { notesChanged: [['v', 1]] }, 5);
+    expect(syncWorkGrew(before, after)).toBe(true);
+    const image = withNoteChanges(before, { imagesDeleted: ['i'] }, 5);
+    expect(syncWorkGrew(before, image)).toBe(true);
+    expect(syncWorkGrew(after, before)).toBe(false);
+  });
+
+  it('afterApplied settles a note or screenshot entry and remembers its version', () => {
+    const meta = tracked({ notes: { dirty: { v: 5 }, deleted: {}, known: {} } });
+    const next = afterApplied(meta, { set: 'dirty', stamp: 5 }, 'notes', 'v');
+    expect(next.notes).toEqual({ dirty: {}, deleted: {}, known: { v: 5 } });
+    expect(afterApplied(meta, { set: 'dirty', stamp: 4 }, 'notes', 'v').notes?.dirty).toEqual({
+      v: 5,
+    });
   });
 });

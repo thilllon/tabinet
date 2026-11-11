@@ -89,6 +89,12 @@ export const CLOUD_SYNC: CloudSyncConfig = {
 };
 
 /**
+ * The most note screenshots one cloud sync account keeps on the server (`IMAGE_RECORD_LIMIT` in
+ * server/src/store.ts; the server enforces it, this copy only words the notice in Settings).
+ */
+export const CLOUD_IMAGE_LIMIT = 100;
+
+/**
  * The Google scopes sign-in asks for: the account id and a verified email, which is all the
  * server reads from the access token (Google's tokeninfo).
  */

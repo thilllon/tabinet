@@ -1,9 +1,9 @@
 # Tabinet sync server
 
-`tabinet-server` keeps a signed-in user's saved sessions and settings in step across devices. It
+`tabinet-server` keeps a signed-in user's saved sessions, YouTube notes (with their screenshots) and settings in step across devices. It
 stores them **end-to-end encrypted**: a device encrypts each record with a key derived from the
 user's passphrase before it is sent, so the server holds `{kind, id, updatedAt, deleted, iv,
-ciphertext}` and never a session name, url or title. Sign-in is with Google; the server keeps the
+ciphertext}` and never a session name, url, title, note or picture. Sign-in is with Google; the server keeps the
 Google account id (`sub`) and the email, nothing else about the person.
 
 The extension calls it at `CLOUD_SYNC.apiBase` in `src/constants.ts`, set to
@@ -13,20 +13,21 @@ The functions run in Vercel region `sin1` (Singapore), pinned in `vercel.json`.
 
 ## Layout
 
-| Path                      | What it is                                                                          |
-| ------------------------- | ----------------------------------------------------------------------------------- |
-| `api/index.ts`            | The Vercel function. `vercel.json` rewrites `/v1/*` to it                           |
-| `src/app.ts`              | `handle(request, deps)`: the whole API as one web-standard router                   |
-| `src/validation.ts`       | Strict parsing of every body and query (sizes, id pattern, kinds, base64)           |
-| `src/store.ts`            | `createSqlStore(query)`: every SQL statement, over a one-function `query()` adapter |
-| `src/google-auth.ts`      | Google access token verification through Google's tokeninfo endpoint                |
-| `src/tokens.ts`           | Bearer tokens: 32 random bytes, stored only as their sha256                         |
-| `src/cors.ts`             | CORS for the origins in `ALLOWED_ORIGINS` only                                      |
-| `src/production.ts`       | The real dependencies (Neon, Google, clock, random bytes) and `createServer()`      |
-| `src/migrations.ts`       | Applies `migrations/NNN_*.sql` once each, recorded in `schema_migrations`           |
-| `migrations/001_init.sql` | `users`, `auth_tokens`, `records` and the `record_seq` sequence                     |
-| `scripts/migrate.ts`      | `pnpm --filter tabinet-server migrate`                                              |
-| `tests/`                  | vitest; the store and the routes run against PGlite (Postgres in WASM), no network  |
+| Path                              | What it is                                                                          |
+| --------------------------------- | ----------------------------------------------------------------------------------- |
+| `api/index.ts`                    | The Vercel function. `vercel.json` rewrites `/v1/*` to it                           |
+| `src/app.ts`                      | `handle(request, deps)`: the whole API as one web-standard router                   |
+| `src/validation.ts`               | Strict parsing of every body and query (sizes, id pattern, kinds, base64)           |
+| `src/store.ts`                    | `createSqlStore(query)`: every SQL statement, over a one-function `query()` adapter |
+| `src/google-auth.ts`              | Google access token verification through Google's tokeninfo endpoint                |
+| `src/tokens.ts`                   | Bearer tokens: 32 random bytes, stored only as their sha256                         |
+| `src/cors.ts`                     | CORS for the origins in `ALLOWED_ORIGINS` only                                      |
+| `src/production.ts`               | The real dependencies (Neon, Google, clock, random bytes) and `createServer()`      |
+| `src/migrations.ts`               | Applies `migrations/NNN_*.sql` once each, recorded in `schema_migrations`           |
+| `migrations/001_init.sql`         | `users`, `auth_tokens`, `records` and the `record_seq` sequence                     |
+| `migrations/002_notes_images.sql` | The `notes` and `image` kinds, and `apply_image_record()` for the screenshot cap    |
+| `scripts/migrate.ts`              | `pnpm --filter tabinet-server migrate`                                              |
+| `tests/`                          | vitest; the store and the routes run against PGlite (Postgres in WASM), no network  |
 
 ## API
 
@@ -35,15 +36,15 @@ JSON, base path `/v1`. Every route but `POST /v1/auth/google` and `OPTIONS` need
 `{"error":"unauthorized"}`. Any bad input gets 400 `{"error":"bad_request"}`, a body over 4 MiB
 413 `{"error":"payload_too_large"}`.
 
-| Route                                      | Answer                                                                                        |
-| ------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| `POST /v1/auth/google {accessToken}`       | 200 `{token, expiresAt, email, keySetup}`; the token lasts 90 days                            |
-| `POST /v1/auth/logout`                     | 204; the presented token is deleted                                                           |
-| `GET /v1/me`                               | 200 `{email, keySetup}`                                                                       |
-| `PUT /v1/keys {kdf, salt, check, checkIv}` | 201 the first time, then 409 `{"error":"key_exists"}`                                         |
-| `GET /v1/records?since=&limit=`            | 200 `{records, next, hasMore}`: records with `seq > since`, ascending, `limit` 1..500 (500)   |
-| `POST /v1/records {records}`               | 200 `{results: [{kind, id, status: "applied", seq} or {kind, id, status: "stale", current}]}` |
-| `DELETE /v1/account`                       | 204; the user, their tokens and their records are deleted                                     |
+| Route                                      | Answer                                                                                                                                                                    |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /v1/auth/google {accessToken}`       | 200 `{token, expiresAt, email, keySetup}`; the token lasts 90 days                                                                                                        |
+| `POST /v1/auth/logout`                     | 204; the presented token is deleted                                                                                                                                       |
+| `GET /v1/me`                               | 200 `{email, keySetup}`                                                                                                                                                   |
+| `PUT /v1/keys {kdf, salt, check, checkIv}` | 201 the first time, then 409 `{"error":"key_exists"}`                                                                                                                     |
+| `GET /v1/records?since=&limit=&kinds=`     | 200 `{records, next, hasMore}`: records of `kinds` with `seq > since`, ascending, `limit` 1..500 (500); `kinds` is a comma-separated list, `session,settings` when absent |
+| `POST /v1/records {records}`               | 200 `{results: [{kind, id, status: "applied", seq} or {kind, id, status: "stale", current} or {kind, id, status: "rejected", reason: "image_limit"}]}`                    |
+| `DELETE /v1/account`                       | 204; the user, their tokens and their records are deleted                                                                                                                 |
 
 Limits and rules:
 
@@ -59,7 +60,8 @@ Limits and rules:
   token is used for that one check and not stored.
 - `kdf` is `{name: "PBKDF2", hash: "SHA-256", iterations}` with 100000..10000000 iterations;
   `salt` 16..64 bytes, `check` 1..1024 bytes, `checkIv` 12..32 bytes, all padded base64.
-- A record's `kind` is `session` or `settings`, its `id` matches `[A-Za-z0-9_-]{1,64}`,
+- A record's `kind` is `session`, `settings`, `notes` (one YouTube video's notes, `id` = the video
+  id) or `image` (one note screenshot), its `id` matches `[A-Za-z0-9_-]{1,64}`,
   `updatedAt` is a non-negative integer (ms). Every record, a tombstone (`deleted: true`)
   included, has an `iv` of 12..32 bytes and a non-empty `ciphertext` of at most 1 MiB of base64:
   the client encrypts the deletion too, with the record's `kind`, `id`, `updatedAt` and `deleted`
@@ -75,6 +77,14 @@ Limits and rules:
   update, and every applied write takes a new `seq` from one global sequence. The statement locks
   the user's row first, so a user's writes commit in `seq` order and paging by `since` never
   skips one.
+- At most `IMAGE_RECORD_LIMIT` (100, `src/store.ts`) live `image` records per account. A write
+  that would add one more is answered `rejected` with `reason: "image_limit"` and stores nothing;
+  tombstones and writes to an image that is already live are always accepted. Image writes go
+  through the SQL function `apply_image_record()` (migration 002): it takes the same user row lock
+  and then counts with a fresh snapshot, so two concurrent writers cannot both take the last place.
+- `GET /v1/records` lists only `session` and `settings` records unless the client names more in
+  `kinds`: versions of the extension from before notes refuse a page holding a kind they do not
+  know. A client that starts asking for `notes,image` reads the feed again from 0 once.
 - CORS headers go only to an `Origin` listed in `ALLOWED_ORIGINS`; preflight allows GET, POST, PUT,
   DELETE with `Authorization` and `Content-Type`. Every answer carries `Vary: Origin` and
   `Cache-Control: no-store`.

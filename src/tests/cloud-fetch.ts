@@ -57,9 +57,11 @@ export function fakeFetch(...answers: Answer[]): FakeFetch {
 // A sync server with the real records semantics (GitHub issues #165, #170)
 // ---------------------------------------------------------------------------
 
+type FakeKind = 'session' | 'settings' | 'notes' | 'image';
+
 /** A record as the fake server keeps it: what was posted, plus its place in the change feed. */
 export interface FakeServerRecord {
-  kind: 'session' | 'settings';
+  kind: FakeKind;
   id: string;
   updatedAt: number;
   deleted: boolean;
@@ -81,9 +83,11 @@ export interface FakeSyncServer {
   /** Each `POST /v1/records` body: how many records and how many bytes. */
   posts: { count: number; bytes: number }[];
   /** Replaces a stored record's ciphertext with one that does not decrypt, bumping its `seq`. */
-  tamper(kind: 'session' | 'settings', id: string): void;
+  tamper(kind: FakeKind, id: string): void;
   /** The stored record, if any. */
-  record(kind: 'session' | 'settings', id: string): FakeServerRecord | undefined;
+  record(kind: FakeKind, id: string): FakeServerRecord | undefined;
+  /** The most live `image` records the account may hold (the server's `IMAGE_RECORD_LIMIT`). */
+  imageLimit: number;
   /** Stores a record as another device's accepted write would, with the next `seq`. */
   inject(record: Omit<FakeServerRecord, 'seq'>): void;
 }
@@ -94,6 +98,14 @@ const SERVER_MAX_BODY_BYTES = 4 * 1024 * 1024;
 const SERVER_MAX_CIPHERTEXT_CHARS = 1024 * 1024;
 const SERVER_DEFAULT_LIMIT = 500;
 const SERVER_ID = /^[A-Za-z0-9_-]{1,64}$/;
+const SERVER_KINDS: readonly FakeKind[] = ['session', 'settings', 'notes', 'image'];
+/** What `GET /v1/records` lists to a client that names no kinds. */
+const SERVER_DEFAULT_KINDS: readonly FakeKind[] = ['session', 'settings'];
+const SERVER_IMAGE_LIMIT = 100;
+
+function isFakeKind(value: unknown): value is FakeKind {
+  return SERVER_KINDS.some((kind) => kind === value);
+}
 
 function isPostedRecord(value: unknown): value is Omit<FakeServerRecord, 'seq'> {
   if (typeof value !== 'object' || value === null) {
@@ -106,7 +118,7 @@ function isPostedRecord(value: unknown): value is Omit<FakeServerRecord, 'seq'> 
   }
   const { kind, id, updatedAt, deleted, iv, ciphertext } = record;
   if (
-    (kind !== 'session' && kind !== 'settings') ||
+    !isFakeKind(kind) ||
     typeof id !== 'string' ||
     !SERVER_ID.test(id) ||
     typeof updatedAt !== 'number' ||
@@ -124,9 +136,12 @@ function isPostedRecord(value: unknown): value is Omit<FakeServerRecord, 'seq'> 
 
 /**
  * An in-memory sync server shared by any number of simulated devices: bearer token check, `GET
- * /v1/records?since&limit` paging by `seq`, and `POST /v1/records` with the server's limits and
- * its last-writer-wins rule (applied only when `updatedAt` is greater than the stored one; a tie
- * or an older write is `stale` with the current record). Every applied write takes the next `seq`.
+ * /v1/records?since&limit&kinds` paging by `seq` (only session and settings records when no kinds
+ * are named), and `POST /v1/records` with the server's limits and its last-writer-wins rule
+ * (applied only when `updatedAt` is greater than the stored one; a tie or an older write is
+ * `stale` with the current record), and its cap on live screenshots (one more live `image` record
+ * is `rejected` with `image_limit`; tombstones always go through). Every applied write takes the
+ * next `seq`.
  */
 export function fakeSyncServer(token = 'tok'): FakeSyncServer {
   const records = new Map<string, FakeServerRecord>();
@@ -140,6 +155,7 @@ export function fakeSyncServer(token = 'tok'): FakeSyncServer {
     token,
     offline: false,
     posts,
+    imageLimit: SERVER_IMAGE_LIMIT,
     tamper(kind, id) {
       const stored = records.get(`${kind}:${id}`);
       if (stored === undefined) {
@@ -186,11 +202,18 @@ export function fakeSyncServer(token = 'tok'): FakeSyncServer {
       if (method === 'GET') {
         const since = Number(url.searchParams.get('since') ?? '0');
         const limit = Number(url.searchParams.get('limit') ?? String(SERVER_DEFAULT_LIMIT));
-        if (!Number.isSafeInteger(since) || since < 0 || !(limit >= 1 && limit <= 500)) {
+        const kindsParam = url.searchParams.get('kinds');
+        const kinds = kindsParam === null ? SERVER_DEFAULT_KINDS : kindsParam.split(',');
+        if (
+          !Number.isSafeInteger(since) ||
+          since < 0 ||
+          !(limit >= 1 && limit <= 500) ||
+          !kinds.every(isFakeKind)
+        ) {
           return jsonResponse(400, { error: 'bad_request' });
         }
         const rows = [...records.values()]
-          .filter((record) => record.seq > since)
+          .filter((record) => record.seq > since && kinds.includes(record.kind))
           .sort((a, b) => a.seq - b.seq);
         const page = rows.slice(0, limit);
         return jsonResponse(200, {
@@ -222,6 +245,16 @@ export function fakeSyncServer(token = 'tok'): FakeSyncServer {
         const stored = records.get(key);
         if (stored !== undefined && record.updatedAt <= stored.updatedAt) {
           return { kind: record.kind, id: record.id, status: 'stale', current: { ...stored } };
+        }
+        if (
+          record.kind === 'image' &&
+          !record.deleted &&
+          (stored === undefined || stored.deleted)
+        ) {
+          const live = [...records.values()].filter((r) => r.kind === 'image' && !r.deleted);
+          if (live.length >= server.imageLimit) {
+            return { kind: record.kind, id: record.id, status: 'rejected', reason: 'image_limit' };
+          }
         }
         seq += 1;
         records.set(key, { ...record, seq });

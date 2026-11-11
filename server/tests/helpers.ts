@@ -81,6 +81,11 @@ export function tombstone(id: string, updatedAt: number) {
   return { kind: 'session', id, updatedAt, deleted: true, iv: b64(12), ciphertext: b64(32, 2) };
 }
 
+/** A live screenshot record (or its tombstone): an `image` record, which the per-account cap counts. */
+export function imageRecord(id: string, updatedAt: number, deleted = false) {
+  return { kind: 'image', id, updatedAt, deleted, iv: b64(12), ciphertext: b64(64, 3) };
+}
+
 export function validKeySetup() {
   return {
     kdf: { name: 'PBKDF2', hash: 'SHA-256', iterations: 600_000 },

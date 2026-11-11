@@ -138,7 +138,7 @@ const getRecords = authed(async ({ url, deps, user }) => {
     return error(400, 'bad_request');
   }
   // One extra row says whether there is more without a second query.
-  const rows = await deps.store.listRecords(user.id, query.since, query.limit + 1);
+  const rows = await deps.store.listRecords(user.id, query.since, query.limit + 1, query.kinds);
   const hasMore = rows.length > query.limit;
   const records: StoredRecord[] = hasMore ? rows.slice(0, query.limit) : rows;
   const next = records.length > 0 ? records[records.length - 1].seq : query.since;
@@ -154,11 +154,15 @@ const postRecords = authed(async ({ request, deps, user }) => {
   // In order, one statement each: a later record with the same (kind, id) sees the earlier one.
   for (const record of records) {
     const result = await deps.store.applyRecord(user.id, record);
-    results.push(
-      result.status === 'applied'
-        ? { kind: record.kind, id: record.id, status: 'applied', seq: result.seq }
-        : { kind: record.kind, id: record.id, status: 'stale', current: result.current },
-    );
+    const { kind, id } = record;
+    if (result.status === 'applied') {
+      results.push({ kind, id, status: 'applied', seq: result.seq });
+    } else if (result.status === 'stale') {
+      results.push({ kind, id, status: 'stale', current: result.current });
+    } else {
+      // Over a per-account limit: nothing stored, the client keeps it and says so.
+      results.push({ kind, id, status: 'rejected', reason: result.reason });
+    }
   }
   return json(200, { results });
 });
