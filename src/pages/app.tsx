@@ -39,6 +39,7 @@ import {
 import { t } from '@/lib/i18n';
 import { importedNotice } from '@/lib/import-preview';
 import { isMacPlatform, openShortcutSettings, takeShortcutPrompt } from '@/lib/keyboard-shortcuts';
+import { openNotesPanel } from '@/lib/open-notes-panel';
 import { needsRestoreConfirm } from '@/lib/restore-messages';
 import { browserHandlesClick } from '@/lib/row-link';
 import { DEFAULT_LIMIT_PER_SOURCE, search } from '@/lib/search-engine';
@@ -228,6 +229,26 @@ export function App() {
     } finally {
       setSaving(false);
     }
+  };
+
+  // This tab's window, known before any click: the notes panel must be opened straight from the
+  // click, and the gesture is safest with nothing awaited before `chrome.sidePanel.open`.
+  const ownWindowId = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    chrome.windows.getCurrent().then(
+      (current) => {
+        ownWindowId.current = current.id;
+      },
+      (err: unknown) => console.error('[tabinet] window unknown', err),
+    );
+  }, []);
+
+  /** The YouTube notes side panel, in this window. */
+  const openNotes = () => {
+    openNotesPanel(ownWindowId.current).catch((err: unknown) => {
+      console.error('[tabinet] notes panel not opened', err);
+      setError(t('notesOpenFailed'));
+    });
   };
 
   /**
@@ -515,6 +536,7 @@ export function App() {
         onSaveAll={() => void save('all')}
         onAssemble={() => void assemble()}
         assembling={assembling}
+        onOpenNotes={openNotes}
         onSaveWindow={(windowId) => void save({ windowId })}
         onSaveTabs={(tabIds) => save({ tabIds })}
         onOpenSettings={() => go({ view: 'settings' })}

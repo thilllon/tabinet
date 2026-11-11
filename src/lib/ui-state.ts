@@ -91,3 +91,15 @@ export function readSidebarWidth(): number {
 export function writeSidebarWidth(width: number): void {
   writeLocalUiState(SIDEBAR_WIDTH_KEY, String(clampSidebarWidth(width)));
 }
+
+/** The notes panel's "Pause while I write" box, remembered on this device. */
+export const NOTES_PAUSE_KEY = 'tabinet:notes-pause-while-writing';
+
+/** On unless it was turned off: a note is easier to write while the video waits. */
+export function readNotesPause(): boolean {
+  return readLocalUiState(NOTES_PAUSE_KEY) !== 'false';
+}
+
+export function writeNotesPause(on: boolean): void {
+  writeLocalUiState(NOTES_PAUSE_KEY, String(on));
+}

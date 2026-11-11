@@ -6,7 +6,9 @@ import {
   HISTORY_OPEN_KEY,
   MAX_SIDEBAR_WIDTH,
   MIN_SIDEBAR_WIDTH,
+  readNotesPause,
   readUiState,
+  writeNotesPause,
   writeUiState,
 } from '@/lib/ui-state';
 
@@ -76,5 +78,28 @@ describe('clampSidebarWidth', () => {
     expect(clampSidebarWidth(260.6)).toBe(261);
     expect(clampSidebarWidth(Number.NaN)).toBe(DEFAULT_SIDEBAR_WIDTH);
     expect(clampSidebarWidth(Number.POSITIVE_INFINITY)).toBe(DEFAULT_SIDEBAR_WIDTH);
+  });
+});
+
+describe('the notes panel pause preference', () => {
+  afterEach(() => {
+    Reflect.deleteProperty(globalThis, 'localStorage');
+  });
+
+  it('is on until it is turned off, and remembered', () => {
+    Object.defineProperty(globalThis, 'localStorage', {
+      value: memoryStorage(),
+      configurable: true,
+    });
+    expect(readNotesPause()).toBe(true);
+    writeNotesPause(false);
+    expect(readNotesPause()).toBe(false);
+    writeNotesPause(true);
+    expect(readNotesPause()).toBe(true);
+  });
+
+  it('reads as on where there is no storage at all', () => {
+    expect(readNotesPause()).toBe(true);
+    expect(() => writeNotesPause(false)).not.toThrow();
   });
 });

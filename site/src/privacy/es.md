@@ -1,14 +1,14 @@
 # Política de privacidad - Tabinet
 
-Última actualización: 10 de noviembre de 2026
+Última actualización: 12 de noviembre de 2026
 
 ## Resumen
 
-Tabinet es una extensión de Chrome que ordena y organiza las pestañas del navegador y te permite guardar, restaurar, buscar, importar y exportar conjuntos de ventanas y pestañas como sesiones. Si se lo pides, también pausa los vídeos de tus pestañas de YouTube. Tu privacidad nos importa: todo lo que hace la extensión ocurre dentro de tu navegador, en tu dispositivo, salvo que decidas iniciar sesión en la sincronización en la nube, que es opcional (consulta «Sincronización en la nube» más abajo).
+Tabinet es una extensión de Chrome que ordena y organiza las pestañas del navegador y te permite guardar, restaurar, buscar, importar y exportar conjuntos de ventanas y pestañas como sesiones. Si se lo pides, también pausa los vídeos de tus pestañas de YouTube, y te permite tomar notas con marcas de tiempo sobre un vídeo de YouTube en el panel lateral de Chrome. Tu privacidad nos importa: todo lo que hace la extensión ocurre dentro de tu navegador, en tu dispositivo, salvo que decidas iniciar sesión en la sincronización en la nube, que es opcional (consulta «Sincronización en la nube» más abajo).
 
 ## Recopilación de datos
 
-Si no inicias sesión en la sincronización en la nube, Tabinet **no** recopila ni transmite ningún dato personal: no hace peticiones de red y todas las operaciones se realizan localmente en tu navegador. La sincronización en la nube es opcional y está desactivada hasta que inicias sesión; qué envía y cómo se protege se describe en «Sincronización en la nube» más abajo. En cualquier caso, la extensión no lee nada de las páginas que visitas y no usa analíticas, rastreo ni telemetría. Lo único que ejecuta dentro de una página web es la pausa de los vídeos de YouTube, y solo después de que lo permitas (consulta «Pausar los vídeos de YouTube» más abajo).
+Si no inicias sesión en la sincronización en la nube, Tabinet **no** recopila ni transmite ningún dato personal: no hace peticiones de red y todas las operaciones se realizan localmente en tu navegador. La sincronización en la nube es opcional y está desactivada hasta que inicias sesión; qué envía y cómo se protege se describe en «Sincronización en la nube» más abajo. En cualquier caso, la extensión no lee nada de las páginas que visitas y no usa analíticas, rastreo ni telemetría. Solo ejecuta algo dentro de una página web en YouTube, y solo después de que lo permitas: la pausa de los vídeos y, para las notas de YouTube, la lectura del tiempo y el título del vídeo sobre el que tomas notas (consulta «Pausar los vídeos de YouTube» y «Notas de YouTube» más abajo).
 
 ### Qué se guarda y dónde
 
@@ -38,7 +38,13 @@ Para desactivarlas, abre Tabinet (clic con el botón derecho en el icono → Opc
 
 Para ello la extensión necesita acceso a youtube.com (`https://*.youtube.com/*`, que incluye www, m y music). Nunca se solicita al instalarla: Chrome te lo pregunta cuando activas «Acceso a YouTube» en Configuración (si eliges antes el elemento del menú, se abre Configuración), y puedes quitar el acceso allí, o en chrome://extensions, cuando quieras. Con ese acceso, cada vez que lo pides, la extensión ejecuta en cada pestaña de YouTube una pequeña función que forma parte de la propia extensión: pulsa pausa y cuenta cuántos vídeos ha pausado. No lee la página, lo que ves ni nada más de YouTube, y no guarda ni transmite nada sobre YouTube. Sin ese acceso, no se ejecuta nada en ninguna página web.
 
-### Sincronización en la nube (opcional)
+### Notas de YouTube
+
+«Notas de YouTube» (en el menú contextual del icono, como combinación de teclas que puedes asignar y como botón en la página de Tabinet) abre el panel lateral de Chrome junto a la página. Mientras la pestaña activa de esa ventana muestra un vídeo de YouTube, puedes escribir notas sobre él, cada una en un momento del vídeo, y hacer clic en el tiempo de una nota para que el vídeo salte allí.
+
+Por cada vídeo sobre el que tomas notas, la extensión guarda en el almacenamiento local de extensiones (`chrome.storage.local`) de este dispositivo: el identificador y la dirección del vídeo (`https://www.youtube.com/watch?v=<id>`), su título, el texto de cada nota con el momento del vídeo al que corresponde, y cuándo se escribió y se modificó por última vez cada nota. Las notas **nunca** se sincronizan, ni siquiera con la sincronización en la nube, y nunca se envían a ningún sitio.
+
+Para funcionar, el panel necesita el mismo acceso a youtube.com que la pausa (consulta arriba), que pide con el mismo interruptor «Acceso a YouTube». Con él, mientras el panel está abierto sobre un vídeo, una pequeña función que forma parte de la extensión lee el tiempo actual del vídeo, su duración, si se está reproduciendo y el título de la página, aproximadamente una vez por segundo mientras el panel está visible; cuando lo pides, lleva el vídeo al tiempo de una nota y, si dejas activado «Pausar el vídeo mientras escribo», lo pausa mientras escribes una nota y lo vuelve a reproducir después. No lee nada más de la página, y lo que lee no se guarda salvo como parte de una nota que guardes.
 
 La sincronización en la nube mantiene iguales tus sesiones guardadas y tu configuración en todos los ordenadores donde usas Tabinet. Está **desactivada hasta que inicias sesión**: abre Configuración, Cuenta, y haz clic en «Iniciar sesión con Google». Si nunca lo haces, nada de esta sección se aplica y la extensión no hace ninguna petición de red.
 
@@ -63,7 +69,8 @@ Las instantáneas automáticas **nunca** se sincronizan. Como el servidor nunca 
 
 - Las sesiones guardadas se conservan hasta que las borras en la página de Tabinet.
 - Las instantáneas automáticas se conservan en un conjunto rotativo: solo se mantienen las instantáneas no protegidas más recientes (20 por defecto; eliges cuántas en la configuración de la página de Tabinet) y las más antiguas se eliminan automáticamente. Una instantánea que marques como protegida se conserva hasta que la borres. La instantánea «Sesión anterior (recuperada)» que se crea tras reiniciar el navegador se protege automáticamente, igual que la anterior; las instantáneas recuperadas más antiguas vuelven al conjunto rotativo y caducan como cualquier otra. Las que protejas tú se conservan mientras quieras. Las instantáneas se pueden borrar una a una o todas a la vez.
-- «Eliminar todos los datos de sesiones» en la página de Tabinet elimina de inmediato todas las sesiones guardadas e instantáneas; tus ajustes se conservan.
+- «Eliminar todos los datos de sesiones» en la página de Tabinet elimina de inmediato todas las sesiones guardadas e instantáneas; tus ajustes y tus notas de YouTube se conservan.
+- Las notas de YouTube se conservan hasta que las borras en el panel de notas; al borrar la última nota de un vídeo se elimina todo lo guardado sobre ese vídeo.
 - Al desinstalar la extensión, Chrome elimina todos sus datos guardados en ese dispositivo. Los datos del servidor de sincronización, si iniciaste sesión, se conservan hasta que los elimines con «Eliminar datos de la nube» (vuelve a iniciar sesión para llegar a ese botón).
 
 ## Permisos
@@ -72,14 +79,15 @@ Esta extensión necesita los siguientes permisos:
 
 - **tabs**: para leer las URL y los títulos de las pestañas al ordenarlas, al guardar sesiones y para la lista de ventanas abiertas de la página de Tabinet, y para crear pestañas al restaurar una sesión.
 - **tabGroups**: para ordenar y organizar los grupos de pestañas de la ventana actual y para volver a crearlos al restaurar una sesión.
-- **storage**: para guardar tus preferencias de ordenación y el idioma elegido en el almacenamiento sincronizado de Chrome, y para guardar las sesiones, instantáneas, ajustes de sesiones y, si usas la sincronización en la nube, su token de sesión y su clave en el almacenamiento local de este dispositivo.
-- **contextMenus**: para agregar «¡Reunir!», «Guardar todas las ventanas como sesión» y «Pausar todos los vídeos de YouTube» al menú contextual del icono de la extensión. No se agrega ningún elemento de menú a las páginas web.
+- **storage**: para guardar tus preferencias de ordenación y el idioma elegido en el almacenamiento sincronizado de Chrome, y para guardar las sesiones, instantáneas, ajustes de sesiones, notas de YouTube y, si usas la sincronización en la nube, su token de sesión y su clave en el almacenamiento local de este dispositivo.
+- **contextMenus**: para agregar «¡Reunir!», «Guardar todas las ventanas como sesión», «Pausar todos los vídeos de YouTube» y «Notas de YouTube» al menú contextual del icono de la extensión. No se agrega ningún elemento de menú a las páginas web.
 - **unlimitedStorage**: permite que las sesiones grandes superen la cuota predeterminada del almacenamiento local de Chrome. No cambia dónde se guardan los datos y no envía nada a ningún sitio.
 - **favicon**: para mostrar, junto a las pestañas de la página de Tabinet, los iconos de los sitios desde la caché local de favicons de Chrome. No se descarga ningún icono de la red y la extensión no guarda datos de iconos.
 - **alarms**: se usa como temporizador de las instantáneas automáticas, con el intervalo que elijas, y, mientras tienes iniciada la sesión de sincronización en la nube, para sincronizar cada 15 minutos y poco después de cada cambio. Con las instantáneas automáticas desactivadas y sin sesión iniciada, no existe ningún temporizador.
 - **identity**: solo para la sincronización en la nube, cuando haces clic en «Iniciar sesión con Google»: pide a Chrome un token de acceso de Google con los ámbitos `openid` y `email`, como se describe en «Sincronización en la nube». Si no inicias sesión, nunca se usa.
-- **scripting**: solo para pausar los vídeos de YouTube cuando lo pides, como se describe en «Pausar los vídeos de YouTube». Solo funciona en los sitios que permitas a continuación.
-- **Acceso a youtube.com** (opcional, `https://*.youtube.com/*`): se solicita solo cuando activas «Acceso a YouTube» en Configuración, y se puede quitar allí. Se usa solo para pausar vídeos; no se lee nada de las páginas de YouTube.
+- **scripting**: solo en YouTube: para pausar los vídeos cuando lo pides, como se describe en «Pausar los vídeos de YouTube», y, para las notas de YouTube, para leer el tiempo y el título del vídeo y llevarlo al tiempo de una nota, como se describe en «Notas de YouTube». Solo funciona en los sitios que permitas a continuación.
+- **sidePanel**: para mostrar las notas de YouTube en el panel lateral de Chrome cuando lo abres desde el menú contextual, su combinación de teclas o la página de Tabinet. Hacer clic en el icono nunca lo abre.
+- **Acceso a youtube.com** (opcional, `https://*.youtube.com/*`): se solicita solo cuando activas «Acceso a YouTube» en Configuración o en el panel de notas, y se puede quitar en Configuración. Se usa solo para pausar vídeos y, para las notas de YouTube, para leer el tiempo y el título del vídeo y moverlo; no se lee nada más de las páginas de YouTube.
 
 La extensión no solicita permisos de host al instalarla ni declara scripts de contenido; el acceso a youtube.com es opcional y solo tú decides concederlo. Necesita Chrome 123 o posterior.
 
@@ -88,7 +96,7 @@ La extensión no solicita permisos de host al instalarla ni declara scripts de c
 - Las URL y los títulos de las pestañas se leen al ordenar y **no** se guardan como parte de la ordenación.
 - Cuando guardas una sesión, o mientras las instantáneas automáticas están activadas, los datos indicados arriba se guardan en el almacenamiento local de extensiones de tu dispositivo. Solo se transmiten si inicias sesión en la sincronización en la nube, y entonces solo tus sesiones guardadas y tu configuración, cifradas de extremo a extremo; las instantáneas automáticas, nunca.
 - Las preferencias de ordenación se guardan con la API de almacenamiento integrada de Chrome; con la sincronización en la nube también van, cifradas, al servidor de sincronización. Nunca se comparten con terceros.
-- Nada se vende, se comparte ni se usa para otro fin que no sea ordenar pestañas, pausar los vídeos de YouTube cuando lo pides, y guardar, restaurar, buscar, importar, exportar y, si inicias sesión, sincronizar sesiones.
+- Nada se vende, se comparte ni se usa para otro fin que no sea ordenar pestañas, pausar los vídeos de YouTube cuando lo pides, guardar tus notas sobre vídeos de YouTube, y guardar, restaurar, buscar, importar, exportar y, si inicias sesión, sincronizar sesiones.
 
 ## Servicios de terceros
 

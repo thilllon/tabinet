@@ -200,3 +200,51 @@ export interface CloudAccount {
   expiresAt: number;
   email: string;
 }
+
+// ---------------------------------------------------------------------------
+// YouTube notes (the side panel, src/pages/notes-panel.tsx; stored by src/lib/notes-repo.ts)
+// ---------------------------------------------------------------------------
+
+export const NOTES_SCHEMA_VERSION = 1 as const;
+
+/** One timestamped note on a video. */
+export interface NoteEntry {
+  id: string;
+  /** Where in the video it was taken, in seconds. */
+  at: number;
+  /** Markdown, shown as plain preformatted text. */
+  text: string;
+  /** A screenshot stored under `noteImage:<imageId>` (a WebP data URL). */
+  imageId?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Every note on one video, stored under `notes:<videoId>`. */
+export interface VideoNotes {
+  schemaVersion: typeof NOTES_SCHEMA_VERSION;
+  /** YouTube's 11-character video id. */
+  videoId: string;
+  /** `https://www.youtube.com/watch?v=<videoId>`, whatever form of the url the notes were taken on. */
+  url: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  entries: NoteEntry[];
+}
+
+/** One line of `notesIndex`: enough to list the videos without reading their notes. */
+export interface NotesSummary {
+  videoId: string;
+  url: string;
+  title: string;
+  entryCount: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** `notesIndex`: the summaries, newest `updatedAt` first. */
+export interface NotesIndex {
+  schemaVersion: typeof NOTES_SCHEMA_VERSION;
+  notes: NotesSummary[];
+}

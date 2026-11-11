@@ -143,7 +143,7 @@ export const en: SiteCopy = {
       },
       {
         title: 'No tracking',
-        body: 'No analytics, no tracking, and no requests at all unless you sign in to sync. Nothing is read from the pages you visit; the one thing ever run in a page is pausing YouTube videos, once you allow it.',
+        body: 'No analytics, no tracking, and no requests at all unless you sign in to sync. Nothing is read from the pages you visit. Only on YouTube, once you allow it, does Tabinet run anything in a page: it pauses videos, and for YouTube notes reads the time and title of the video.',
       },
     ],
     link: 'Read the privacy policy',
@@ -215,7 +215,7 @@ export const en: SiteCopy = {
       },
       {
         q: 'Can it pause all my YouTube videos at once?',
-        a: 'Yes. Right-click the icon and choose Pause all YouTube videos, or press its keyboard shortcut (Alt+Shift+P on a new install, Option+Shift+P on a Mac; set or change it at chrome://extensions/shortcuts). Every YouTube tab in every window pauses where it was; nothing is muted or closed, and running it again resumes nothing. The first time, Settings opens at its YouTube section so you can allow access to YouTube; then choose it again. Tabinet only presses pause there and reads nothing from the page. You can remove the access in Settings at any time.',
+        a: 'Yes. Right-click the icon and choose Pause all YouTube videos, or press its keyboard shortcut (Alt+Shift+P on a new install, Option+Shift+P on a Mac; set or change it at chrome://extensions/shortcuts). Every YouTube tab in every window pauses where it was; nothing is muted or closed, and running it again resumes nothing. The first time, Settings opens at its YouTube section so you can allow access to YouTube; then choose it again. Pausing only presses pause; YouTube notes, in the side panel, read only the time and title of the video. You can remove the access in Settings at any time.',
       },
       {
         q: 'Does it work in other Chromium browsers?',

@@ -83,25 +83,37 @@ interface FakeTab {
   status: FakeTabStatus;
 }
 
-/** A `<video>` or `<audio>` element of a fake page: only what pausing reads and calls. */
+/** A `<video>` or `<audio>` element of a fake page: only what pausing and the notes panel read and call. */
 export interface FakeMediaElement {
   tagName: 'VIDEO' | 'AUDIO';
   paused: boolean;
   currentTime: number;
+  /** Seconds; `NaN` until the media has loaded its length, as in a real page. */
+  duration: number;
   pause(): void;
+  /** Starts playing; like the real one it returns a promise. */
+  play(): Promise<void>;
 }
 
 /** A playing (or paused) media element at `currentTime`, for `state.pageMedia`. */
 export function fakeMedia(
   tagName: FakeMediaElement['tagName'],
-  { paused = false, currentTime = 0 }: { paused?: boolean; currentTime?: number } = {},
+  {
+    paused = false,
+    currentTime = 0,
+    duration = Number.NaN,
+  }: { paused?: boolean; currentTime?: number; duration?: number } = {},
 ): FakeMediaElement {
   return {
     tagName,
     paused,
     currentTime,
+    duration,
     pause() {
       this.paused = true;
+    },
+    async play() {
+      this.paused = false;
     },
   };
 }
@@ -142,6 +154,13 @@ interface FakeState {
   pageMedia: Map<number, FakeMediaElement[]>;
   /** Every `chrome.scripting.executeScript` call that reached a page, by tab id. */
   injectedTabs: number[];
+  /**
+   * Every `chrome.sidePanel.open` call, in order. Chrome requires a user gesture for it, which the
+   * fake does not model; a test checks the call was made straight from the menu or command.
+   */
+  sidePanelOpens: chrome.sidePanel.OpenOptions[];
+  /** What `chrome.sidePanel.setPanelBehavior` was last given. */
+  sidePanelBehavior: chrome.sidePanel.PanelBehavior;
   /**
    * What Chrome answers to `chrome.identity.getAuthToken`: the Google access token, an error it
    * rejects with (Chrome rejects with "The user did not approve access." when the person closes
@@ -292,6 +311,8 @@ export function createChromeFake(): ChromeFake {
     permissionAnswer: true,
     pageMedia: new Map(),
     injectedTabs: [],
+    sidePanelOpens: [],
+    sidePanelBehavior: { openPanelOnActionClick: false },
     authTokenAnswer: new Error('The user did not approve access.'),
     authTokenRequests: [],
     removedAuthTokens: [],
@@ -1263,6 +1284,7 @@ export function createChromeFake(): ChromeFake {
       }
       const media = state.pageMedia.get(tabId) ?? [];
       const pageDocument = {
+        title: tab.title,
         querySelectorAll(selector: string) {
           const wanted = selector
             .split(',')
@@ -1290,6 +1312,33 @@ export function createChromeFake(): ChromeFake {
       return [
         { documentId: `doc-${tabId}`, frameId: 0, result: (await result) as Awaited<Result> },
       ];
+    },
+  };
+
+  // ---- sidePanel ---------------------------------------------------------------
+
+  /**
+   * `chrome.sidePanel`: `open` needs a window or tab id that exists, like Chrome, and records the
+   * call; the user gesture Chrome also requires is not modelled. The panel page itself is not run.
+   */
+  const sidePanel = {
+    async open(options: chrome.sidePanel.OpenOptions): Promise<void> {
+      if (options.windowId === undefined && options.tabId === undefined) {
+        throw new Error('At least one of tabId and windowId must be provided');
+      }
+      if (options.windowId !== undefined) {
+        requireWindow(options.windowId);
+      }
+      if (options.tabId !== undefined) {
+        requireTab(options.tabId);
+      }
+      state.sidePanelOpens.push({ ...options });
+    },
+    async setPanelBehavior(behavior: chrome.sidePanel.PanelBehavior): Promise<void> {
+      state.sidePanelBehavior = { ...behavior };
+    },
+    async getPanelBehavior(): Promise<chrome.sidePanel.PanelBehavior> {
+      return { ...state.sidePanelBehavior };
     },
   };
 
@@ -1354,8 +1403,20 @@ export function createChromeFake(): ChromeFake {
     extension,
     permissions,
     scripting,
+    sidePanel,
     identity,
   };
+
+  function gestureTab(): chrome.tabs.Tab | undefined {
+    if (state.windows.size === 0) {
+      return undefined;
+    }
+    const windowId = focusedWindow().id;
+    const active = [...state.tabs.values()].find(
+      (entry) => entry.windowId === windowId && entry.active,
+    );
+    return active === undefined ? undefined : toChromeTab(active);
+  }
 
   const fire: FakeFire = {
     installed(details) {
@@ -1364,11 +1425,13 @@ export function createChromeFake(): ChromeFake {
     startup() {
       onStartup.emit();
     },
+    // Like Chrome, both hand over the active tab of the window the gesture happened in (the
+    // focused one), or no tab when there is no window.
     menuClicked(menuItemId) {
-      onMenuClicked.emit({ menuItemId, editable: false }, undefined);
+      onMenuClicked.emit({ menuItemId, editable: false }, gestureTab());
     },
     command(name) {
-      onCommand.emit(name, undefined);
+      onCommand.emit(name, gestureTab());
     },
     alarm(name) {
       onAlarm.emit({ name, persistAcrossSessions: true, scheduledTime: Date.now() });

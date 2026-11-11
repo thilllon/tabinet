@@ -144,7 +144,7 @@ export const es: SiteCopy = {
       },
       {
         title: 'Sin rastreo',
-        body: 'Sin analíticas, sin rastreo y sin ninguna petición salvo que inicies sesión en la sincronización. No lee el contenido de las páginas que visitas; lo único que ejecuta en una página es la pausa de los vídeos de YouTube, si lo permites.',
+        body: 'Sin analíticas, sin rastreo y sin ninguna petición salvo que inicies sesión en la sincronización. No lee el contenido de las páginas que visitas. Solo en YouTube, si lo permites, ejecuta algo en una página: pausa los vídeos y, para las notas de YouTube, lee el tiempo y el título del vídeo.',
       },
     ],
     link: 'Leer la política de privacidad',
@@ -216,7 +216,7 @@ export const es: SiteCopy = {
       },
       {
         q: '¿Puede pausar todos mis vídeos de YouTube a la vez?',
-        a: 'Sí. Haz clic con el botón derecho en el icono y elige Pausar todos los vídeos de YouTube, o pulsa su combinación de teclas (Alt+Mayús+P en una instalación nueva, Opción+Mayús+P en Mac; puedes asignarla o cambiarla en chrome://extensions/shortcuts). Todas las pestañas de YouTube de todas las ventanas se pausan donde estaban; nada se silencia ni se cierra, y repetirlo no reanuda nada. La primera vez se abre Configuración en su sección de YouTube para que permitas el acceso; después vuelve a elegirlo. Tabinet solo pulsa pausa allí y no lee nada de la página. Puedes quitar el acceso en Configuración cuando quieras.',
+        a: 'Sí. Haz clic con el botón derecho en el icono y elige Pausar todos los vídeos de YouTube, o pulsa su combinación de teclas (Alt+Mayús+P en una instalación nueva, Opción+Mayús+P en Mac; puedes asignarla o cambiarla en chrome://extensions/shortcuts). Todas las pestañas de YouTube de todas las ventanas se pausan donde estaban; nada se silencia ni se cierra, y repetirlo no reanuda nada. La primera vez se abre Configuración en su sección de YouTube para que permitas el acceso; después vuelve a elegirlo. La pausa solo pulsa pausa; las notas de YouTube, en el panel lateral, solo leen el tiempo y el título del vídeo. Puedes quitar el acceso en Configuración cuando quieras.',
       },
       {
         q: '¿Funciona en otros navegadores Chromium?',

@@ -1,14 +1,14 @@
 # Privacy Policy - Tabinet
 
-Last Updated: November 10, 2026
+Last Updated: November 12, 2026
 
 ## Overview
 
-Tabinet is a Chrome extension that sorts and organizes your browser tabs and lets you save, restore, search, import and export sets of windows and tabs as sessions. On request it also pauses the videos in your YouTube tabs. Your privacy is important to us: everything the extension does happens inside your browser, on your device, unless you choose to sign in to the optional cloud sync (see "Cloud sync" below).
+Tabinet is a Chrome extension that sorts and organizes your browser tabs and lets you save, restore, search, import and export sets of windows and tabs as sessions. On request it also pauses the videos in your YouTube tabs, and it lets you keep timestamped notes on a YouTube video in Chrome's side panel. Your privacy is important to us: everything the extension does happens inside your browser, on your device, unless you choose to sign in to the optional cloud sync (see "Cloud sync" below).
 
 ## Data Collection
 
-Unless you sign in to cloud sync, Tabinet does **not** collect or transmit any personal data: it makes no network requests and all operations are performed locally within your browser. Cloud sync is optional and off until you sign in; what it sends, and how it is protected, is described in "Cloud sync" below. Either way, the extension reads nothing from the pages you visit and uses no analytics, tracking or telemetry. The only thing it ever runs inside a web page is a pause for YouTube videos, and only after you allow it (see "Pausing YouTube videos" below).
+Unless you sign in to cloud sync, Tabinet does **not** collect or transmit any personal data: it makes no network requests and all operations are performed locally within your browser. Cloud sync is optional and off until you sign in; what it sends, and how it is protected, is described in "Cloud sync" below. Either way, the extension reads nothing from the pages you visit and uses no analytics, tracking or telemetry. It runs something inside a web page only on YouTube, and only after you allow it: the pause for YouTube videos, and, for YouTube notes, reading the time and title of the video you are taking notes on (see "Pausing YouTube videos" and "YouTube notes" below).
 
 ### What is stored, and where
 
@@ -38,7 +38,13 @@ To turn snapshots off, open Tabinet (right-click the icon → Options) and switc
 
 For this the extension needs access to youtube.com (`https://*.youtube.com/*`, which covers www, m and music). It is never requested at install: Chrome asks you when you turn on "Access to YouTube" in Settings (choosing the menu item before that opens Settings), and you can remove the access there, or at chrome://extensions, at any time. With that access, each time you ask, the extension runs one small function that is part of the extension itself in each YouTube tab: it presses pause and counts how many videos it paused. It does not read the page, what you watch or anything else on YouTube, and nothing about YouTube is stored or transmitted. Without the access, nothing runs in any web page.
 
-### Cloud sync (optional)
+### YouTube notes
+
+"YouTube notes" (in the icon's right-click menu, as a keyboard shortcut you can assign, and as a button on the Tabinet page) opens Chrome's side panel next to the page. While the active tab of that window shows a YouTube video, you can write notes on it, each at a time in the video, and click a note's time to jump the video there.
+
+For each video you take notes on, the extension stores in local extension storage (`chrome.storage.local`) on this device: the video's id and address (`https://www.youtube.com/watch?v=<id>`), its title, the text of each note with the time in the video it belongs to, and when each note was written and last changed. Notes are **never** synced, not even with cloud sync, and never sent anywhere.
+
+To work, the panel needs the same access to youtube.com as pausing (see above), which it asks for with the same "Access to YouTube" switch. With it, while the panel is open on a video, a small function that is part of the extension reads that video's current time, its length, whether it is playing, and the page's title, about once a second while the panel is visible; when you ask, it moves the video to a note's time, and, if you leave "Pause the video while I write" on, pauses it while you write a note and plays it again after. It reads nothing else from the page, and what it reads is not stored except as part of a note you save.
 
 Cloud sync keeps your saved sessions and your settings in step across the computers where you use Tabinet. It is **off until you sign in**: open Settings, Account, and click "Sign in with Google". If you never do, nothing in this section applies and the extension makes no network requests.
 
@@ -63,7 +69,8 @@ Automatic snapshots are **never** synced. Because the server never has your pass
 
 - Saved sessions are kept until you delete them in the Tabinet page.
 - Automatic snapshots are kept in a rolling set: only the most recent unprotected snapshots are retained (20 by default; you choose how many in Settings on the Tabinet page), and older ones are removed automatically. A snapshot you mark as protected is kept until you delete it. The "Previous session (recovered)" snapshot created after a browser restart is protected automatically, as is the one before it; older recovered snapshots return to the rolling set and age out of it like any other. Marking one as protected yourself makes it yours to keep. Snapshots can be deleted one at a time or all at once.
-- "Delete all session data" in the Tabinet page removes every saved session and snapshot immediately; your settings are kept.
+- "Delete all session data" in the Tabinet page removes every saved session and snapshot immediately; your settings and YouTube notes are kept.
+- YouTube notes are kept until you delete them in the notes panel; deleting a video's last note removes everything stored for that video.
 - Uninstalling the extension makes Chrome delete all of its stored data on that device. Data on the sync server, if you signed in, stays until you delete it with "Delete cloud data" (sign in again to reach that button).
 
 ## Permissions
@@ -72,14 +79,15 @@ This extension requires the following permissions:
 
 - **tabs**: Used to read tab URLs and titles for sorting, for saving sessions and for the Tabinet page's list of open windows, and to create tabs when restoring a session.
 - **tabGroups**: Used to sort and organize tab groups within the current window and to recreate tab groups when restoring a session.
-- **storage**: Used to save your sorting preferences and language choice using Chrome's sync storage, and to store saved sessions, snapshots, session settings and, if you use cloud sync, its session token and key in local storage on this device.
-- **contextMenus**: Used to add "Assemble!", "Save all windows as session" and "Pause all YouTube videos" to the extension icon's right-click menu. No menu items are added to web pages.
+- **storage**: Used to save your sorting preferences and language choice using Chrome's sync storage, and to store saved sessions, snapshots, session settings, YouTube notes and, if you use cloud sync, its session token and key in local storage on this device.
+- **contextMenus**: Used to add "Assemble!", "Save all windows as session", "Pause all YouTube videos" and "YouTube notes" to the extension icon's right-click menu. No menu items are added to web pages.
 - **unlimitedStorage**: Allows large saved sessions to exceed Chrome's default local storage quota. It does not change where data is stored and sends nothing anywhere.
 - **favicon**: Used to display site icons next to tabs in the Tabinet page from Chrome's local favicon cache. No icons are fetched from the network and no icon data is stored by the extension.
 - **alarms**: Used as the timer for automatic snapshots on the interval you choose, and, while you are signed in to cloud sync, to sync every 15 minutes and shortly after a change. When automatic snapshots are off and you are not signed in, no timer exists.
 - **identity**: Used only for cloud sync, when you click "Sign in with Google": it asks Chrome for a Google access token with the `openid` and `email` scopes, as described in "Cloud sync". Without signing in it is never used.
-- **scripting**: Used only to pause YouTube videos when you ask, as described in "Pausing YouTube videos". It works only on the sites you allowed below.
-- **Access to youtube.com** (optional, `https://*.youtube.com/*`): requested only when you turn on "Access to YouTube" in Settings, and removable there. Used only to pause videos; nothing is read from YouTube pages.
+- **scripting**: Used only on YouTube: to pause videos when you ask, as described in "Pausing YouTube videos", and for YouTube notes to read the time and title of the video and move it to a note's time, as described in "YouTube notes". It works only on the sites you allowed below.
+- **sidePanel**: Used to show YouTube notes in Chrome's side panel when you open it from the right-click menu, its keyboard shortcut or the Tabinet page. Clicking the icon never opens it.
+- **Access to youtube.com** (optional, `https://*.youtube.com/*`): requested only when you turn on "Access to YouTube" in Settings or in the notes panel, and removable in Settings. Used only to pause videos and, for YouTube notes, to read the video's time and title and move it; nothing else is read from YouTube pages.
 
 The extension requests no host permissions at install and declares no content scripts; access to youtube.com is optional and only yours to grant. It requires Chrome 123 or newer.
 
@@ -88,7 +96,7 @@ The extension requests no host permissions at install and declares no content sc
 - Tab URLs and titles are read during sorting and are **not** stored as part of sorting.
 - When you save a session, or while automatic snapshots are enabled, the data listed above is stored in local extension storage on your device. It is transmitted only if you sign in to cloud sync, and then only your saved sessions and settings, end-to-end encrypted; automatic snapshots never are.
 - Sorting preferences are stored using Chrome's built-in storage API; with cloud sync they also go to the sync server, encrypted. They are never shared with third parties.
-- Nothing is ever sold, shared, or used for any purpose other than sorting tabs, pausing YouTube videos when you ask, and saving, restoring, searching, importing, exporting and, if you sign in, syncing sessions.
+- Nothing is ever sold, shared, or used for any purpose other than sorting tabs, pausing YouTube videos when you ask, keeping your notes on YouTube videos, and saving, restoring, searching, importing, exporting and, if you sign in, syncing sessions.
 
 ## Third-Party Services
 

@@ -35,6 +35,10 @@
     "message": "Pause all YouTube videos",
     "description": "Keyboard command (listed at chrome://extensions/shortcuts) and item in the toolbar icon's right-click menu: pauses the video in every YouTube tab of every window. Menu item, keep it short (under 40 characters)."
   },
+  "cmdOpenNotes": {
+    "message": "YouTube notes",
+    "description": "Keyboard command (listed at chrome://extensions/shortcuts), item in the toolbar icon's right-click menu, button on the app page and title of the side panel: opens the side panel where the person takes timestamped notes on the YouTube video in the active tab. Menu item, keep it short (under 30 characters)."
+  },
   "assembleName": {
     "message": "Assemble!",
     "description": "Short name of the action that moves every window's tabs into the current one. Shown on a button."
@@ -149,18 +153,18 @@
   },
   "settingsYoutubeAccess": {
     "message": "Access to YouTube",
-    "description": "Label of the switch in Settings that grants or removes access to YouTube (needed to pause videos)."
+    "description": "Label of the switch in Settings (and in the YouTube notes side panel) that grants or removes access to YouTube (needed to pause videos and for YouTube notes)."
   },
   "settingsYoutubeAccessOffHint": {
-    "message": "Not allowed yet. Needed to pause videos; Chrome asks you first. Tabinet only presses pause on YouTube and reads nothing from the page.",
+    "message": "Not allowed yet. Needed to pause videos; Chrome asks you first. Tabinet only presses pause and, for YouTube notes, reads the video's time and title.",
     "description": "Grey hint under \"Access to YouTube\" while the access is not granted."
   },
   "settingsYoutubeAccessOnHint": {
-    "message": "Allowed. Choose “$1” in the icon's right-click menu, or press its shortcut, to pause every video. Tabinet only presses pause on YouTube and reads nothing from the page.",
+    "message": "Allowed. Choose “$1” in the icon's right-click menu, or press its shortcut, to pause every video. Tabinet only presses pause and, for YouTube notes, reads the video's time and title.",
     "description": "Grey hint under \"Access to YouTube\" once the access is granted. $1 is the right-click menu item (cmdPauseYoutube), quoted."
   },
   "settingsYoutubeAccessAskedHint": {
-    "message": "“$1” needs this access first. Allow it here, then choose “$1” again or press its shortcut. Tabinet only presses pause on YouTube and reads nothing from the page.",
+    "message": "“$1” needs this access first. Allow it here, then choose “$1” again or press its shortcut. Tabinet only presses pause and, for YouTube notes, reads the video's time and title.",
     "description": "Grey hint under \"Access to YouTube\" when the person arrived from the menu item or shortcut without the access yet: explains why Settings opened. $1 (twice) is the right-click menu item (cmdPauseYoutube), quoted."
   },
   "settingsYoutubeAllowed": {
@@ -2066,5 +2070,77 @@
   "shortcutPromptButton": {
     "message": "Set keys",
     "description": "Button on the shortcuts toast that opens Chrome's keyboard shortcuts page. Keep it short."
+  },
+  "notesOpenTitle": {
+    "message": "Take notes with timestamps on the YouTube video in this window, in Chrome's side panel",
+    "description": "Tooltip of the YouTube notes button on the app page."
+  },
+  "notesOpenFailed": {
+    "message": "Could not open the notes panel.",
+    "description": "Error toast when Chrome did not open the YouTube notes side panel."
+  },
+  "notesNotVideo": {
+    "message": "Open a YouTube video in this window to take notes on it. Notes are kept on this device.",
+    "description": "Shown in the YouTube notes side panel when the active tab is not a YouTube video."
+  },
+  "notesAccessHint": {
+    "message": "Needed to read where the video is and to jump to a note's time; Chrome asks you first. Tabinet reads only the video's time and title.",
+    "description": "Grey hint under the \"Access to YouTube\" switch in the YouTube notes side panel, while the access is not granted."
+  },
+  "notesAccessDeclined": {
+    "message": "Access to YouTube was not allowed, so notes cannot read the video's time yet.",
+    "description": "Short notice in the notes side panel after the person declined Chrome's prompt for access to youtube.com."
+  },
+  "notesAdd": {
+    "message": "Add note",
+    "description": "Button in the notes side panel that starts a note, while the time in the video is not known yet."
+  },
+  "notesAddAt": {
+    "message": "Add note at $1",
+    "description": "Button in the notes side panel that starts a note at the current time of the video. $1 is the time, such as 1:23 or 1:02:03."
+  },
+  "notesPauseWhileWriting": {
+    "message": "Pause the video while I write",
+    "description": "Checkbox in the notes side panel: pause the video while a note is being written, and play it again after."
+  },
+  "notesEntryLabel": {
+    "message": "Note at $1",
+    "description": "Screen-reader name of the text box of a note. $1 is the time in the video, such as 1:23."
+  },
+  "notesPlaceholder": {
+    "message": "Write your note (Markdown works). $1 saves.",
+    "description": "Placeholder in the note text box. $1 is the key combination that saves, such as \"Ctrl + Enter\" or \"Command + Enter\"."
+  },
+  "notesEmptyText": {
+    "message": "Write something first.",
+    "description": "Shown under the note text box when the person tries to save an empty note."
+  },
+  "notesEmpty": {
+    "message": "No notes on this video yet.",
+    "description": "Shown in the notes side panel when the video has no notes."
+  },
+  "notesJumpTo": {
+    "message": "Jump to $1",
+    "description": "Tooltip of a note's time, a button that moves the video to it. $1 is the time, such as 1:23."
+  },
+  "notesEditEntry": {
+    "message": "Edit note at $1",
+    "description": "Screen-reader name and tooltip of the edit button of one note. $1 is its time, such as 1:23."
+  },
+  "notesDeleteEntry": {
+    "message": "Delete note at $1",
+    "description": "Screen-reader name and tooltip of the delete button of one note. $1 is its time, such as 1:23."
+  },
+  "notesDeleted": {
+    "message": "Note deleted.",
+    "description": "Toast after a note was deleted; it carries an Undo button."
+  },
+  "notesUndo": {
+    "message": "Undo",
+    "description": "Button on the \"Note deleted.\" toast that puts the note back."
+  },
+  "notesPlayerFailed": {
+    "message": "Could not reach the video in this tab. Reload the tab and try again.",
+    "description": "Error toast when the notes side panel could not read or move the video in the tab."
   }
 }
