@@ -347,7 +347,7 @@ describe('two devices converging through the server', () => {
     );
     await sync(a);
     at(2_000_000);
-    // What snapshot-detail.tsx does for Keep: duplicate as saved, then remove the snapshot.
+    // What snapshot.tsx does for Keep: duplicate as saved, then remove the snapshot.
     const kept = await on(a, async () => {
       const saved = await sessionRepo.duplicateAsSaved('h1');
       await sessionRepo.remove('h1');
