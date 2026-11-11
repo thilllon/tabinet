@@ -38,7 +38,10 @@ export function AddNoteBar({
       <div className="flex gap-2">
         <Button onClick={onAdd} disabled={!enabled || busy} className="min-w-0 flex-1">
           <NotebookPen />
-          {player === null ? t('notesAdd') : t('notesAddAt', formatTimestamp(player.currentTime))}
+          {/* Narrow panels and long labels: cut the text rather than run into "Screenshot". */}
+          <span className="truncate">
+            {player === null ? t('notesAdd') : t('notesAddAt', formatTimestamp(player.currentTime))}
+          </span>
         </Button>
         <Button
           variant="outline"

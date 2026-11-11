@@ -221,6 +221,22 @@ describe('notesRepo', () => {
       expect((await notesRepo.get(A))?.entries[0]?.imageId).toBeUndefined();
     });
 
+    it('drops the reference when what is stored under it is not an image', async () => {
+      const entry = await notesRepo.addEntry(
+        { videoId: A, title: 'T' },
+        { at: 1, text: 'x', image: PNG },
+      );
+      const removed = await notesRepo.removeEntry(A, entry.id);
+      if (removed === undefined) {
+        throw new Error('nothing removed');
+      }
+      await chrome.storage.local.set({ [`noteImage:${imageIdOf(entry)}`]: 'not a picture' });
+
+      await notesRepo.restoreEntry({ videoId: A, title: 'T' }, { entry: removed.entry });
+
+      expect((await notesRepo.get(A))?.entries[0]?.imageId).toBeUndefined();
+    });
+
     it('keeps the image when only the text of its note changes', async () => {
       const entry = await notesRepo.addEntry(
         { videoId: A, title: 'T' },

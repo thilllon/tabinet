@@ -306,7 +306,7 @@ export const notesRepo = {
    * Puts back a deleted note exactly as it was (the Undo of a deletion), with its screenshot,
    * creating the video's notes again if that was its last one. An entry with the same id is
    * replaced. Without the picture's data (or with data that is not an image) the reference is kept
-   * only if the image is still stored.
+   * only if an image is still stored under it.
    */
   restoreEntry(video: NoteVideo, removed: RemovedNote, now: number = Date.now()): Promise<void> {
     return withNotesLock(async () => {
@@ -317,11 +317,8 @@ export const notesRepo = {
         const key = noteImageKey(restored.imageId);
         if (image !== undefined && isImageDataUrl(image)) {
           await chrome.storage.local.set({ [key]: image });
-        } else {
-          const raw: Record<string, unknown> = await chrome.storage.local.get(key);
-          if (typeof raw[key] !== 'string') {
-            delete restored.imageId;
-          }
+        } else if ((await readImage(restored.imageId)) === undefined) {
+          delete restored.imageId;
         }
       }
       const notes: VideoNotes = existing ?? {
