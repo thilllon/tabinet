@@ -69,10 +69,10 @@ import { readSidebarWidth, writeSidebarWidth } from '@/lib/sidebar-width';
 import { isQuotaError } from '@/lib/storage-quota';
 import { ACTION_MS, NOTICE_MS } from '@/lib/toast-queue';
 import { currentWindowTarget, goToTab } from '@/lib/window-actions';
-import { OpenTabsView } from '@/pages/open-tabs-view';
-import { SessionDetail } from '@/pages/session-detail';
-import { SettingsView } from '@/pages/settings-view';
-import { SnapshotDetail } from '@/pages/snapshot-detail';
+import { OpenTabsPage } from '@/pages/open-tabs';
+import { SessionPage } from '@/pages/session';
+import { SettingsPage } from '@/pages/settings';
+import { SnapshotPage } from '@/pages/snapshot';
 import type { Session, SessionSettings } from '@/types';
 
 const NEW_WINDOWS: RestoreTarget = { kind: 'newWindows' };
@@ -485,7 +485,7 @@ export function App() {
     }
     if (page.view === 'saved' && selected !== undefined) {
       return (
-        <SessionDetail
+        <SessionPage
           key={selected.id}
           summary={selected}
           restoring={running}
@@ -498,7 +498,7 @@ export function App() {
     }
     if (page.view === 'auto' && selected !== undefined) {
       return (
-        <SnapshotDetail
+        <SnapshotPage
           key={selected.id}
           summary={selected}
           restoring={running}
@@ -511,7 +511,7 @@ export function App() {
       );
     }
     return (
-      <OpenTabsView
+      <OpenTabsPage
         openWindows={openWindows}
         busy={busy}
         savedCount={saved.length}
@@ -681,7 +681,7 @@ export function App() {
               }
             }}
           >
-            <SettingsView
+            <SettingsPage
               summaries={sessions}
               onNotice={announce}
               onSaved={show}
@@ -692,7 +692,7 @@ export function App() {
               focus={route.view === 'settings' ? route.focus : undefined}
             >
               {banners}
-            </SettingsView>
+            </SettingsPage>
             {/* Inside the dialog while it is open: left in the page it would sit under the overlay,
               dimmed, hidden from screen readers, and its Cancel would count as a click outside. */}
             {progressToast}

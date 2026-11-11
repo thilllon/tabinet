@@ -28,7 +28,7 @@ import { sessionRepo } from '@/lib/session-repo';
 import type { OpenScope } from '@/lib/session-restore';
 import type { Session, SessionSummary } from '@/types';
 
-interface SessionDetailProps {
+interface SessionPageProps {
   summary: SessionSummary;
   restoring: boolean;
   onOpen(session: Session, scope: OpenScope): Promise<void>;
@@ -44,14 +44,14 @@ interface SessionDetailProps {
  * the window → group → tab tree. Everything that is not "open this" lives in the ⋯ menu, so the
  * page has a single obvious button.
  */
-export function SessionDetail({
+export function SessionPage({
   summary,
   restoring,
   onOpen,
   onOpenWindow,
   onNotice,
   onDeleted,
-}: SessionDetailProps) {
+}: SessionPageProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(summary.name);
   const [confirmingDelete, setConfirmingDelete] = useState(false);

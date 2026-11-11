@@ -24,7 +24,7 @@ import type { Session, SessionSummary } from '@/types';
 /** Stands in for the bold Keep word while the explainer sentence is translated (private use). */
 const KEEP_MARKER = '\uE000';
 
-interface SnapshotDetailProps {
+interface SnapshotPageProps {
   summary: SessionSummary;
   restoring: boolean;
   /** How many snapshots are kept before the oldest unkept one is dropped. */
@@ -41,7 +41,7 @@ interface SnapshotDetailProps {
  * list, where pruning never reaches it. Snapshots are not editable: they are a record of what was
  * open, not a document.
  */
-export function SnapshotDetail({
+export function SnapshotPage({
   summary,
   restoring,
   keepLast,
@@ -49,7 +49,7 @@ export function SnapshotDetail({
   onNotice,
   onKept,
   onDeleted,
-}: SnapshotDetailProps) {
+}: SnapshotPageProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
   useErrorToast(error);

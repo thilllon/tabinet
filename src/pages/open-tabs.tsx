@@ -26,7 +26,7 @@ import {
 } from '@/lib/tab-selection';
 import { closeTabs } from '@/lib/window-actions';
 
-interface OpenTabsViewProps {
+interface OpenTabsPageProps {
   openWindows: OpenWindowsState;
   busy: boolean;
   /** How many sessions are already saved: the first-run hint only shows while there are none. */
@@ -61,7 +61,7 @@ interface OpenTabsViewProps {
  * does not jump when the first box is ticked, and it sticks below the page header so it is still
  * there after scrolling down a long window to tick more.
  */
-export function OpenTabsView({
+export function OpenTabsPage({
   openWindows,
   busy,
   savedCount,
@@ -73,7 +73,7 @@ export function OpenTabsView({
   onOpenSettings,
   onNotice,
   onError,
-}: OpenTabsViewProps) {
+}: OpenTabsPageProps) {
   const [selection, setSelection] = useState<TabSelection>(EMPTY_SELECTION);
   // The tab ticked last: where a shift-click's range starts.
   const anchor = useRef<number | undefined>(undefined);

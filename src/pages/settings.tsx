@@ -49,7 +49,7 @@ import type { SessionSettings, SessionSummary, SortSettings } from '@/types';
 /** Chrome names keys differently on a Mac (Option, Command), so the page asks once. */
 const IS_MAC = isMacPlatform(navigator.userAgent);
 
-interface SettingsViewProps {
+interface SettingsPageProps {
   summaries: SessionSummary[];
   onNotice(message: string): void;
   /** A setting was written; the app shows the confirmation toast. */
@@ -74,7 +74,7 @@ interface SettingsViewProps {
  * videos") follows Sorting, since the right-click menu item sends people here. Nothing has a Save button
  * - a setting is written the moment it changes, as it already was for the session settings.
  */
-export function SettingsView({
+export function SettingsPage({
   summaries,
   onNotice,
   onSaved,
@@ -84,7 +84,7 @@ export function SettingsView({
   exporting,
   focus,
   children,
-}: SettingsViewProps) {
+}: SettingsPageProps) {
   const [sort, setSort] = useState<SortSettings>(DEFAULT_SORT_SETTINGS);
   // `null` until Chrome answers; `'failed'` when it does not.
   const [commands, setCommands] = useState<CommandRow[] | null | 'failed'>(null);
