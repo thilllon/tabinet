@@ -228,15 +228,19 @@ interface CreatePassphraseFormProps {
   onSubmit(passphrase: string): void;
 }
 
-/** The new passphrase, typed twice; the problem with it is shown under the fields. */
+/**
+ * The new passphrase, typed twice; the problem with it is shown under the fields. The fields are
+ * uncontrolled and read from the form on submit, so typing re-renders nothing; an error clears on
+ * the first edit after it (a state change only then, never per keystroke).
+ */
 function CreatePassphraseForm({ busy, onSubmit }: CreatePassphraseFormProps) {
-  const [passphrase, setPassphrase] = useState('');
-  const [repeated, setRepeated] = useState('');
   const [problem, setProblem] = useState<string | undefined>(undefined);
 
-  const submit = (event: FormEvent) => {
+  const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const found = newPassphraseProblem(passphrase, repeated);
+    const form = new FormData(event.currentTarget);
+    const passphrase = formText(form, 'passphrase');
+    const found = newPassphraseProblem(passphrase, formText(form, 'repeated'));
     if (found === 'tooShort') {
       setProblem(tp('settingsAccountPassphraseTooShort', PASSPHRASE_MIN_LENGTH));
       return;
@@ -248,6 +252,7 @@ function CreatePassphraseForm({ busy, onSubmit }: CreatePassphraseFormProps) {
     setProblem(undefined);
     onSubmit(passphrase);
   };
+  const clearProblem = problem === undefined ? undefined : () => setProblem(undefined);
 
   return (
     <form className="space-y-3" onSubmit={submit} noValidate>
@@ -259,19 +264,19 @@ function CreatePassphraseForm({ busy, onSubmit }: CreatePassphraseFormProps) {
       </div>
       <PassphraseInput
         id="cloud-passphrase"
+        name="passphrase"
         label={t('settingsAccountPassphrase')}
-        value={passphrase}
         autoComplete="new-password"
         invalid={problem !== undefined}
-        onChange={setPassphrase}
+        onEdit={clearProblem}
       />
       <PassphraseInput
         id="cloud-passphrase-repeat"
+        name="repeated"
         label={t('settingsAccountPassphraseRepeat')}
-        value={repeated}
         autoComplete="new-password"
         invalid={problem !== undefined}
-        onChange={setRepeated}
+        onEdit={clearProblem}
       />
       {problem !== undefined && (
         <p role="alert" className="text-xs text-destructive">
@@ -296,13 +301,17 @@ interface UnlockFormProps {
   onError(err: unknown): void;
 }
 
-/** The existing passphrase on a new device; a wrong one is said under the field. */
+/**
+ * The existing passphrase on a new device; a wrong one is said under the field. Uncontrolled like
+ * the create form: `empty` and `wrong` change only when they flip, so typing re-renders nothing.
+ */
 function UnlockForm({ setup, busy, setBusy, onUnlocked, onError }: UnlockFormProps) {
-  const [passphrase, setPassphrase] = useState('');
+  const [empty, setEmpty] = useState(true);
   const [wrong, setWrong] = useState(false);
 
-  const submit = (event: FormEvent) => {
+  const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const passphrase = formText(new FormData(event.currentTarget), 'passphrase');
     setBusy(true);
     unlockWithPassphrase(setup, passphrase)
       .then((ok) => {
@@ -322,12 +331,13 @@ function UnlockForm({ setup, busy, setBusy, onUnlocked, onError }: UnlockFormPro
       </div>
       <PassphraseInput
         id="cloud-passphrase-unlock"
+        name="passphrase"
         label={t('settingsAccountPassphrase')}
-        value={passphrase}
         autoComplete="current-password"
         invalid={wrong}
-        onChange={(value) => {
-          setPassphrase(value);
+        onEdit={(value) => {
+          // React skips the render when the value is unchanged, so these cost nothing per keystroke.
+          setEmpty(value === '');
           setWrong(false);
         }}
       />
@@ -337,7 +347,7 @@ function UnlockForm({ setup, busy, setBusy, onUnlocked, onError }: UnlockFormPro
         </p>
       )}
       <div className="flex justify-end">
-        <Button type="submit" variant="outline" size="sm" disabled={busy || passphrase === ''}>
+        <Button type="submit" variant="outline" size="sm" disabled={busy || empty}>
           <KeyRound />
           {t('settingsAccountUnlockButton')}
         </Button>
@@ -346,23 +356,23 @@ function UnlockForm({ setup, busy, setBusy, onUnlocked, onError }: UnlockFormPro
   );
 }
 
-interface PassphraseInputProps {
-  id: string;
-  label: string;
-  value: string;
-  autoComplete: 'new-password' | 'current-password';
-  invalid: boolean;
-  onChange(value: string): void;
+/** A text field of a submitted form, `''` when absent. */
+function formText(form: FormData, name: string): string {
+  const value = form.get(name);
+  return typeof value === 'string' ? value : '';
 }
 
-function PassphraseInput({
-  id,
-  label,
-  value,
-  autoComplete,
-  invalid,
-  onChange,
-}: PassphraseInputProps) {
+interface PassphraseInputProps {
+  id: string;
+  name: string;
+  label: string;
+  autoComplete: 'new-password' | 'current-password';
+  invalid: boolean;
+  /** Called on each edit with the field's text; leave it out when nothing needs to know. */
+  onEdit?: (value: string) => void;
+}
+
+function PassphraseInput({ id, name, label, autoComplete, invalid, onEdit }: PassphraseInputProps) {
   return (
     <div className="space-y-1">
       <Label htmlFor={id} className="text-xs font-normal">
@@ -370,11 +380,11 @@ function PassphraseInput({
       </Label>
       <Input
         id={id}
+        name={name}
         type="password"
-        value={value}
         autoComplete={autoComplete}
         aria-invalid={invalid}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={onEdit === undefined ? undefined : (event) => onEdit(event.target.value)}
       />
     </div>
   );
