@@ -101,7 +101,7 @@ export function TabRow({ tab, selection, onOpen, actions }: TabRowProps) {
                 event.nativeEvent instanceof MouseEvent && event.nativeEvent.shiftKey,
               )
             }
-            className={`ml-1.5 size-3.5 shrink-0 cursor-pointer accent-primary transition-opacity group-focus-within/row:opacity-100 group-hover/row:opacity-100 [@media(hover:none)]:opacity-100 ${selection.active ? 'opacity-100' : 'opacity-0'}`}
+            className={`ml-1.5 size-3.5 shrink-0 translate-y-[0.5px] cursor-pointer accent-primary transition-opacity group-focus-within/row:opacity-100 group-hover/row:opacity-100 [@media(hover:none)]:opacity-100 ${selection.active ? 'opacity-100' : 'opacity-0'}`}
           />
         )}
         {href === undefined ? (
