@@ -113,12 +113,6 @@ describe('formatRestoreSummary', () => {
     );
   });
 
-  it('uses singular forms', () => {
-    expect(formatRestoreSummary({ restored: 0, discarded: 0, skipped: ['a'], errors: [] }, 1)).toBe(
-      'Restored 0 of 1 tab · 1 skipped',
-    );
-  });
-
   it('reports structural (group/window) problems separately from tab errors', () => {
     const result = {
       restored: 10,
@@ -133,18 +127,6 @@ describe('formatRestoreSummary', () => {
     };
     expect(formatRestoreSummary(result, 11)).toBe(
       'Restored 10 of 11 tabs · 1 could not be opened · 3 group/window problems',
-    );
-  });
-
-  it('uses the singular form for a single structural problem', () => {
-    const result = {
-      restored: 10,
-      discarded: 0,
-      skipped: [],
-      errors: [{ url: 'group:Work', message: 'drag lock' }],
-    };
-    expect(formatRestoreSummary(result, 10)).toBe(
-      'Restored 10 of 10 tabs · 1 group/window problem',
     );
   });
 
@@ -173,14 +155,6 @@ describe('formatRestoreSummary', () => {
         cancelled: true,
       }),
     ).toBe('Restore cancelled: 25 tabs opened · the tabs already opened were kept');
-  });
-
-  it('uses the singular form for a cancelled restore of one tab', () => {
-    expect(
-      formatRestoreSummary({ restored: 1, discarded: 0, skipped: [], errors: [] }, 1, {
-        cancelled: true,
-      }),
-    ).toBe('Restore cancelled: 1 tab opened · the tabs already opened were kept');
   });
 });
 

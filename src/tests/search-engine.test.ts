@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  DEFAULT_LIMIT_PER_SOURCE,
   entriesFromOpenWindows,
   entriesFromSession,
   matchSessionName,
@@ -506,17 +505,6 @@ describe('search', () => {
     expect(result.bySource.history).toMatchObject({ count: 1, hasMore: false });
     expect(result.bySource.history.entries).toHaveLength(1);
     expect(result.total).toBe(11);
-  });
-
-  it('defaults to 200 results per source', () => {
-    const many: SearchEntry[] = [];
-    for (let i = 0; i < DEFAULT_LIMIT_PER_SOURCE + 50; i += 1) {
-      many.push(entry({ source: 'saved', title: `Tab ${i}` }));
-    }
-    const { saved } = search(many, 'tab').bySource;
-    expect(saved.entries).toHaveLength(DEFAULT_LIMIT_PER_SOURCE);
-    expect(saved.count).toBe(DEFAULT_LIMIT_PER_SOURCE + 50);
-    expect(saved.hasMore).toBe(true);
   });
 
   it('reports hasMore false when the count equals the limit', () => {

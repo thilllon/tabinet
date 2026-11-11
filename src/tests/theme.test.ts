@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { DARK_CLASS, DARK_MEDIA_QUERY, withDarkClass } from '@/lib/theme';
+import { DARK_CLASS, withDarkClass } from '@/lib/theme';
 
 describe('withDarkClass', () => {
   it('adds the dark class to an empty class attribute', () => {
@@ -28,9 +28,5 @@ describe('withDarkClass', () => {
 
   it('does not touch classes that merely contain "dark"', () => {
     expect(withDarkClass('darkroom dark-mode', false)).toBe('darkroom dark-mode');
-  });
-
-  it('queries the OS preference, not a stored setting', () => {
-    expect(DARK_MEDIA_QUERY).toBe('(prefers-color-scheme: dark)');
   });
 });

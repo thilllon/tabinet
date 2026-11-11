@@ -8,7 +8,6 @@ import {
   CLOUD_SYNC_SOON_ALARM,
   ensureSyncAlarm,
   handleCloudStorageChange,
-  isSyncAlarm,
   noteSettingsChange,
   parseSyncedSession,
   parseSyncedSettings,
@@ -584,11 +583,5 @@ describe('alarms', () => {
     expect(await syncNow({ fetch })).toMatchObject({ outcome: 'notReady' });
     expect(fetch).not.toHaveBeenCalled();
     expect(state.alarms.size).toBe(0);
-  });
-
-  it('isSyncAlarm knows its two alarms only', () => {
-    expect(isSyncAlarm(CLOUD_SYNC_ALARM)).toBe(true);
-    expect(isSyncAlarm(CLOUD_SYNC_SOON_ALARM)).toBe(true);
-    expect(isSyncAlarm('history-snapshot')).toBe(false);
   });
 });

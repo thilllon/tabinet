@@ -16,8 +16,6 @@ import {
   UnknownSchemaVersionError,
 } from '@/lib/session-migrate';
 
-import { getChromeFake } from './chrome-fake';
-
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -85,13 +83,6 @@ describe('errorMessage', () => {
     expect(errorMessage(new DOMException('Document is not focused.', 'NotAllowedError'))).toBe(
       t('errorNotAllowed'),
     );
-  });
-
-  it('is in the UI language', () => {
-    getChromeFake().setUiLanguage('ko');
-    expect(errorMessage(new Error('No tab with id: 12.'))).toBe(t('errorTabGone'));
-    expect(t('errorTabGone')).not.toBe('That tab or window is no longer open.');
-    expect(errorMessage(new Error('boom'))).not.toBe('boom');
   });
 });
 

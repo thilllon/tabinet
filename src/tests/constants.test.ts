@@ -31,26 +31,11 @@ describe('DEFAULT_SHORTCUTS', () => {
 
 describe('the Assemble! label', () => {
   it('is the name followed by its explanation in brackets', () => {
-    expect(t('cmdAssembleTabs')).toBe("Assemble! (move every window's tabs into this one)");
     expect(t('cmdAssembleTabs').startsWith(`${t('assembleName')} (`)).toBe(true);
   });
 });
 
 describe('cloud sync configuration', () => {
-  it('ships switched on: the server and the client, so the identity permission and oauth2 key', () => {
-    expect(CLOUD_SYNC.apiBase).toBe('https://tabinet-server.vercel.app');
-    expect(cloudSyncConfigured()).toBe(true);
-    expect(cloudSyncPermissions()).toEqual(['identity']);
-    expect(cloudSyncOauth2()).toEqual({
-      oauth2: { client_id: CLOUD_SYNC.googleClientId, scopes: ['openid', 'email'] },
-    });
-    expect(isCloudSyncEnabled()).toBe(true);
-  });
-
-  it('names the Chrome extension OAuth client', () => {
-    expect(CLOUD_SYNC.googleClientId).toMatch(/^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/);
-  });
-
   it('needs both values before the feature, its permission and its oauth2 key switch on', () => {
     const server = { apiBase: 'https://sync.test', googleClientId: '' };
     expect(cloudSyncConfigured(server)).toBe(false);

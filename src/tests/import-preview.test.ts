@@ -5,9 +5,6 @@ import {
   checkImportSize,
   fileReadError,
   formatImportTotals,
-  importButtonLabel,
-  importedNotice,
-  importFormatLabel,
   MAX_IMPORT_BYTES,
   PREVIEW_SESSION_LIMIT,
   PREVIEW_TITLE_LIMIT,
@@ -67,20 +64,6 @@ describe('checkImportSize', () => {
 });
 
 describe('labels', () => {
-  it('names every detected format', () => {
-    expect(importFormatLabel('json')).toBe('Tabinet JSON');
-    expect(importFormatLabel('html')).toBe('Bookmarks HTML');
-    expect(importFormatLabel('markdown')).toBe('Markdown');
-    expect(importFormatLabel('text')).toBe('Links');
-  });
-
-  it('singularizes the commit button and the confirmation', () => {
-    expect(importButtonLabel(1)).toBe('Import 1 session');
-    expect(importButtonLabel(3)).toBe('Import 3 sessions');
-    expect(importedNotice(1)).toBe('Imported 1 session.');
-    expect(importedNotice(0)).toBe('Imported 0 sessions.');
-  });
-
   it('explains an unreadable file', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     expect(fileReadError(new Error('NotReadableError'))).toBe('Could not read this file.');

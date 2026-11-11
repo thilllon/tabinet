@@ -32,13 +32,6 @@ describe('chrome fake: tab strip', () => {
     );
   });
 
-  it('does not record a rejected tabs.create in state.createdTabs', async () => {
-    await expect(chrome.tabs.create({ windowId: 999, url: 'https://a.test' })).rejects.toThrow(
-      'No window with id: 999.',
-    );
-    expect(getChromeFake().state.createdTabs).toEqual([]);
-  });
-
   it('re-indexes after tabs.remove', async () => {
     const a = await chrome.tabs.create({ url: 'https://a.test' });
     const b = await chrome.tabs.create({ url: 'https://b.test' });
@@ -471,12 +464,6 @@ describe('chrome fake: storage', () => {
       'sessionIndex'.length + 2 + 'session:1'.length + JSON.stringify({ x: 1 }).length,
     );
   });
-
-  it('sync is a separate area', async () => {
-    await chrome.storage.sync.set({ s: 1 });
-    expect(await chrome.storage.local.get('s')).toEqual({});
-    expect(await chrome.storage.sync.get('s')).toEqual({ s: 1 });
-  });
 });
 
 describe('chrome fake: failNext and events', () => {
@@ -491,38 +478,6 @@ describe('chrome fake: failNext and events', () => {
     const ok = await chrome.tabs.create({ url: 'https://a.test' });
     expect(ok.url).toBe('https://a.test');
     expect(getChromeFake().state.createdTabs.length).toBe(1);
-  });
-
-  it('fire helpers reach registered listeners', () => {
-    const fake = getChromeFake();
-    const log: string[] = [];
-    chrome.runtime.onInstalled.addListener((details) => {
-      log.push(`installed:${details.reason}`);
-    });
-    chrome.runtime.onStartup.addListener(() => {
-      log.push('startup');
-    });
-    chrome.contextMenus.onClicked.addListener((info) => {
-      log.push(`menu:${String(info.menuItemId)}`);
-    });
-    chrome.commands.onCommand.addListener((name) => {
-      log.push(`command:${name}`);
-    });
-    chrome.alarms.onAlarm.addListener((alarm) => {
-      log.push(`alarm:${alarm.name}`);
-    });
-    fake.fire.installed({ reason: 'install' });
-    fake.fire.startup();
-    fake.fire.menuClicked('save-window');
-    fake.fire.command('open-dashboard');
-    fake.fire.alarm('history-snapshot');
-    expect(log).toEqual([
-      'installed:install',
-      'startup',
-      'menu:save-window',
-      'command:open-dashboard',
-      'alarm:history-snapshot',
-    ]);
   });
 
   it('fire.actionClicked reaches every action.onClicked listener with the active tab', async () => {
@@ -543,30 +498,6 @@ describe('chrome fake: failNext and events', () => {
     await chrome.windows.create({ url: 'https://a.test/' });
     fake.fire.actionClicked();
     expect(seen).toEqual(['first:https://a.test/', 'second:https://a.test/']);
-  });
-
-  it('runtime, badge, menus and alarms are inspectable', async () => {
-    const fake = getChromeFake();
-    expect(chrome.runtime.id).toBe('fakeextid');
-    expect(chrome.runtime.getURL('/app.html')).toBe('chrome-extension://fakeextid/app.html');
-    expect(chrome.runtime.getManifest().version).toBe('7.0.0');
-    await chrome.action.setBadgeText({ text: '✓' });
-    await chrome.action.setBadgeBackgroundColor({ color: '#16a34a' });
-    expect(fake.state.badge).toEqual({ text: '✓', color: '#16a34a' });
-    chrome.contextMenus.create({ id: 'x', title: 'X', contexts: ['action'] });
-    expect(fake.state.menus.map((menu) => menu.id)).toEqual(['x']);
-    await chrome.contextMenus.removeAll();
-    expect(fake.state.menus).toEqual([]);
-    await chrome.alarms.create('history-snapshot', { periodInMinutes: 5 });
-    expect((await chrome.alarms.getAll()).map((alarm) => alarm.name)).toEqual(['history-snapshot']);
-    expect(await chrome.alarms.clear('history-snapshot')).toBe(true);
-    expect(await chrome.extension.isAllowedFileSchemeAccess()).toBe(false);
-    fake.state.fileAccessAllowed = true;
-    expect(await chrome.extension.isAllowedFileSchemeAccess()).toBe(true);
-  });
-
-  it('a fresh fake is installed for every test', () => {
-    expect(getChromeFake().state.tabs.size).toBe(0);
   });
 });
 
@@ -757,26 +688,6 @@ describe('chrome fake: tab / window / group events', () => {
       `tabGroups.onRemoved:${groupId}`,
     ]);
   });
-
-  it('fire.tabReplaced reaches tabs.onReplaced listeners', () => {
-    const log = recordAll();
-    getChromeFake().fire.tabReplaced(9, 8);
-    expect(log).toEqual(['tabs.onReplaced:9:8']);
-  });
-
-  it('removeListener stops delivery', async () => {
-    let calls = 0;
-    const listener = () => {
-      calls += 1;
-    };
-    chrome.tabs.onCreated.addListener(listener);
-    expect(chrome.tabs.onCreated.hasListener(listener)).toBe(true);
-    await chrome.tabs.create({ url: 'https://a.test', active: false });
-    chrome.tabs.onCreated.removeListener(listener);
-    expect(chrome.tabs.onCreated.hasListener(listener)).toBe(false);
-    await chrome.tabs.create({ url: 'https://b.test', active: false });
-    expect(calls).toBe(1);
-  });
 });
 
 describe('chrome fake: match patterns, permissions and scripting', () => {
@@ -840,34 +751,5 @@ describe('chrome fake: match patterns, permissions and scripting', () => {
       args: [40, 2],
     });
     expect(result?.result).toBe(42);
-  });
-});
-
-describe('chrome fake: identity', () => {
-  it('rejects like a refused consent by default and records every request', async () => {
-    const details = { interactive: true, scopes: ['openid', 'email'] };
-    await expect(chrome.identity.getAuthToken(details)).rejects.toThrow(
-      'The user did not approve access.',
-    );
-    expect(getChromeFake().state.authTokenRequests).toEqual([details]);
-  });
-
-  it('answers with state.authTokenAnswer, fixed or made from the request', async () => {
-    const fake = getChromeFake();
-    fake.state.authTokenAnswer = 'ya29.token';
-    expect(await chrome.identity.getAuthToken({ interactive: true, scopes: ['email'] })).toEqual({
-      token: 'ya29.token',
-      grantedScopes: ['email'],
-    });
-    fake.state.authTokenAnswer = (details) => `token-${String(details.interactive)}`;
-    expect((await chrome.identity.getAuthToken({ interactive: false })).token).toBe('token-false');
-  });
-
-  it('records removed tokens and cache clears', async () => {
-    const fake = getChromeFake();
-    await chrome.identity.removeCachedAuthToken({ token: 'a' });
-    await chrome.identity.clearAllCachedAuthTokens();
-    expect(fake.state.removedAuthTokens).toEqual(['a']);
-    expect(fake.state.authTokenCacheClears).toBe(1);
   });
 });

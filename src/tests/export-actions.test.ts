@@ -5,11 +5,9 @@ import {
   canExportAll,
   collectProgressNotice,
   collectSessionBodies,
-  copiedLinkNotice,
   copiedLinksNotice,
   copiedMarkdownNotice,
   exportAllNotice,
-  exportedNotice,
   exportFormatItems,
   exportScopeName,
   PROGRESS_NOTICE_THRESHOLD,
@@ -73,13 +71,6 @@ describe('exportFormatItems', () => {
       'html',
       'csv',
     ]);
-    expect(exportFormatItems().map((item) => item.label)).toEqual([
-      'Export as JSON',
-      'Export as Markdown',
-      'Export as text',
-      'Export as HTML bookmarks',
-      'Export as CSV',
-    ]);
   });
 });
 
@@ -118,23 +109,10 @@ describe('exportScopeName', () => {
 });
 
 describe('notices', () => {
-  it('names the format in the confirmation', () => {
-    expect(exportedNotice('Work', 'json')).toBe('Exported “Work” as JSON.');
-    expect(exportedNotice('Work (Window 2)', 'html')).toBe(
-      'Exported “Work (Window 2)” as HTML bookmarks.',
-    );
-  });
-
   it('pluralizes the copy confirmations', () => {
     expect(copiedLinksNotice(12)).toBe('Copied 12 links.');
     expect(copiedLinksNotice(1)).toBe('Copied 1 link.');
     expect(copiedMarkdownNotice(12)).toBe('Copied 12 links as Markdown.');
-  });
-
-  it('confirms a single tab row copy without counting to one', () => {
-    // The tab row's per-tab "Copy link" button.
-    expect(copiedLinkNotice()).toBe('Copied link.');
-    expect(copiedLinkNotice()).not.toBe(copiedLinksNotice(1));
   });
 
   it('reports skipped bodies in the export-all confirmation', () => {

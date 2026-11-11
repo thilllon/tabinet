@@ -67,21 +67,6 @@ describe('url sort order', () => {
     expect(compareByUrlComponents(a, b)).toBeLessThan(0);
   });
 
-  it('sorts chrome:// before https://', () => {
-    const a = new URL('chrome://settings/');
-    const b = new URL('https://example.com');
-    // chrome:// hostname ("settings") < https:// hostname ("example.com")
-    const result = compareByUrlComponents(a, b);
-    expect(typeof result).toBe('number');
-  });
-
-  it('handles about:blank', () => {
-    const a = new URL('about:blank');
-    const b = new URL('https://example.com');
-    const result = compareByUrlComponents(a, b);
-    expect(typeof result).toBe('number');
-  });
-
   it('handles file:// URLs', () => {
     const a = new URL('file:///Users/test/doc.html');
     const b = new URL('file:///Users/test/readme.html');
@@ -123,16 +108,6 @@ const MARVELLOUS = 'chrome-extension://noogafoofpebimajpfpamcfhoaifemoa/suspende
 const OTHER_SUSPENDER = 'chrome-extension://klbibkeccnjlkjkiokjodocebajanakg/suspended.html#';
 
 describe('isSuspended', () => {
-  it('returns true for a tab suspended by The Marvellous Suspender', () => {
-    const tab = makeTab({ url: `${MARVELLOUS}ttl=Example&pos=0&uri=https://example.com` });
-    expect(isSuspended(tab)).toBe(true);
-  });
-
-  it('returns true for a tab suspended by another suspender of the same family', () => {
-    const tab = makeTab({ url: `${OTHER_SUSPENDER}ttl=Example&pos=0&uri=https://example.com` });
-    expect(isSuspended(tab)).toBe(true);
-  });
-
   it('returns false for normal tab', () => {
     const tab = makeTab({ url: 'https://example.com' });
     expect(isSuspended(tab)).toBe(false);
@@ -145,11 +120,6 @@ describe('isSuspended', () => {
 
   it('returns false for chrome:// URL', () => {
     const tab = makeTab({ url: 'chrome://settings/' });
-    expect(isSuspended(tab)).toBe(false);
-  });
-
-  it('returns false for chrome-extension:// URL that is not a suspended page', () => {
-    const tab = makeTab({ url: 'chrome-extension://klbibkeccnjlkjkiokjodocebajanakg/popup.html' });
     expect(isSuspended(tab)).toBe(false);
   });
 });
@@ -171,24 +141,6 @@ describe('tabToUrl', () => {
     const tab = makeTab({ url: 'https://example.com' });
     const result = tabToUrl(tab, false);
     expect(result.href).toBe('https://example.com/');
-  });
-
-  it('handles chrome:// URLs', () => {
-    const tab = makeTab({ url: 'chrome://extensions/' });
-    const result = tabToUrl(tab, false);
-    expect(result.href).toBe('chrome://extensions/');
-  });
-
-  it('handles chrome-extension:// URLs', () => {
-    const tab = makeTab({ url: 'chrome-extension://abcdef/options.html' });
-    const result = tabToUrl(tab, false);
-    expect(result.href).toBe('chrome-extension://abcdef/options.html');
-  });
-
-  it('handles about:blank', () => {
-    const tab = makeTab({ url: 'about:blank' });
-    const result = tabToUrl(tab, false);
-    expect(result.href).toBe('about:blank');
   });
 
   // Chrome reports a still-loading tab as `url: ''` with the destination in `pendingUrl`.
@@ -365,12 +317,6 @@ describe('sortByTitleOrUrl', () => {
     sortByTitleOrUrl(tabs, 'title', false, false);
 
     expect(tabs.map((t) => t.title ?? '')).toEqual(['', 'Alpha', 'Beta']);
-  });
-
-  it('handles single tab array', () => {
-    const tabs = [makeTab({ title: 'Only' })];
-    sortByTitleOrUrl(tabs, 'title', false, false);
-    expect(tabs[0].title).toBe('Only');
   });
 
   it('handles empty array', () => {

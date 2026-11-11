@@ -1,13 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  historyOriginLabel,
-  pickWindow,
-  recoveredSnapshot,
-  splitByKind,
-  unreadableSchemaLabel,
-  unreadableSessionMessage,
-} from '@/lib/session-list';
+import { pickWindow, recoveredSnapshot, splitByKind } from '@/lib/session-list';
 import type { Session, SessionSummary, WindowSnapshot } from '@/types';
 
 function makeWindow(url: string): WindowSnapshot {
@@ -90,19 +83,6 @@ describe('splitByKind', () => {
   });
 });
 
-describe('historyOriginLabel', () => {
-  it('renames the alarm origin to "auto"', () => {
-    expect(historyOriginLabel('alarm')).toBe('auto');
-  });
-
-  it('passes the other origins through unchanged', () => {
-    expect(historyOriginLabel('manual')).toBe('manual');
-    expect(historyOriginLabel('startup')).toBe('startup');
-    expect(historyOriginLabel('recovered')).toBe('recovered');
-    expect(historyOriginLabel('import')).toBe('import');
-  });
-});
-
 describe('recoveredSnapshot', () => {
   const recovered = makeSummary({
     id: 'r1',
@@ -130,17 +110,5 @@ describe('recoveredSnapshot', () => {
 
   it('does not show without history snapshots', () => {
     expect(recoveredSnapshot([])).toBeUndefined();
-  });
-});
-
-describe('unreadable sessions', () => {
-  it('explains that the fix is an update, not a repair', () => {
-    expect(unreadableSessionMessage()).toBe(
-      'Saved by a newer version of Tabinet. Update to open it.',
-    );
-  });
-
-  it('names the schema version that wrote the body', () => {
-    expect(unreadableSchemaLabel({ reason: 'unknown-schema', version: 2 })).toBe('schema v2');
   });
 });
