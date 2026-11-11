@@ -145,10 +145,13 @@ export interface PauseResult {
  */
 const PAUSE_ANSWER_TIMEOUT_MS = 3000;
 
-const NO_ANSWER = Symbol('no answer');
+export const NO_ANSWER = Symbol('no answer');
 
 /** `promise`, or `NO_ANSWER` when it has not settled within `ms`. */
-async function withinTime<T>(promise: Promise<T>, ms: number): Promise<T | typeof NO_ANSWER> {
+export async function withinTime<T>(
+  promise: Promise<T>,
+  ms: number,
+): Promise<T | typeof NO_ANSWER> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const late = new Promise<typeof NO_ANSWER>((resolve) => {
     timer = setTimeout(() => resolve(NO_ANSWER), ms);

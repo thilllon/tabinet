@@ -2248,7 +2248,7 @@
     "description": "Title of the dialog that asks before every note on a video is deleted."
   },
   "notesDeleteAllBody_one": {
-    "message": "The $1 note on “$2” will be removed from this device, with its screenshot. This cannot be undone.",
+    "message": "$1 note on “$2” will be removed from this device, with its screenshot. This cannot be undone.",
     "description": "Text of the dialog that asks before every note on a video is deleted. $1 is how many notes, $2 the video's title."
   },
   "notesDeleteAllBody_other": {

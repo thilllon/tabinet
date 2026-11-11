@@ -2248,7 +2248,7 @@
     "description": "Title of the dialog that asks before every note on a video is deleted."
   },
   "notesDeleteAllBody_one": {
-    "message": "La $1 nota de «$2» se eliminará de este dispositivo, con su captura. No se puede deshacer.",
+    "message": "Se eliminará $1 nota de «$2» de este dispositivo, con su captura. No se puede deshacer.",
     "description": "Text of the dialog that asks before every note on a video is deleted. $1 is how many notes, $2 the video's title."
   },
   "notesDeleteAllBody_other": {
@@ -2256,7 +2256,7 @@
     "description": "Text of the dialog that asks before every note on a video is deleted. $1 is how many notes, $2 the video's title."
   },
   "notesPageHint": {
-    "message": "Las notas se escriben en el panel lateral de notas de YouTube mientras se reproduce el vídeo. La hora de una nota abre el vídeo en ese momento.",
+    "message": "Las notas se escriben en el panel lateral de notas de YouTube mientras se reproduce el vídeo. La marca de tiempo de una nota abre el vídeo en ese momento.",
     "description": "Grey line under a video's title on its notes page, saying where notes are written and what a note's time does."
   }
 }

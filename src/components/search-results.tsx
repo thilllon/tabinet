@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { formatRoute } from '@/lib/app-route';
 import { formatSessionMeta, hostnameOf } from '@/lib/display-format';
 import { formatNumber, t, tp } from '@/lib/i18n';
+import { videoTitle } from '@/lib/notes-export';
 import { browserHandlesClick, hrefFor } from '@/lib/row-link';
 import { resultPlace, splitOnMatches } from '@/lib/search-engine';
 import type { SearchGroup, SearchItem } from '@/lib/search-nav';
@@ -149,7 +150,7 @@ function NoteResultRow({
   const { entry } = item;
   const time = formatTimestamp(entry.at ?? 0);
   const text = entry.title.replace(/\s+/g, ' ').trim();
-  const video = entry.sessionName === '' ? t('notesUntitledVideo') : entry.sessionName;
+  const video = videoTitle({ title: entry.sessionName });
   return (
     <li>
       <a

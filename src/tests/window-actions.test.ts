@@ -243,6 +243,18 @@ describe('openVideoAt', () => {
     expect(fake.state.tabs.get(tabId)?.active).toBe(true);
   });
 
+  it('loads the time into a frozen tab that does not answer the seek', async () => {
+    const tabId = await videoTab();
+    const fake = getChromeFake();
+    fake.state.grantedOrigins.add('https://*.youtube.com/*');
+    fake.state.pageMedia.set(tabId, [fakeMedia('VIDEO', { currentTime: 400, duration: 600 })]);
+    fake.freezeTab(tabId);
+
+    expect(await openVideoAt(ID, 30, { timeoutMs: 5 })).toEqual({ ok: true, switched: true });
+    expect(fake.state.tabs.get(tabId)?.url).toBe(`https://www.youtube.com/watch?v=${ID}&t=30s`);
+    expect(fake.state.tabs.get(tabId)?.active).toBe(true);
+  });
+
   it('only brings an open video forward when no time is given', async () => {
     const tabId = await videoTab();
     const fake = getChromeFake();
