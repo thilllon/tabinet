@@ -2104,7 +2104,7 @@
     "description": "Tooltip of the note text box in the YouTube notes side panel and the notes page. $1 is the key combination that saves, such as \"Ctrl + Enter\" or \"Command + Enter\"."
   },
   "storageShowStorageUseTitle": {
-    "message": "設定のストレージメーターへ移動します。ここでスナップショットやセッションデータを削除できます",
+    "message": "設定を開きます。ストレージはバックアップの詳細設定にあり、スナップショットやセッションデータを削除できます",
     "description": "Tooltip of the \"Show storage use\" button (storageShowStorageUse) on the \"storage is full\" notice."
   },
   "shortcutPromptButtonTitle": {

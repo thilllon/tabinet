@@ -2096,7 +2096,7 @@
     "description": "Tooltip of the note text box in the YouTube notes side panel and the notes page. $1 is the key combination that saves, such as \"Ctrl + Enter\" or \"Command + Enter\"."
   },
   "storageShowStorageUseTitle": {
-    "message": "설정의 저장 공간 표시로 이동합니다. 여기서 스냅샷이나 세션 데이터를 삭제할 수 있습니다",
+    "message": "설정을 엽니다. 저장 공간은 백업의 고급 항목에 있으며, 여기서 스냅샷이나 세션 데이터를 삭제할 수 있습니다",
     "description": "Tooltip of the \"Show storage use\" button (storageShowStorageUse) on the \"storage is full\" notice."
   },
   "shortcutPromptButtonTitle": {

@@ -2284,8 +2284,8 @@
     "description": "Tooltip of the note text box in the YouTube notes side panel and the notes page. $1 is the key combination that saves, such as \"Ctrl + Enter\" or \"Command + Enter\"."
   },
   "storageShowStorageUseTitle": {
-    "message": "Go to the storage meter in Settings, where you can delete snapshots or session data",
-    "description": "Tooltip of the \"Show storage use\" button (storageShowStorageUse) on the \"storage is full\" notice."
+    "message": "Open Settings. Storage is under Backup, Advanced, where you can delete snapshots or session data",
+    "description": "Tooltip of the \"Show storage use\" button (storageShowStorageUse) on the \"storage is full\" notice. The button opens Settings; name the Backup section (settingsBackupTitle), the Advanced fold (settingsAdvanced) and the Storage heading (storageHeading) as they read there."
   },
   "shortcutPromptButtonTitle": {
     "message": "Open chrome://extensions/shortcuts, where you can set the keys",
