@@ -168,10 +168,11 @@ export function isMacPlatform(platform: string): boolean {
 /**
  * The rows of Settings → Keyboard shortcuts, built from `chrome.commands.getAll()`.
  *
- * Every command but one carries the description written in the manifest. The exception is
- * `_execute_action`, Chrome's built-in command for "what a click on the toolbar icon does": Chrome
- * gives it no description (and labels it "Activate the extension" on its own shortcuts page), so
- * the name is supplied here. In this extension that click sorts the window.
+ * Each known command is named here through `t()` (`COMMAND_LABELS`), never with the description
+ * Chrome reports: Chrome localizes that in its own language, which the language chosen in Settings
+ * cannot reach. `_execute_action`, Chrome's built-in command for "what a click on the toolbar icon
+ * does", has no description at all (Chrome labels it "Activate the extension" on its own shortcuts
+ * page); in this extension that click sorts the window.
  *
  * Chrome reports an unbound command with `shortcut: ''`. That is the usual state on an existing
  * install: Chrome applies a manifest `suggested_key` only when the extension is first installed
