@@ -1580,7 +1580,7 @@
     "description": "Grey hint under the folder path on Linux. \"Default\" is the folder name of Chrome's first profile, never translated. \"Profile Path\" is Chrome's own label on chrome://version in this language. Ctrl+L opens the location bar of most file managers."
   },
   "storageLocationNotReadable": {
-    "message": "これらのファイルは Chrome 内部のデータベースで、直接は読めません。読めるコピーは バックアップ > エクスポート で作成できます。",
+    "message": "これらのファイルは Chrome 内部のデータベースで、直接は読めません。読めるコピーは「バックアップ > エクスポート」で作成できます。",
     "description": "Grey sentence after the folder hint. Quotes the Backup section title (settingsBackupTitle) and its Export button (settingsExportButton)."
   },
   "storageDeleteAllData": {

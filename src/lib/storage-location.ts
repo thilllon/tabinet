@@ -27,7 +27,8 @@ export const CHROME_VERSION_URL = 'chrome://version';
  */
 export function storageOsOf(platform: string): StorageOs | undefined {
   const p = platform.toLowerCase();
-  if (p.includes('mac')) {
+  // `darwin` (what Node reports) contains `win`, so it is matched before Windows.
+  if (p.includes('mac') || p.includes('darwin')) {
     return 'mac';
   }
   if (p.includes('win')) {

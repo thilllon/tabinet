@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { SUPPORTED_LOCALES } from '@/constants';
+import { t } from '@/lib/i18n';
 import {
   CHROME_VERSION_URL,
   openChromeVersion,
@@ -24,6 +26,10 @@ describe('storageOsOf', () => {
     expect(storageOsOf('MacIntel')).toBe('mac');
     expect(storageOsOf('Win32')).toBe('windows');
     expect(storageOsOf('Linux x86_64')).toBe('linux');
+  });
+
+  it('takes darwin for macOS, not Windows', () => {
+    expect(storageOsOf('darwin')).toBe('mac');
   });
 
   it('gives nothing for an unknown or empty platform', () => {
@@ -87,5 +93,15 @@ describe('storageFolderHint', () => {
     for (const os of ['mac', 'windows', 'linux'] as const) {
       expect(storageFolderHint(os)).toContain('Backup > Export');
     }
+  });
+});
+
+describe('quoted labels', () => {
+  it.each(SUPPORTED_LOCALES)('match the real Backup, Export and Find labels in %s', (code) => {
+    getChromeFake().setUiLanguage(code);
+    const notReadable = t('storageLocationNotReadable');
+    expect(notReadable).toContain(t('settingsBackupTitle'));
+    expect(notReadable).toContain(t('settingsExportButton'));
+    expect(t('storageLocationUnknown')).toContain(t('storageLocationFind'));
   });
 });
