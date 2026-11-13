@@ -1655,6 +1655,50 @@
     "message": "Al eliminar las instantáneas se conservan tus sesiones guardadas y la instantánea recuperada.",
     "description": "Grey line beside the 'Delete snapshots' button saying what it leaves alone. 'Recovered' is the badge of the snapshot taken before the last browser restart (appNavRecoveredBadge)."
   },
+  "storageLocationLabel": {
+    "message": "Se guarda en este ordenador, en la carpeta del perfil de Chrome:",
+    "description": "Line under the storage meter, before the folder path (shown on its own line after it). Says where chrome.storage.local keeps the data on disk."
+  },
+  "storageLocationUnknown": {
+    "message": "Se guarda dentro de la carpeta del perfil de Chrome. «Buscar carpeta del perfil» muestra dónde.",
+    "description": "Line under the storage meter on a system with no folder path to show (ChromeOS). Quotes the button storageLocationFind."
+  },
+  "storageLocationCopy": {
+    "message": "Copiar ruta",
+    "description": "Small button under the storage meter: copies the folder path to the clipboard. Keep short."
+  },
+  "storageLocationCopyTooltip": {
+    "message": "Copiar la ruta de esta carpeta al portapapeles",
+    "description": "Tooltip of the storageLocationCopy button."
+  },
+  "storageLocationCopied": {
+    "message": "Ruta de la carpeta copiada.",
+    "description": "Toast after the folder path was copied."
+  },
+  "storageLocationFind": {
+    "message": "Buscar carpeta del perfil",
+    "description": "Small button under the storage meter: opens chrome://version, where Chrome shows the exact profile folder. Keep short."
+  },
+  "storageLocationFindTooltip": {
+    "message": "Abrir chrome://version, donde Chrome muestra la Ruta del perfil exacta",
+    "description": "Tooltip of the storageLocationFind button. \"Profile Path\" is the label Chrome itself shows on chrome://version in this language."
+  },
+  "storageLocationHintMac": {
+    "message": "Es la ruta del primer perfil (Default); chrome://version muestra la tuya en Ruta del perfil. Pégala en el Finder con Cmd+Mayús+G.",
+    "description": "Grey hint under the folder path on macOS. \"Default\" is the folder name of Chrome's first profile, never translated. \"Profile Path\" is Chrome's own label on chrome://version in this language. Cmd+Shift+G is Finder's Go to Folder."
+  },
+  "storageLocationHintWindows": {
+    "message": "Es la ruta del primer perfil (Default); chrome://version muestra la tuya en Ruta del perfil. Pégala en la barra de direcciones del Explorador de archivos.",
+    "description": "Grey hint under the folder path on Windows. \"Default\" is the folder name of Chrome's first profile, never translated. \"Profile Path\" is Chrome's own label on chrome://version in this language."
+  },
+  "storageLocationHintLinux": {
+    "message": "Es la ruta del primer perfil (Default); chrome://version muestra la tuya en Ruta del perfil. Pégala en tu gestor de archivos con Ctrl+L.",
+    "description": "Grey hint under the folder path on Linux. \"Default\" is the folder name of Chrome's first profile, never translated. \"Profile Path\" is Chrome's own label on chrome://version in this language. Ctrl+L opens the location bar of most file managers."
+  },
+  "storageLocationNotReadable": {
+    "message": "Los archivos son la base de datos interna de Chrome y no se pueden leer; Copia de seguridad > Exportar crea una copia legible.",
+    "description": "Grey sentence after the folder hint. Quotes the Backup section title (settingsBackupTitle) and its Export button (settingsExportButton)."
+  },
   "storageDeleteAllData": {
     "message": "Eliminar todos los datos de sesiones",
     "description": "Small destructive button under the storage meter that deletes all saved sessions and snapshots. Button, keep short."
