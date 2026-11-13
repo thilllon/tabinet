@@ -1,4 +1,4 @@
-import { HardDrive, Trash2 } from 'lucide-react';
+import { Copy, FolderSearch, HardDrive, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 import { DeleteAllDataDialog } from '@/components/delete-all-data-dialog';
@@ -6,9 +6,11 @@ import { DeleteAllHistoryDialog } from '@/components/delete-all-history-dialog';
 import { Button } from '@/components/ui/button';
 import { isIndexChange } from '@/hooks/use-session-index';
 import { useErrorToast } from '@/hooks/use-toasts';
+import { copyText } from '@/lib/download-and-copy';
 import { reportError } from '@/lib/error-message';
 import { t, tp } from '@/lib/i18n';
 import { sessionRepo } from '@/lib/session-repo';
+import { openChromeVersion, storageFolderHint, thisStorageFolder } from '@/lib/storage-location';
 import {
   STORAGE_METER_ID,
   snapshotHint,
@@ -40,6 +42,9 @@ interface StorageMeterProps {
  * The total is re-read whenever the index changes - every write goes through `sessionRepo`, which
  * rewrites `sessionIndex`, and `useSessionIndex` turns that `storage.onChanged` into a new
  * `summaries` array - so saving, deleting, importing or pruning all move the bar.
+ *
+ * Last, where the data lives on disk (`src/lib/storage-location.ts`): the profile folder path for
+ * this OS with Copy path, and Find profile folder (chrome://version, which shows the exact path).
  */
 export function StorageMeter({ summaries, onNotice }: StorageMeterProps) {
   const [bytes, setBytes] = useState<number | undefined>(undefined);
@@ -48,6 +53,8 @@ export function StorageMeter({ summaries, onNotice }: StorageMeterProps) {
   const [confirming, setConfirming] = useState(false);
   const [confirmingHistory, setConfirmingHistory] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Where the data lives on disk: read once, it cannot change while the page is open.
+  const [folder] = useState(thisStorageFolder);
 
   const refresh = useCallback(async () => {
     try {
@@ -80,6 +87,23 @@ export function StorageMeter({ summaries, onNotice }: StorageMeterProps) {
   const breakdown = summarizeStorage(summaries, bytes ?? 0);
   const segments = storageSegments(breakdown);
   const hint = snapshotHint(breakdown);
+
+  const copyFolder = (path: string) => {
+    void copyText(path).then((result) => {
+      if (result.ok) {
+        setError(undefined);
+        onNotice(t('storageLocationCopied'));
+      } else {
+        setError(result.error);
+      }
+    });
+  };
+
+  const findProfileFolder = () => {
+    openChromeVersion().catch((err: unknown) => {
+      setError(reportError('storage', err));
+    });
+  };
 
   const deleteEverything = () => {
     setConfirming(false);
@@ -180,6 +204,41 @@ export function StorageMeter({ summaries, onNotice }: StorageMeterProps) {
         </Button>
       </div>
       <p className="mt-2 text-xs text-muted-foreground">{t('storageDeleteSnapshotsNote')}</p>
+
+      {/* Where chrome.storage.local keeps it: a LevelDB in the profile folder (issue #228). */}
+      <div className="mt-3 text-xs text-muted-foreground">
+        {folder === undefined ? (
+          <p>{t('storageLocationUnknown')}</p>
+        ) : (
+          <>
+            <p>{t('storageLocationLabel')}</p>
+            <p className="mt-1 font-mono break-all text-foreground/80 select-all">{folder.path}</p>
+          </>
+        )}
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {folder !== undefined && (
+            <Button
+              variant="outline"
+              size="xs"
+              onClick={() => copyFolder(folder.path)}
+              title={t('storageLocationCopyTooltip')}
+            >
+              <Copy />
+              {t('storageLocationCopy')}
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="xs"
+            onClick={findProfileFolder}
+            title={t('storageLocationFindTooltip')}
+          >
+            <FolderSearch />
+            {t('storageLocationFind')}
+          </Button>
+        </div>
+        {folder !== undefined && <p className="mt-2">{storageFolderHint(folder.os)}</p>}
+      </div>
 
       <DeleteAllHistoryDialog
         count={breakdown.unprotectedSnapshotCount}

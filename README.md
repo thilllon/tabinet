@@ -90,7 +90,7 @@ The left column is what you have; the rest of the page is whatever you picked. E
 
 Restores run in batches with progress and Cancel; more than 10 tabs load lazily, more than 100 ask first; unopenable URLs are skipped and reported. Export is per group / window / session: JSON (round-trips exactly), Markdown, plain text, Netscape HTML (imports into Chrome bookmarks) or CSV, plus _Copy links_ and _Copy as Markdown_; import takes a file or pasted text with a preview. Light and dark follow your system setting.
 
-Everything lives in `chrome.storage.local` on the device, never in Chrome sync. Only if you sign in to the optional cloud sync are saved sessions, YouTube notes with their screenshots, and settings uploaded, end-to-end encrypted; snapshots never are.
+Everything lives in `chrome.storage.local` on the device, never in Chrome sync: a database in Chrome's profile folder (`Local Extension Settings/<extension id>/`), whose path Settings > Backup shows under the storage meter with a Copy path button. Export is the readable copy. Only if you sign in to the optional cloud sync are saved sessions, YouTube notes with their screenshots, and settings uploaded, end-to-end encrypted; snapshots never are.
 
 ## Languages
 

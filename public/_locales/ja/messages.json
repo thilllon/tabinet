@@ -1539,6 +1539,50 @@
     "message": "スナップショットを削除しても、保存したセッションと復旧したスナップショットは残ります。",
     "description": "Grey line beside the 'Delete snapshots' button saying what it leaves alone. 'Recovered' is the badge of the snapshot taken before the last browser restart (appNavRecoveredBadge)."
   },
+  "storageLocationLabel": {
+    "message": "このパソコンの Chrome プロフィール フォルダに保存されます:",
+    "description": "Line under the storage meter, before the folder path (shown on its own line after it). Says where chrome.storage.local keeps the data on disk."
+  },
+  "storageLocationUnknown": {
+    "message": "Chrome のプロフィール フォルダ内に保存されます。場所は「プロフィール フォルダを探す」で確認できます。",
+    "description": "Line under the storage meter on a system with no folder path to show (ChromeOS). Quotes the button storageLocationFind."
+  },
+  "storageLocationCopy": {
+    "message": "パスをコピー",
+    "description": "Small button under the storage meter: copies the folder path to the clipboard. Keep short."
+  },
+  "storageLocationCopyTooltip": {
+    "message": "このフォルダのパスをクリップボードにコピー",
+    "description": "Tooltip of the storageLocationCopy button."
+  },
+  "storageLocationCopied": {
+    "message": "フォルダのパスをコピーしました。",
+    "description": "Toast after the folder path was copied."
+  },
+  "storageLocationFind": {
+    "message": "プロフィール フォルダを探す",
+    "description": "Small button under the storage meter: opens chrome://version, where Chrome shows the exact profile folder. Keep short."
+  },
+  "storageLocationFindTooltip": {
+    "message": "Chrome が正確なプロフィール パスを表示する chrome://version を開く",
+    "description": "Tooltip of the storageLocationFind button. \"Profile Path\" is the label Chrome itself shows on chrome://version in this language."
+  },
+  "storageLocationHintMac": {
+    "message": "最初のプロフィール (Default) のパスです。お使いのプロフィールは chrome://version の「プロフィール パス」で確認できます。Finder で Cmd+Shift+G を押して貼り付けてください。",
+    "description": "Grey hint under the folder path on macOS. \"Default\" is the folder name of Chrome's first profile, never translated. \"Profile Path\" is Chrome's own label on chrome://version in this language. Cmd+Shift+G is Finder's Go to Folder."
+  },
+  "storageLocationHintWindows": {
+    "message": "最初のプロフィール (Default) のパスです。お使いのプロフィールは chrome://version の「プロフィール パス」で確認できます。エクスプローラーのアドレスバーに貼り付けてください。",
+    "description": "Grey hint under the folder path on Windows. \"Default\" is the folder name of Chrome's first profile, never translated. \"Profile Path\" is Chrome's own label on chrome://version in this language."
+  },
+  "storageLocationHintLinux": {
+    "message": "最初のプロフィール (Default) のパスです。お使いのプロフィールは chrome://version の「プロフィール パス」で確認できます。ファイル マネージャーで Ctrl+L を押して貼り付けてください。",
+    "description": "Grey hint under the folder path on Linux. \"Default\" is the folder name of Chrome's first profile, never translated. \"Profile Path\" is Chrome's own label on chrome://version in this language. Ctrl+L opens the location bar of most file managers."
+  },
+  "storageLocationNotReadable": {
+    "message": "これらのファイルは Chrome 内部のデータベースで、直接は読めません。読めるコピーは バックアップ > エクスポート で作成できます。",
+    "description": "Grey sentence after the folder hint. Quotes the Backup section title (settingsBackupTitle) and its Export button (settingsExportButton)."
+  },
   "storageDeleteAllData": {
     "message": "セッションデータをすべて削除",
     "description": "Small destructive button under the storage meter that deletes all saved sessions and snapshots. Button, keep short."
