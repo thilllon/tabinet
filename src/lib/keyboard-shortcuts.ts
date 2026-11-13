@@ -191,9 +191,28 @@ export interface CommandRow {
   hint?: string;
 }
 
+/**
+ * The manifest's commands by id, named with the same messages the manifest refers to
+ * (`__MSG_cmd*__`). Chrome fills a command's `description` in Chrome's own language, so a
+ * language chosen in Settings would not reach it; these go through `t()` and do.
+ */
+const COMMAND_LABELS: Readonly<Record<string, MessageKey>> = {
+  [EXECUTE_ACTION]: 'settingsSortCommand',
+  'save-session': 'cmdSaveSession',
+  'open-dashboard': 'cmdOpenDashboard',
+  'assemble-tabs': 'cmdAssembleTabs',
+  'pause-youtube': 'cmdPauseYoutube',
+  'open-notes': 'cmdOpenNotes',
+};
+
+/** A known command in the UI language; Chrome's description only for an id this build lacks. */
 function labelOf(command: chrome.commands.Command): string {
-  if (command.name === EXECUTE_ACTION) {
-    return t('settingsSortCommand');
+  const key =
+    command.name !== undefined && Object.hasOwn(COMMAND_LABELS, command.name)
+      ? COMMAND_LABELS[command.name]
+      : undefined;
+  if (key !== undefined) {
+    return t(key);
   }
   if (command.description !== undefined && command.description.trim() !== '') {
     return command.description;
