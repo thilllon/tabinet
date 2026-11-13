@@ -2270,5 +2270,37 @@
   "notesPageHint": {
     "message": "Las notas se escriben en el panel lateral de notas de YouTube mientras se reproduce el vídeo. La marca de tiempo de una nota abre el vídeo en ese momento.",
     "description": "Grey line under a video's title on its notes page, saying where notes are written and what a note's time does."
+  },
+  "notesPauseWhileWritingTitle": {
+    "message": "Pausa el video al empezar una nota y lo reanuda al guardarla o cancelarla",
+    "description": "Tooltip of the \"Pause the video while I write\" checkbox (notesPauseWhileWriting) in the YouTube notes side panel."
+  },
+  "notesAccessTitle": {
+    "message": "Permite que Tabinet lea el tiempo del video, salte al tiempo de una nota y haga capturas en YouTube. Chrome te lo pregunta antes.",
+    "description": "Tooltip of the \"Access to YouTube\" switch in the YouTube notes side panel, while the access is not granted."
+  },
+  "notesTextTitle": {
+    "message": "Admite Markdown. $1 guarda y Escape cancela.",
+    "description": "Tooltip of the note text box in the YouTube notes side panel and the notes page. $1 is the key combination that saves, such as \"Ctrl + Enter\" or \"Command + Enter\"."
+  },
+  "storageShowStorageUseTitle": {
+    "message": "Abre Configuración. Almacenamiento está en Copia de seguridad, Avanzado, donde puedes eliminar instantáneas o datos de sesiones",
+    "description": "Tooltip of the \"Show storage use\" button (storageShowStorageUse) on the \"storage is full\" notice."
+  },
+  "shortcutPromptButtonTitle": {
+    "message": "Abrir chrome://extensions/shortcuts, donde puedes asignar las teclas",
+    "description": "Tooltip of the button on the keyboard shortcuts toast (shortcutPromptButton); it opens Chrome's page for extension shortcuts."
+  },
+  "notesUndoTitle": {
+    "message": "Recuperar la nota eliminada",
+    "description": "Tooltip of the Undo button (notesUndo) on the toast shown after a note was deleted."
+  },
+  "treeShowMoreTabsTitle_one": {
+    "message": "$1 pestaña oculta en esta ventana",
+    "description": "Tooltip of the \"Show N more tabs\" button under a long window. $1 is how many tabs are still hidden in that window, formatted."
+  },
+  "treeShowMoreTabsTitle_other": {
+    "message": "$1 pestañas ocultas en esta ventana",
+    "description": "Tooltip of the \"Show N more tabs\" button under a long window. $1 is how many tabs are still hidden in that window, formatted."
   }
 }

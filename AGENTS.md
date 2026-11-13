@@ -519,6 +519,7 @@ pnpm server:test                     # the sync server's vitest (PGlite, no netw
 - UI components use shadcn/ui conventions: `cn()` for class merging, CVA for variants
 - Stock components are in `src/components/ui/` and are generated via `shadcn` CLI
 - Hand-made components are in `src/components/` (flat) and screens in `src/pages/`; `src/components/ui/` is for stock shadcn components only
+- **Every control has a native tooltip** (`title`, through `t()`): an icon-only button repeats its `aria-label`, a label that can be cut short (`truncate`, `line-clamp`) carries its full text, and a switch, checkbox or text box says what it does or how it is used (the note box names its save key). A toast's action button takes its tooltip from `ToastAction.title`. `DialogCloseButton` (the ×) has one too; `src/components/ui/` is never edited for this
 
 ---
 

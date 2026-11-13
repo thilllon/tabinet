@@ -147,6 +147,7 @@ export function WindowTree({
             size="xs"
             variant="ghost"
             onClick={() => setVisible((current) => nextTabPage(current, total))}
+            title={tp('treeShowMoreTabsTitle', hidden)}
           >
             {showMoreLabel(visible, total)}
           </Button>

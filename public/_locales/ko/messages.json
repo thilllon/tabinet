@@ -2082,5 +2082,33 @@
   "notesPageHint": {
     "message": "메모는 동영상을 보면서 YouTube 메모 사이드 패널에서 작성합니다. 메모의 시간을 누르면 그 시점부터 동영상이 열립니다.",
     "description": "Grey line under a video's title on its notes page, saying where notes are written and what a note's time does."
+  },
+  "notesPauseWhileWritingTitle": {
+    "message": "메모를 쓰기 시작하면 동영상을 일시정지하고, 저장하거나 취소하면 다시 재생합니다",
+    "description": "Tooltip of the \"Pause the video while I write\" checkbox (notesPauseWhileWriting) in the YouTube notes side panel."
+  },
+  "notesAccessTitle": {
+    "message": "Tabinet이 YouTube에서 동영상의 시간을 읽고, 메모의 시간으로 이동하고, 스크린샷을 찍을 수 있도록 허용합니다. Chrome이 먼저 묻습니다.",
+    "description": "Tooltip of the \"Access to YouTube\" switch in the YouTube notes side panel, while the access is not granted."
+  },
+  "notesTextTitle": {
+    "message": "Markdown을 쓸 수 있습니다. $1 키로 저장하고 Esc 키로 취소합니다.",
+    "description": "Tooltip of the note text box in the YouTube notes side panel and the notes page. $1 is the key combination that saves, such as \"Ctrl + Enter\" or \"Command + Enter\"."
+  },
+  "storageShowStorageUseTitle": {
+    "message": "설정을 엽니다. 저장 공간은 백업의 고급 항목에 있으며, 여기서 스냅샷이나 세션 데이터를 삭제할 수 있습니다",
+    "description": "Tooltip of the \"Show storage use\" button (storageShowStorageUse) on the \"storage is full\" notice."
+  },
+  "shortcutPromptButtonTitle": {
+    "message": "키를 지정할 수 있는 chrome://extensions/shortcuts 페이지를 엽니다",
+    "description": "Tooltip of the button on the keyboard shortcuts toast (shortcutPromptButton); it opens Chrome's page for extension shortcuts."
+  },
+  "notesUndoTitle": {
+    "message": "삭제한 메모를 되돌립니다",
+    "description": "Tooltip of the Undo button (notesUndo) on the toast shown after a note was deleted."
+  },
+  "treeShowMoreTabsTitle_other": {
+    "message": "이 창에 숨겨진 탭 $1개",
+    "description": "Tooltip of the \"Show N more tabs\" button under a long window. $1 is how many tabs are still hidden in that window, formatted."
   }
 }

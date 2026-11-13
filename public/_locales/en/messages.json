@@ -2270,5 +2270,37 @@
   "notesPageHint": {
     "message": "Notes are written in the YouTube notes side panel while the video plays. A note's time opens the video at that moment.",
     "description": "Grey line under a video's title on its notes page, saying where notes are written and what a note's time does."
+  },
+  "notesPauseWhileWritingTitle": {
+    "message": "Pauses the video when you start a note, and plays it again when you save or cancel it",
+    "description": "Tooltip of the \"Pause the video while I write\" checkbox (notesPauseWhileWriting) in the YouTube notes side panel."
+  },
+  "notesAccessTitle": {
+    "message": "Allow Tabinet to read the video's time, jump to a note's time and take screenshots on YouTube. Chrome asks you first.",
+    "description": "Tooltip of the \"Access to YouTube\" switch in the YouTube notes side panel, while the access is not granted."
+  },
+  "notesTextTitle": {
+    "message": "Markdown works. $1 saves, Escape cancels.",
+    "description": "Tooltip of the note text box in the YouTube notes side panel and the notes page. $1 is the key combination that saves, such as \"Ctrl + Enter\" or \"Command + Enter\"."
+  },
+  "storageShowStorageUseTitle": {
+    "message": "Open Settings. Storage is under Backup, Advanced, where you can delete snapshots or session data",
+    "description": "Tooltip of the \"Show storage use\" button (storageShowStorageUse) on the \"storage is full\" notice. The button opens Settings; name the Backup section (settingsBackupTitle), the Advanced fold (settingsAdvanced) and the Storage heading (storageHeading) as they read there."
+  },
+  "shortcutPromptButtonTitle": {
+    "message": "Open chrome://extensions/shortcuts, where you can set the keys",
+    "description": "Tooltip of the button on the keyboard shortcuts toast (shortcutPromptButton); it opens Chrome's page for extension shortcuts."
+  },
+  "notesUndoTitle": {
+    "message": "Bring the deleted note back",
+    "description": "Tooltip of the Undo button (notesUndo) on the toast shown after a note was deleted."
+  },
+  "treeShowMoreTabsTitle_one": {
+    "message": "$1 tab hidden in this window",
+    "description": "Tooltip of the \"Show N more tabs\" button under a long window. $1 is how many tabs are still hidden in that window, formatted."
+  },
+  "treeShowMoreTabsTitle_other": {
+    "message": "$1 tabs hidden in this window",
+    "description": "Tooltip of the \"Show N more tabs\" button under a long window. $1 is how many tabs are still hidden in that window, formatted."
   }
 }

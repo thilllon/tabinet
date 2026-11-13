@@ -64,6 +64,7 @@ export function NoteComposer({
         aria-invalid={empty || undefined}
         aria-describedby={empty ? emptyId : undefined}
         placeholder={t('notesPlaceholder', shortcutText('Ctrl+Enter', isMac))}
+        title={t('notesTextTitle', shortcutText('Ctrl+Enter', isMac))}
         rows={4}
         disabled={saving}
         className={cn(

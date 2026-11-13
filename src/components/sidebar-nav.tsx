@@ -59,7 +59,8 @@ function NavItem({ icon, label, sub, time, meta, current, route, onClick }: NavI
     <li>
       <a
         href={formatRoute(route)}
-        title={label}
+        // Every line, since the second and third are cut short in a narrow sidebar.
+        title={[label, sub, time].filter((line) => line !== undefined && line !== '').join('\n')}
         aria-current={current ? 'page' : undefined}
         onClick={(event) => {
           if (browserHandlesClick(event)) {

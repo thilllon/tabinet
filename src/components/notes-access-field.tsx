@@ -26,6 +26,7 @@ export function NotesAccessField({ granted, onDeclined, onError }: NotesAccessFi
           id="notes-youtube-access"
           checked={granted === true}
           disabled={granted !== false}
+          title={t('notesAccessTitle')}
           onCheckedChange={(on) => {
             if (on) {
               requestYoutubeAccess().then((ok) => {

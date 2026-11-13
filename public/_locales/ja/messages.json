@@ -2090,5 +2090,33 @@
   "notesPageHint": {
     "message": "メモは動画を見ながら YouTube メモのサイドパネルで書きます。メモの時間を押すと、その時点から動画が開きます。",
     "description": "Grey line under a video's title on its notes page, saying where notes are written and what a note's time does."
+  },
+  "notesPauseWhileWritingTitle": {
+    "message": "メモを書き始めると動画を一時停止し、保存またはキャンセルすると再生を再開します",
+    "description": "Tooltip of the \"Pause the video while I write\" checkbox (notesPauseWhileWriting) in the YouTube notes side panel."
+  },
+  "notesAccessTitle": {
+    "message": "TabinetがYouTubeで動画の時間を読み取り、メモの時間へ移動し、スクリーンショットを撮れるようにします。Chromeが先に確認します。",
+    "description": "Tooltip of the \"Access to YouTube\" switch in the YouTube notes side panel, while the access is not granted."
+  },
+  "notesTextTitle": {
+    "message": "Markdownが使えます。$1で保存、Escでキャンセルします。",
+    "description": "Tooltip of the note text box in the YouTube notes side panel and the notes page. $1 is the key combination that saves, such as \"Ctrl + Enter\" or \"Command + Enter\"."
+  },
+  "storageShowStorageUseTitle": {
+    "message": "設定を開きます。ストレージはバックアップの詳細設定にあり、スナップショットやセッションデータを削除できます",
+    "description": "Tooltip of the \"Show storage use\" button (storageShowStorageUse) on the \"storage is full\" notice."
+  },
+  "shortcutPromptButtonTitle": {
+    "message": "キーを設定できる chrome://extensions/shortcuts を開きます",
+    "description": "Tooltip of the button on the keyboard shortcuts toast (shortcutPromptButton); it opens Chrome's page for extension shortcuts."
+  },
+  "notesUndoTitle": {
+    "message": "削除したメモを元に戻します",
+    "description": "Tooltip of the Undo button (notesUndo) on the toast shown after a note was deleted."
+  },
+  "treeShowMoreTabsTitle_other": {
+    "message": "このウィンドウで非表示のタブ $1 個",
+    "description": "Tooltip of the \"Show N more tabs\" button under a long window. $1 is how many tabs are still hidden in that window, formatted."
   }
 }
