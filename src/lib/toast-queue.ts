@@ -38,6 +38,8 @@ export interface Toast {
 
 export interface ToastAction {
   label: string;
+  /** The button's tooltip, when its short label needs saying more. */
+  title?: string;
   run(): void;
 }
 

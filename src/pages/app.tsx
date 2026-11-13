@@ -152,7 +152,11 @@ export function App() {
           show(message, {
             ms: ACTION_MS,
             plain: true,
-            action: { label: t('shortcutPromptButton'), run: () => void openShortcutSettings() },
+            action: {
+              label: t('shortcutPromptButton'),
+              title: t('shortcutPromptButtonTitle'),
+              run: () => void openShortcutSettings(),
+            },
           });
         }
       },

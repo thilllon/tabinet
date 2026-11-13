@@ -68,7 +68,9 @@ export function TabRow({ tab, selection, onOpen, actions }: TabRowProps) {
         {hostnameOf(tab.url)}
       </span>
       {tab.pinned && (
-        <Pin className="size-3 shrink-0 text-muted-foreground" aria-label={t('treePinned')} />
+        <span className="shrink-0" title={t('treePinned')}>
+          <Pin className="size-3 text-muted-foreground" aria-label={t('treePinned')} />
+        </span>
       )}
     </>
   );

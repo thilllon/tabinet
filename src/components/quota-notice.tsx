@@ -21,7 +21,12 @@ export function QuotaNotice({ onShowStorage }: QuotaNoticeProps) {
     >
       <TriangleAlert className="size-4 shrink-0" />
       <span className="min-w-0 flex-1">{t('storageQuotaNotice')}</span>
-      <Button size="xs" variant="outline" onClick={onShowStorage}>
+      <Button
+        size="xs"
+        variant="outline"
+        onClick={onShowStorage}
+        title={t('storageShowStorageUseTitle')}
+      >
         {t('storageShowStorageUse')}
       </Button>
     </div>

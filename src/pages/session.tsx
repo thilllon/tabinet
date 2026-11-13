@@ -244,7 +244,8 @@ export function SessionPage({
               <button
                 ref={nameButtonRef}
                 type="button"
-                title={t('sessionRename')}
+                // The name is cut short in a narrow pane: the tooltip carries it whole.
+                title={`${summary.name}\n${t('sessionRename')}`}
                 onClick={startRename}
                 className="min-w-0 truncate rounded-sm text-left text-lg font-semibold outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
               >

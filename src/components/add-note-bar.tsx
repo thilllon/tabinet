@@ -32,16 +32,22 @@ export function AddNoteBar({
   onScreenshot,
 }: AddNoteBarProps) {
   const player = usePlayerTime(tabId, enabled);
+  const addLabel =
+    player === null ? t('notesAdd') : t('notesAddAt', formatTimestamp(player.currentTime));
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex gap-2">
-        <Button onClick={onAdd} disabled={!enabled || busy} className="min-w-0 flex-1">
+        <Button
+          onClick={onAdd}
+          disabled={!enabled || busy}
+          className="min-w-0 flex-1"
+          // The label is cut short in a narrow panel; the tooltip carries it whole.
+          title={addLabel}
+        >
           <NotebookPen />
           {/* Narrow panels and long labels: cut the text rather than run into "Screenshot". */}
-          <span className="truncate">
-            {player === null ? t('notesAdd') : t('notesAddAt', formatTimestamp(player.currentTime))}
-          </span>
+          <span className="truncate">{addLabel}</span>
         </Button>
         <Button
           variant="outline"
@@ -53,7 +59,10 @@ export function AddNoteBar({
           {t('notesScreenshot')}
         </Button>
       </div>
-      <label className="flex items-center gap-2 text-xs text-muted-foreground">
+      <label
+        className="flex items-center gap-2 text-xs text-muted-foreground"
+        title={t('notesPauseWhileWritingTitle')}
+      >
         <input
           type="checkbox"
           className="size-3.5 accent-primary"

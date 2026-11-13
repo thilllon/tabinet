@@ -191,6 +191,7 @@ export function NotesPanel() {
           ms: ACTION_MS,
           action: {
             label: t('notesUndo'),
+            title: t('notesUndoTitle'),
             run: () => {
               notesRepo.restoreEntry(owner, removed).catch(fail);
             },

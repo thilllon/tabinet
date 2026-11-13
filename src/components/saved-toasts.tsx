@@ -57,6 +57,7 @@ export function SavedToasts({ toasts, onDismiss }: SavedToastsProps) {
             // The stack ignores the pointer; only the button takes clicks back.
             <button
               type="button"
+              title={toast.action.title}
               className="pointer-events-auto shrink-0 rounded-full px-2 py-0.5 font-medium text-primary underline-offset-2 hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
               onClick={() => {
                 toast.action?.run();
