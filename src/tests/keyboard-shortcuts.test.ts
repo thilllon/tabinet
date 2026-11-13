@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
-import { t } from '@/lib/i18n';
+import { applyUiLanguage, t } from '@/lib/i18n';
 import {
   commandRows,
   isMacPlatform,
@@ -12,7 +12,7 @@ import {
   unpromptedMissingShortcuts,
 } from '@/lib/keyboard-shortcuts';
 
-import { getChromeFake } from './chrome-fake';
+import { getChromeFake, readLocaleFile } from './chrome-fake';
 
 describe('shortcutKeys', () => {
   it('names the glyphs Chrome reports on a Mac', () => {
@@ -120,8 +120,8 @@ describe('commandRows', () => {
     );
     expect(rows).toEqual([
       { id: '_execute_action', name: t('settingsSortCommand'), keys: ['Alt', 'Shift', 'S'] },
-      { id: 'save-session', name: 'Save the current window as a session', keys: [] },
-      { id: 'assemble-tabs', name: 'Move the tabs', keys: ['Alt', 'A'] },
+      { id: 'save-session', name: t('cmdSaveSession'), keys: [] },
+      { id: 'assemble-tabs', name: t('cmdAssembleTabs'), keys: ['Alt', 'A'] },
     ]);
   });
 
@@ -145,6 +145,11 @@ describe('commandRows', () => {
   it('gives no hint to a command that ships without a suggestion', () => {
     const [row] = commandRows([{ name: 'save-session', description: 'Save', shortcut: '' }], false);
     expect(row?.hint).toBeUndefined();
+  });
+
+  it("keeps Chrome's description for a command this build does not know", () => {
+    const [row] = commandRows([{ name: 'later-command', description: 'Later' }], false);
+    expect(row?.name).toBe('Later');
   });
 
   it('never leaves a row without a name', () => {
@@ -208,5 +213,71 @@ describe('parsePrompted', () => {
     expect(parsePrompted(['a', 1, 'b'])).toEqual(['a', 'b']);
     expect(parsePrompted('a')).toEqual([]);
     expect(parsePrompted(undefined)).toEqual([]);
+  });
+});
+
+describe('the language chosen in Settings', () => {
+  afterEach(async () => {
+    await applyUiLanguage('auto');
+  });
+
+  /** Every manifest command as Chrome reports it in a Korean Chrome: descriptions in Korean. */
+  function koreanChromeCommands(): chrome.commands.Command[] {
+    const fake = getChromeFake();
+    fake.setUiLanguage('ko');
+    const described = (name: string, key: string): chrome.commands.Command => ({
+      name,
+      description: chrome.i18n.getMessage(key),
+      shortcut: '',
+    });
+    return [
+      { name: '_execute_action', description: '', shortcut: '' },
+      described('save-session', 'cmdSaveSession'),
+      described('open-dashboard', 'cmdOpenDashboard'),
+      described('assemble-tabs', 'cmdAssembleTabs'),
+      described('pause-youtube', 'cmdPauseYoutube'),
+      described('open-notes', 'cmdOpenNotes'),
+    ];
+  }
+
+  it("names every command in that language, not in Chrome's", async () => {
+    const commands = koreanChromeCommands();
+    const korean = commands.map((command) => command.description);
+    await applyUiLanguage('en', readLocaleFile);
+
+    const names = commandRows(commands, false).map((row) => row.name);
+    expect(names).toEqual([
+      t('settingsSortCommand'),
+      t('cmdSaveSession'),
+      t('cmdOpenDashboard'),
+      t('cmdAssembleTabs'),
+      t('cmdPauseYoutube'),
+      t('cmdOpenNotes'),
+    ]);
+    // English text, and none of what the Korean Chrome reported.
+    expect(names).toContain('Pause all YouTube videos');
+    for (const name of names.slice(1)) {
+      expect(korean).not.toContain(name);
+    }
+  });
+
+  it('follows a third language too, whatever Chrome speaks', async () => {
+    const commands = koreanChromeCommands();
+    await applyUiLanguage('ja', readLocaleFile);
+    const japanese = await readLocaleFile('ja');
+    const message = (key: string) =>
+      (japanese as Record<string, { message: string }>)[key]?.message;
+    expect(commandRows(commands, false).find((row) => row.id === 'assemble-tabs')?.name).toBe(
+      message('cmdAssembleTabs'),
+    );
+  });
+
+  it('words the one-time shortcut toast in that language', async () => {
+    getChromeFake().setUiLanguage('ko');
+    await applyUiLanguage('en', readLocaleFile);
+    const message = shortcutPromptMessage(['assemble-tabs', 'pause-youtube'], false);
+    expect(message).toContain('Assemble! (Alt + Shift + A)');
+    expect(message).toContain('Pause all YouTube videos (Alt + Shift + P)');
+    expect(message).toContain(' and ');
   });
 });
