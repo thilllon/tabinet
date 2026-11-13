@@ -448,10 +448,7 @@ function main(): void {
     if (section.screenshotDir === null) {
       continue;
     }
-    const from =
-      section.locale === DEFAULT_LISTING_LOCALE
-        ? path.join(ROOT, 'assets')
-        : path.join(ROOT, 'assets', section.locale);
+    const from = path.join(ROOT, 'assets', section.locale);
     mkdirSync(path.join(out, section.screenshotDir), { recursive: true });
     for (const shot of SCREENSHOTS) {
       copyInto(path.join(from, shot.from), path.join(out, section.screenshotDir, shot.as), missing);

@@ -245,16 +245,17 @@ tabinet/
 │   │                          #   __MSG_extName__ (shared with store-bundle.ts; test in src/tests/)
 │   ├── prepare-registration.ts # Store-asset pipeline (build, Settings + the five dashboard-*.png screenshots,
 │   │                          #   promo images); every optional step has a SKIP_* flag;
-│   │                          #   LOCALES=en,ko,es,ja shoots Settings + dashboard per UI language into assets/<code>/
+│   │                          #   LOCALES=en,ko,es,ja shoots Settings + dashboard per UI language into assets/<code>/ (en too)
 │   ├── check-dashes.ts        # Fails on an em or en dash in any tracked file (run by `pnpm lint`)
 │   ├── store-listing.ts       # Every text typed into the CWS dashboard, as data at the top (Descriptions per
 │   │                          #   language, details, privacy answers, test instructions); LISTING_LOCALES, limits
 │   ├── store-bundle.ts        # Gathers zip, screenshots (screenshots/<lang>/), promo images and a SUBMIT.md
 │   │                          #   holding all of the above into release/store-<version>/
 │   └── promo-template.html    # HTML template for CWS promotional images
-├── assets/                    # CWS assets: Settings + dashboard-*.png screenshots and promo images (generated);
-│                              #   before/after-sort.png and demo.gif/.mp4 (frozen, no longer regenerated);
-│                              #   <code>/ holds another UI language's Settings + dashboard screenshots, same names
+├── assets/                    # CWS assets. <code>/ (en, ko, es, ja) holds that UI language's Settings + dashboard-*.png
+│                              #   screenshots, same names in every folder (generated); the top holds what no
+│                              #   language owns: promo-*.png (generated, English), before/after-sort.png and
+│                              #   demo.gif/.mp4 (frozen, no longer regenerated)
 ├── site/                      # The project website (Astro, static), its own pnpm workspace package
 │   │                          #   `tabinet-site`; see "Project website" below
 │   ├── astro.config.ts        # site + base (/tabinet), i18n (en default, ko, es, ja), sitemap
@@ -262,7 +263,7 @@ tabinet/
 │       ├── pages/[...locale]/ # index, support, privacy, once per language (en has no prefix); robots.txt.ts, 404
 │       ├── i18n/          # locales.ts (URLs, store/repo links), site-copy.ts (the SiteCopy type),
 │       │                      #   copy-en/ko/es/ja.ts (every string of the site, per language),
-│       │                      #   screenshots.ts (per-language assets/ screenshots)
+│       │                      #   screenshots.ts (per-language assets/<code>/ screenshots, English as fallback)
 │       ├── privacy/       # ko.md, es.md, ja.md: translations of PRIVACY_POLICY.md (English is rendered from it)
 │       ├── components/    # header, footer, language switch, Add to Chrome button, icons
 │       ├── layouts/       # base-layout.astro: head (canonical, hreflang, Open Graph), header, footer
@@ -699,7 +700,7 @@ Security scanning for JavaScript/TypeScript on every push and pull request to ma
 
 ### Release procedure (Chrome Web Store)
 
-`pnpm release` runs release-it (`.release-it.json`): `before:bump` executes `scripts/prepare-registration.ts` (build, Settings + the five `assets/dashboard-*.png` captures (sessions, restore, YouTube notes, search, snapshots; fixture sessions and notes from `scripts/e2e/fixtures.ts`), promo tiles), then the version is bumped, `after:bump` runs `pnpm build` + `scripts/zip.ts` (→ `release/Tabinet-<version>.zip`, named from `package.json` `displayName`) + `scripts/store-bundle.ts` (→ `release/store-<version>/`, whose `SUBMIT.md` carries every text from `scripts/store-listing.ts`), and a GitHub release is created. It requires the `main` branch and hooks/CI green. Every optional step of `prepare-registration.ts` is skippable on its own (`SKIP_BUILD`, `SKIP_OPTIONS`, `SKIP_DASHBOARD`, `SKIP_PROMO`), so one asset can be regenerated without a full run; `pnpm exec tsx scripts/zip.ts` packages an existing `dist/` on its own.
+`pnpm release` runs release-it (`.release-it.json`): `before:bump` executes `scripts/prepare-registration.ts` (build, Settings + the five `assets/en/dashboard-*.png` captures (sessions, restore, YouTube notes, search, snapshots; fixture sessions and notes from `scripts/e2e/fixtures.ts`), promo tiles), then the version is bumped, `after:bump` runs `pnpm build` + `scripts/zip.ts` (→ `release/Tabinet-<version>.zip`, named from `package.json` `displayName`) + `scripts/store-bundle.ts` (→ `release/store-<version>/`, whose `SUBMIT.md` carries every text from `scripts/store-listing.ts`), and a GitHub release is created. It requires the `main` branch and hooks/CI green. Every optional step of `prepare-registration.ts` is skippable on its own (`SKIP_BUILD`, `SKIP_OPTIONS`, `SKIP_DASHBOARD`, `SKIP_PROMO`), so one asset can be regenerated without a full run; `pnpm exec tsx scripts/zip.ts` packages an existing `dist/` on its own.
 
 1. Release through a pull request like any change: on a `release/vX.Y.Z` branch regenerate whatever store assets changed (`tsx scripts/prepare-registration.ts` with the `SKIP_*` flags for the rest), set the version with `npm version X.Y.Z --no-git-tag-version`, and open a `chore: release vX.Y.Z` pull request. Before merging it, make sure `scripts/store-listing.ts`, `PRIVACY_POLICY.md` (Last Updated), `README.md` and this file describe what ships, and that `package.json` `description` (the store Summary) is ≤ 132 characters.
 2. After the merge, on an up-to-date `main`: `pnpm release --ci --no-increment --no-git.commit` with every `SKIP_*` flag set (the assets are already committed). release-it then only builds, zips, writes `release/store-<version>/`, and pushes the `vX.Y.Z` tag; nothing is committed to `main`. If it prints a "releases/new" link instead of creating the GitHub release (no `GITHUB_TOKEN`), create it with `gh release create vX.Y.Z --title vX.Y.Z --notes …`.

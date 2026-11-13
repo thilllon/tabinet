@@ -70,11 +70,11 @@ Everything that is not the icon click lives on one page (`app.html`), opened onc
 3. **`chrome://extensions` → Details → Extension options**.
 
 <p align="center">
-  <img src="assets/dashboard-sessions.png" alt="The Tabinet app page" width="640" />
+  <img src="assets/en/dashboard-sessions.png" alt="The Tabinet app page" width="640" />
 </p>
 
 <p align="center">
-  <img src="assets/dashboard-notes.png" alt="A video's YouTube notes on the Tabinet app page, two of them with a screenshot" width="640" />
+  <img src="assets/en/dashboard-notes.png" alt="A video's YouTube notes on the Tabinet app page, two of them with a screenshot" width="640" />
 </p>
 
 The left column is what you have; the rest of the page is whatever you picked. Every view has its own address, so Back works and a session can be bookmarked:
