@@ -23,11 +23,12 @@
  *   LOCALES=en,ko,es,ja   the languages to shoot (default `en`). Each gets its own browser,
  *                   started with `--lang=<code>` and LANGUAGE/LANG set (plus `-AppleLanguages`
  *                   on macOS, where Chrome ignores `--lang`), so `chrome.i18n` picks that
- *                   language; the run fails a language whose browser reports another one. English
- *                   runs every step into `assets/` under today's file names; every
- *                   other language only shoots the Settings and dashboard screenshots (steps 3-4),
- *                   with the fixture session names in that language, into `assets/<code>/`.
- *                   The promo images carry English text and are shared.
+ *                   language; the run fails a language whose browser reports another one. Every
+ *                   language's Settings and dashboard screenshots (steps 3-4) go into
+ *                   `assets/<code>/` under the same file names, `assets/en/` for English; the
+ *                   other languages use the fixture session names in that language. Only the
+ *                   English run also makes the promo images, which carry English text, are
+ *                   shared and sit at the top of `assets/`.
  */
 
 import { execSync } from 'node:child_process';
@@ -66,7 +67,7 @@ interface SkipRecord {
 /** Where one language's screenshots go and how to read the UI text they look for. */
 interface CaptureTarget {
   locale: ListingLocale;
-  /** `assets/` for English, `assets/<code>/` for the others. */
+  /** `assets/<code>/`, `assets/en/` for English. */
   dir: string;
   /** A message of the built extension in this language, `$1`.. filled in. */
   text: (key: string, ...substitutions: (string | number)[]) => string;
@@ -223,7 +224,7 @@ function builtMessage(
 function captureTarget(locale: ListingLocale): CaptureTarget {
   return {
     locale,
-    dir: locale === DEFAULT_LISTING_LOCALE ? ASSETS_DIR : path.join(ASSETS_DIR, locale),
+    dir: path.join(ASSETS_DIR, locale),
     text: (key, ...substitutions) => builtMessage(locale, key, substitutions),
   };
 }
@@ -293,9 +294,10 @@ class Preparation {
     this.report();
   }
 
-  /** English: Settings, dashboard and promo images into `assets/`. */
+  /** English: Settings and dashboard into `assets/en/`, the promo images into `assets/`. */
   private async runEnglish(): Promise<void> {
     const target = captureTarget(DEFAULT_LISTING_LOCALE);
+    mkdirSync(target.dir, { recursive: true });
 
     // Step 2: Launch browser
     await this.launchBrowser();
