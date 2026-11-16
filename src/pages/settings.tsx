@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { YoutubeAccessField } from '@/components/youtube-access-field';
+import { YoutubeLogo } from '@/components/youtube-logo';
 import { useSessionSettings } from '@/hooks/use-session-settings';
 import { useErrorToast } from '@/hooks/use-toasts';
 import type { SettingsFocus } from '@/lib/app-route';
@@ -309,6 +310,7 @@ export function SettingsPage({
             the shortcut do anything, and the menu item opens this dialog to ask for it. */}
         <SettingsSection
           title={t('settingsYoutubeTitle')}
+          icon={<YoutubeLogo />}
           description={t('settingsYoutubeDescription', t('cmdPauseYoutube'))}
         >
           <YoutubeAccessField
