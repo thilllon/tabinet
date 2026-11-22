@@ -9,7 +9,6 @@ const MAX_READ_BYTES = MAX_BODY_BYTES + 3;
 /**
  * The body, or null as soon as it is longer than `MAX_READ_BYTES`. It goes into one buffer, since
  * a list of the chunks costs far more than their bytes when a client sends one byte at a time.
- * The rest is not cancelled: on Node that destroys the socket before the 413 can be written.
  */
 async function readAtMost(body: ReadableStream<Uint8Array> | null): Promise<Uint8Array | null> {
   let bytes = new Uint8Array(0);
@@ -18,26 +17,38 @@ async function readAtMost(body: ReadableStream<Uint8Array> | null): Promise<Uint
   }
   const reader = body.getReader();
   let size = 0;
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) {
-        return bytes.subarray(0, size);
-      }
-      const end = size + value.byteLength;
-      if (end > MAX_READ_BYTES) {
-        return null;
-      }
-      if (end > bytes.length) {
-        const grown = new Uint8Array(Math.min(MAX_READ_BYTES, Math.max(end, bytes.length * 2)));
-        grown.set(bytes.subarray(0, size));
-        bytes = grown;
-      }
-      bytes.set(value, size);
-      size = end;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) {
+      return bytes.subarray(0, size);
     }
-  } finally {
-    reader.releaseLock();
+    const end = size + value.byteLength;
+    if (end > MAX_READ_BYTES) {
+      void discardRest(reader); // not awaited: the 413 does not wait for it
+      return null;
+    }
+    if (end > bytes.length) {
+      const grown = new Uint8Array(Math.min(MAX_READ_BYTES, Math.max(end, bytes.length * 2)));
+      grown.set(bytes.subarray(0, size));
+      bytes = grown;
+    }
+    bytes.set(value, size);
+    size = end;
+  }
+}
+
+/**
+ * Reads on and keeps nothing. A body left half read holds up the next request on the connection,
+ * and one cancelled destroys the socket before the 413 is written. A body that never ends is for
+ * the host to cut: Vercel caps it, and the Node server closes it 500 ms after the answer.
+ */
+async function discardRest(reader: ReadableStreamDefaultReader<Uint8Array>): Promise<void> {
+  try {
+    while (!(await reader.read()).done) {
+      // dropped
+    }
+  } catch {
+    // The connection closed first: there is nothing left to read.
   }
 }
 

@@ -86,6 +86,8 @@ describe('the Railway adaptor', () => {
     // Not the script itself there: pnpm ends a clean SIGTERM with exit code 1.
     const readme = readFileSync(path.join(ROOT, 'README.md'), 'utf8');
     expect(readme).toContain(`cd server && exec ${readPackage().scripts.start}`);
+    // Railpack needs it at build too, or it deploys the root's Vite app as a static site.
+    expect(readme).toContain('| `RAILPACK_START_CMD`');
   });
 
   it('needs production dependencies only', () => {

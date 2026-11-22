@@ -224,16 +224,20 @@ describe('body', () => {
   );
 
   it.each(['/v1/auth/google', '/v1/keys', '/v1/records'])(
-    '%s stops reading a body that never ends',
+    '%s answers once a body is over the limit, then discards the rest',
     async (path) => {
       const chunk = new Uint8Array(64 * 1024).fill(32);
       let sent = 0;
+      let readToTheEnd = false;
       const body = new ReadableStream<Uint8Array>(
         {
-          pull(controller) {
+          async pull(controller) {
+            // As from a socket: each chunk is a turn of the event loop.
+            await new Promise((resolve) => setImmediate(resolve));
             // Ends far over the limit, so a reader without one fails here instead of running out of memory.
             if (sent > MAX_BODY_BYTES * 4) {
               controller.close();
+              readToTheEnd = true;
               return;
             }
             controller.enqueue(chunk);
@@ -250,6 +254,8 @@ describe('body', () => {
       });
       expect((await setUp().app.fetch(req)).status).toBe(413);
       expect(sent).toBeLessThanOrEqual(MAX_BODY_BYTES + 2 * chunk.length);
+      // Left unread, it blocks the next request on the connection.
+      await vi.waitFor(() => expect(readToTheEnd).toBe(true));
     },
   );
 

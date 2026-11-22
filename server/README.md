@@ -44,7 +44,7 @@ A Hono app, kept thin: a route handler calls the store directly. No services, cl
 | `src/routes/keys.ts`              | The key setup, set once                                                             |
 | `src/routes/records.ts`           | List and write records                                                              |
 | `src/middleware/auth.ts`          | The bearer token, checked before any body is read                                   |
-| `src/middleware/body-limit.ts`    | Reads a JSON body of at most 4 MiB, and stops reading there                         |
+| `src/middleware/body-limit.ts`    | Reads a JSON body of at most 4 MiB, and keeps nothing past that                     |
 | `src/middleware/cors.ts`          | CORS for the origins in `ALLOWED_ORIGINS` only, and every `OPTIONS`                 |
 | `src/middleware/errors.ts`        | Anything thrown becomes a JSON 500                                                  |
 | `src/middleware/unmatched.ts`     | 404, 405 with `Allow`, and no automatic `HEAD`                                      |
@@ -118,8 +118,9 @@ Limits and rules:
   splits its batches by size as well as by count; unknown fields are refused. One bad record
   refuses the whole request. (Vercel itself refuses a body over 4.5 MB before the function runs,
   with no CORS headers and no JSON, which the 4 MiB limit keeps a client clear of. Railway has no
-  such cap: the app stops reading just past 4 MiB, and the Node server then closes the connection.
-  A client still uploading may see that reset instead of the 413.)
+  such cap: past 4 MiB the app answers 413 and discards the rest as it arrives, and the Node server
+  closes the connection if the upload is not over 500 ms after the answer. A client still uploading
+  may see that reset instead of the 413.)
 - Last writer wins per `(kind, id)`: a write applies only when its `updatedAt` is greater than the
   stored one; a tie or an older one comes back `stale` with the stored record, read after the
   write. Each record is one conditional upsert statement, so concurrent writers cannot lose an
@@ -218,6 +219,7 @@ documentation and have not been tried on Railway itself.
 | `ALLOWED_ORIGINS`                     | as on Vercel                                                                                                                |
 | `PORT`                                | set by Railway; the server does not start without it                                                                        |
 | `RAILPACK_INSTALL_CMD`                | `pnpm install --frozen-lockfile --prod --filter tabinet-server`                                                             |
+| `RAILPACK_START_CMD`                  | the Start Command again, for the build                                                                                      |
 | `RAILWAY_DEPLOYMENT_DRAINING_SECONDS` | `15`. The default is 0, which kills the server straight after SIGTERM                                                       |
 | `RAILWAY_DEPLOYMENT_OVERLAP_SECONDS`  | `10`. Without a health check this covers the new server's start                                                             |
 
@@ -228,6 +230,9 @@ documentation and have not been tried on Railway itself.
   seconds (hence the 15 above) and exits with 0.
 - A bad variable is reported as on Vercel: the server starts, and every request is a 500 with
   `configuration failed` in the log. Only a missing or invalid `PORT` stops it from starting.
+- Railpack decides at build time what to put in the image. Without a start command at that point it
+  takes the repository root for what it is, a Vite app, and deploys `dist/` behind Caddy with no
+  Node and no server: hence `RAILPACK_START_CMD`.
 - `tsx` is a production dependency because it is what runs the TypeScript. There is no build.
 - Create the tables by hand, as in step 4 above.
 - The extension calls `CLOUD_SYNC.apiBase` only. Moving production here means changing it and

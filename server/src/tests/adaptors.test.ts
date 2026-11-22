@@ -236,6 +236,21 @@ describe('the Railway adaptor and the Vercel adaptor', () => {
     expect(await closed).toMatch(/^HTTP\/1\.1 413 /);
   });
 
+  it('serves the next request on a connection that sent too large a body', async () => {
+    const { socket, received } = await rawConnection(
+      server.port,
+      `${SIGN_IN}Transfer-Encoding: chunked\r\n\r\n`,
+    );
+    // Whole, and far enough over the limit that a stream's own buffer cannot hold the rest.
+    const size = MAX_BODY_BYTES + 400_000;
+    socket.write(`${size.toString(16)}\r\n${' '.repeat(size)}\r\n0\r\n\r\n`);
+    await vi.waitFor(() => expect(received()).toContain('{"error":"payload_too_large"}'));
+    // A proxy reuses the connection, perhaps for another person's request.
+    socket.write('GET /v1/me HTTP/1.1\r\nHost: x.test\r\n\r\n');
+    await vi.waitFor(() => expect(received()).toContain('{"error":"unauthorized"}'));
+    socket.destroy();
+  });
+
   it('cuts off a body that never ends', async () => {
     const { socket, closed } = await rawConnection(
       server.port,
