@@ -220,7 +220,7 @@ export function uiLocale(): string {
 
 /**
  * Two (or more) complete sentences as one text, the way the UI language puts sentences side by
- * side: a space in English, Korean and Spanish, nothing in Japanese. Empty sentences are left out.
+ * side: a space in English, Spanish and Korean, nothing in Japanese. Empty sentences are left out.
  * Never use it to build a sentence out of fragments; that needs a message of its own.
  */
 export function joinSentences(...sentences: string[]): string {

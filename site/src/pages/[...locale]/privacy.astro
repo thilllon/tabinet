@@ -20,7 +20,7 @@ interface Props {
 
 const { locale } = Astro.props;
 const copy = copyFor(locale);
-const POLICIES = { en: English, ko: Korean, es: Spanish, ja: Japanese } satisfies Record<
+const POLICIES = { en: English, es: Spanish, ko: Korean, ja: Japanese } satisfies Record<
   Locale,
   unknown
 >;

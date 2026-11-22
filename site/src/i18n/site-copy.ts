@@ -123,7 +123,7 @@ export interface SiteCopy {
   };
 }
 
-const COPY: Record<Locale, SiteCopy> = { en, ko, es, ja };
+const COPY: Record<Locale, SiteCopy> = { en, es, ko, ja };
 
 export function copyFor(locale: Locale): SiteCopy {
   return COPY[locale];

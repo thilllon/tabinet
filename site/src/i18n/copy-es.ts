@@ -36,7 +36,7 @@ export const es: SiteCopy = {
     imageAlt:
       'La página de Tabinet: las sesiones guardadas en la columna izquierda y, a la derecha, una sesión de dos ventanas con sus pestañas fijadas y grupos de pestañas',
     languages:
-      'La extensión está disponible en English, 한국어, Español y 日本語, y usa el idioma de Chrome o el que elijas en su Configuración.',
+      'La extensión está disponible en English, Español, 한국어 y 日本語, y usa el idioma de Chrome o el que elijas en su Configuración.',
   },
   sort: {
     kicker: 'Ordenar',

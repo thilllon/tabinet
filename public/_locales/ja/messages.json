@@ -13,7 +13,7 @@
   },
   "localeCode": {
     "message": "ja",
-    "description": "Do not translate. The language code of this file itself (en, ko, es, ja), not a word: it picks the plural rules and number formats that match this file's text, also when Chrome falls back to it for a language the extension does not ship."
+    "description": "Do not translate. The language code of this file itself (en, es, ko, ja), not a word: it picks the plural rules and number formats that match this file's text, also when Chrome falls back to it for a language the extension does not ship."
   },
   "actionTitle": {
     "message": "Tabinet: クリックでタブを並べ替え、右クリックでセッション",

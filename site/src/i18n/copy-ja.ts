@@ -34,7 +34,7 @@ export const ja: SiteCopy = {
     imageAlt:
       'Tabinet の画面。左の列に保存したセッションが並び、右側に2つのウィンドウからなるセッションの固定タブとタブグループが表示されています',
     languages:
-      '拡張機能は English、한국어、Español、日本語 に対応し、Chrome の言語、または設定で選んだ言語で表示されます。',
+      '拡張機能は English、Español、한국어、日本語 に対応し、Chrome の言語、または設定で選んだ言語で表示されます。',
   },
   sort: {
     kicker: '並べ替え',

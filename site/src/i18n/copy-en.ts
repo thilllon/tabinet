@@ -35,7 +35,7 @@ export const en: SiteCopy = {
     imageAlt:
       'The Tabinet page: saved sessions in the left column, and a session of two windows with its pinned tabs and tab groups on the right',
     languages:
-      'The extension itself comes in English, 한국어, Español and 日本語. It follows Chrome’s language, or the one you pick in its Settings.',
+      'The extension itself comes in English, Español, 한국어 and 日本語. It follows Chrome’s language, or the one you pick in its Settings.',
   },
   sort: {
     kicker: 'Sorting',

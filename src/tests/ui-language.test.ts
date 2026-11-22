@@ -85,6 +85,12 @@ describe('applyStoredUiLanguage', () => {
 });
 
 describe('uiLanguageOptions', () => {
+  it('lists English, Spanish, Korean, Japanese, in that order', () => {
+    const order = ['en', 'es', 'ko', 'ja'];
+    expect(SUPPORTED_LOCALES).toEqual(order);
+    expect(uiLanguageOptions().map((option) => option.value)).toEqual(['auto', ...order]);
+  });
+
   it('offers Automatic first, then every language in its own name', () => {
     expect(uiLanguageOptions()).toEqual([
       { value: 'auto', label: t('settingsLanguageAuto') },
