@@ -72,6 +72,10 @@ JSON, base path `/v1`. Every route but `POST /v1/auth/google` and `OPTIONS` need
 `{"error":"method_not_allowed"}` with `Allow`, any other path (a trailing slash included) 404
 `{"error":"not_found"}`, both whatever the token.
 
+Those are the app's answers. In production Vercel answers two cases before the app runs, without
+JSON, `Allow` or CORS: a method the adapter does not export (`HEAD`, `PATCH`) is its own empty
+405, and a path the rewrite does not match (a trailing slash) its own plain-text 404.
+
 | Route                                      | Answer                                                                                                                                                                    |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `POST /v1/auth/google {accessToken}`       | 200 `{token, expiresAt, email, keySetup}`; the token lasts 90 days                                                                                                        |
