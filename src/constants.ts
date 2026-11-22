@@ -35,12 +35,14 @@ export const YOUTUBE_ORIGINS = ['https://*.youtube.com/*'] as const;
 export const LAZY_AUTO_THRESHOLD = 10;
 
 /**
- * The languages the extension ships in, default first: one `public/_locales/<code>/messages.json`
- * each, and the choices of the language menu in Settings. The one list to extend when a language
- * is added; every other list (the store listing, the test checks, the screenshot scripts) is typed
- * from it, so the type checker then names each file that still lacks the new language.
+ * The languages the extension ships in, default first, in the order every list shows them
+ * (English, Spanish, Korean, Japanese; set by the owner, so never reorder or sort it): one
+ * `public/_locales/<code>/messages.json` each, and the choices of the language menu in Settings.
+ * The one list to extend when a language is added; every other list (the store listing, the test
+ * checks, the screenshot scripts) is typed from it, so the type checker then names each file that
+ * still lacks the new language.
  */
-export const SUPPORTED_LOCALES = ['en', 'ko', 'es', 'ja'] as const;
+export const SUPPORTED_LOCALES = ['en', 'es', 'ko', 'ja'] as const;
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
 
 /** The manifest's `default_locale`: every message exists in it, and every language falls back to it. */
@@ -52,8 +54,8 @@ export const DEFAULT_LOCALE: SupportedLocale = 'en';
  */
 export const LOCALE_ENDONYMS: Record<SupportedLocale, string> = {
   en: 'English',
-  ko: '한국어',
   es: 'Español',
+  ko: '한국어',
   ja: '日本語',
 };
 

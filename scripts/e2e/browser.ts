@@ -73,8 +73,8 @@ interface LaunchOptions {
  */
 const POSIX_LOCALES: Record<SupportedLocale, string> = {
   en: 'en_US',
-  ko: 'ko_KR',
   es: 'es_ES',
+  ko: 'ko_KR',
   ja: 'ja_JP',
 };
 

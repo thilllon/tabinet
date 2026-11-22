@@ -21,8 +21,8 @@ export const LOCALE_NAMES: Record<Locale, string> = LOCALE_ENDONYMS;
 /** `og:locale` values. */
 export const OG_LOCALES: Record<Locale, string> = {
   en: 'en_US',
-  ko: 'ko_KR',
   es: 'es_419',
+  ko: 'ko_KR',
   ja: 'ja_JP',
 };
 

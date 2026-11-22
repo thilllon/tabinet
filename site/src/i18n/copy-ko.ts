@@ -34,7 +34,7 @@ export const ko: SiteCopy = {
     imageAlt:
       'Tabinet 화면: 왼쪽에는 저장된 세션 목록이, 오른쪽에는 창 2개로 된 세션의 고정된 탭과 탭 그룹이 보입니다',
     languages:
-      '확장 프로그램은 English, 한국어, Español, 日本語로 제공되며, Chrome의 언어를 따르거나 설정에서 고른 언어로 표시됩니다.',
+      '확장 프로그램은 English, Español, 한국어, 日本語로 제공되며, Chrome의 언어를 따르거나 설정에서 고른 언어로 표시됩니다.',
   },
   sort: {
     kicker: '정렬',

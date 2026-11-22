@@ -20,7 +20,7 @@
  *   PW_CHROMIUM     Chromium binary to drive (see scripts/e2e/browser.ts)
  *
  * Store screenshots per UI language:
- *   LOCALES=en,ko,es,ja   the languages to shoot (default `en`). Each gets its own browser,
+ *   LOCALES=en,es,ko,ja   the languages to shoot (default `en`). Each gets its own browser,
  *                   started with `--lang=<code>` and LANGUAGE/LANG set (plus `-AppleLanguages`
  *                   on macOS, where Chrome ignores `--lang`), so `chrome.i18n` picks that
  *                   language; the run fails a language whose browser reports another one. Every
@@ -99,28 +99,6 @@ const CONTROL_TIMEOUT = 8000;
  * stays English (tab and video titles are web page titles, which stay as the sites wrote them).
  */
 const FIXTURE_TEXT: Record<Exclude<ListingLocale, 'en'>, Record<string, string>> = {
-  ko: {
-    'Work - Monday morning': '업무 - 월요일 아침',
-    'Research - everything open': '리서치 - 열려 있던 전부',
-    'Snapshot - 40 minutes ago': '스냅샷 - 40분 전',
-    'Snapshot - 2 hours ago': '스냅샷 - 2시간 전',
-    'Recovered - before the crash': '복구됨 - 종료되기 전',
-    Review: '리뷰',
-    Docs: '문서',
-    Reading: '읽을거리',
-    'Prior art': '선행 사례',
-    Specs: '명세',
-    Benchmarks: '벤치마크',
-    'Inbox zero': '받은편지함 비우기',
-    'Manifest first: name, permissions, and the service worker as the one entry point.':
-      '매니페스트부터: 이름, 권한, 그리고 유일한 진입점인 서비스 워커.',
-    'The service worker sleeps when idle.\n- register every listener at the top level\n- keep no state in memory':
-      '서비스 워커는 할 일이 없으면 잠든다.\n- 리스너는 모두 최상위에서 등록\n- 상태를 메모리에 두지 않기',
-    'Side panel: one HTML page, opened from a click.':
-      '사이드 패널: HTML 페이지 하나, 클릭으로 연다.',
-    'Line length: 45 to 75 characters reads best.': '한 줄 길이는 45~75자가 가장 읽기 좋다.',
-    'Pick one scale and stick to it.': '크기 단계는 하나만 정해서 계속 쓰기.',
-  },
   es: {
     'Work - Monday morning': 'Trabajo - lunes por la mañana',
     'Research - everything open': 'Investigación - todo lo abierto',
@@ -143,6 +121,28 @@ const FIXTURE_TEXT: Record<Exclude<ListingLocale, 'en'>, Record<string, string>>
     'Line length: 45 to 75 characters reads best.':
       'Longitud de línea: entre 45 y 75 caracteres se lee mejor.',
     'Pick one scale and stick to it.': 'Elegir una escala y no salirse de ella.',
+  },
+  ko: {
+    'Work - Monday morning': '업무 - 월요일 아침',
+    'Research - everything open': '리서치 - 열려 있던 전부',
+    'Snapshot - 40 minutes ago': '스냅샷 - 40분 전',
+    'Snapshot - 2 hours ago': '스냅샷 - 2시간 전',
+    'Recovered - before the crash': '복구됨 - 종료되기 전',
+    Review: '리뷰',
+    Docs: '문서',
+    Reading: '읽을거리',
+    'Prior art': '선행 사례',
+    Specs: '명세',
+    Benchmarks: '벤치마크',
+    'Inbox zero': '받은편지함 비우기',
+    'Manifest first: name, permissions, and the service worker as the one entry point.':
+      '매니페스트부터: 이름, 권한, 그리고 유일한 진입점인 서비스 워커.',
+    'The service worker sleeps when idle.\n- register every listener at the top level\n- keep no state in memory':
+      '서비스 워커는 할 일이 없으면 잠든다.\n- 리스너는 모두 최상위에서 등록\n- 상태를 메모리에 두지 않기',
+    'Side panel: one HTML page, opened from a click.':
+      '사이드 패널: HTML 페이지 하나, 클릭으로 연다.',
+    'Line length: 45 to 75 characters reads best.': '한 줄 길이는 45~75자가 가장 읽기 좋다.',
+    'Pick one scale and stick to it.': '크기 단계는 하나만 정해서 계속 쓰기.',
   },
   ja: {
     'Work - Monday morning': '仕事 - 月曜の朝',
