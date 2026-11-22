@@ -1915,6 +1915,14 @@
     "message": "一部を同期できませんでした。",
     "description": "Live sync status when a sync finished but left some items out and the next time is not known yet."
   },
+  "settingsAccountStatusTooLarge_other": {
+    "message": "$1件の項目は大きすぎて同期できず、この端末にのみ残ります。",
+    "description": "Live sync status: items over the size limit never sync. $1 is how many. Promise no later try."
+  },
+  "settingsAccountStatusUnreadable_other": {
+    "message": "クラウドの$1件の項目は、この端末で読み取れなかったためスキップしました。",
+    "description": "Live sync status: records from the server that did not decrypt were skipped for good. $1 is how many. Promise no later try."
+  },
   "settingsAccountStatusUpToDate": {
     "message": "すべて同期済みです。最終同期: $1",
     "description": "Live sync status when nothing waits to be sent. $1 is the date and time of the last sync, already formatted."
@@ -1924,7 +1932,7 @@
     "description": "Live sync status when all but screenshots over the account limit are synced. $1 is how many stay only on this device, $2 the date and time of the last sync."
   },
   "settingsAccountNextCheck_other": {
-    "message": "他の端末の変更を次に確認: $2($1分ごと)",
+    "message": "他の端末の変更を次に確認: $2（$1分ごと）",
     "description": "Line under the sync status, always visible. $1 is the period in minutes (15), $2 the time of day of the next check, already formatted."
   },
   "settingsAccountCheckEvery_other": {
@@ -1976,16 +1984,16 @@
     "description": "Sync explanation. Quote the \"Sync now\" button by its own label."
   },
   "settingsAccountHelpNowOpen": {
-    "message": "Tabinet のページを開くか再読み込みしても同じです。他の端末でどちらかを行えば、変更をすぐに受け取れます。",
-    "description": "Sync explanation: the Tabinet page syncs as it loads."
+    "message": "Tabinet のページを新たに開くか再読み込みしても同じです。すでに開いている Tabinet のタブに切り替えるだけでは同期しません。他の端末では、再読み込みするか「今すぐ同期」を押すと、変更をすぐに受け取れます。",
+    "description": "Sync explanation: the Tabinet page syncs as it loads, and only then. Quote \"Sync now\" by its own label."
   },
   "settingsAccountHelpAwayTitle": {
     "message": "オフラインまたは Chrome を終了しているとき",
     "description": "Heading in the sync explanation: offline or Chrome closed."
   },
   "settingsAccountHelpAwayOffline_other": {
-    "message": "オフラインの間、変更はこの端末に残ります。$2秒後に再試行し、その後は間隔を最長$1分まで延ばします。",
-    "description": "Sync explanation. $1 is the longest gap between retries in minutes (15), $2 the first retry in seconds (30)."
+    "message": "オフラインなどで同期に失敗している間は、新しい変更もこの端末で待機します。$2秒後に再試行し、その後は間隔を最長$1分まで延ばします。",
+    "description": "Sync explanation: while failing, also for new changes, only the retries send. $1 is the longest gap between retries in minutes (15), $2 the first retry in seconds (30)."
   },
   "settingsAccountHelpAwayClosed": {
     "message": "Chrome を終了している間は送受信しません。Chrome を起動すると、未送信の変更は約1分以内に送信し、他の端末の変更は次の確認時に受け取ります。",
@@ -1996,12 +2004,16 @@
     "description": "Heading in the sync explanation: what syncs."
   },
   "settingsAccountHelpWhatSynced_other": {
-    "message": "同期される: 保存したセッション、YouTube メモとそのスクリーンショット(アカウントごとに最大$1枚)、言語を含む設定",
+    "message": "同期される: 保存したセッション、YouTube メモとそのスクリーンショット（アカウントごとに最大$1枚）、言語を含む設定",
     "description": "Sync explanation. $1 is the screenshot limit per account (100)."
   },
   "settingsAccountHelpWhatLocal": {
-    "message": "同期されない: スナップショット(「保持」すると同期)、開いているタブ、キーボードショートカット、端末ごとに許可する「YouTube へのアクセス」",
+    "message": "同期されない: スナップショット（「保持」すると同期）、開いているタブ、キーボードショートカット、端末ごとに許可する「YouTube へのアクセス」",
     "description": "Sync explanation: what never syncs. Quote \"Keep\" and \"Access to YouTube\" by their own labels."
+  },
+  "settingsAccountHelpWhatTooLarge": {
+    "message": "大きすぎて同期されない: 約$1 KBを超えるセッション、1本の動画のメモ、スクリーンショット。この端末にのみ残ります。",
+    "description": "Sync explanation: the size limit of one item. $1 is the limit in KB (768)."
   },
   "settingsAccountHelpConflictTitle": {
     "message": "2台の端末で同じものを変更したとき",

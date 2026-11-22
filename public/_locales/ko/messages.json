@@ -1907,6 +1907,14 @@
     "message": "일부 항목을 동기화하지 못했습니다.",
     "description": "Live sync status when a sync finished but left some items out and the next time is not known yet."
   },
+  "settingsAccountStatusTooLarge_other": {
+    "message": "항목 $1개가 너무 커서 동기화되지 않고 이 기기에만 남아 있습니다.",
+    "description": "Live sync status: items over the size limit never sync. $1 is how many. Promise no later try."
+  },
+  "settingsAccountStatusUnreadable_other": {
+    "message": "클라우드의 항목 $1개를 이 기기에서 읽지 못해 건너뛰었습니다.",
+    "description": "Live sync status: records from the server that did not decrypt were skipped for good. $1 is how many. Promise no later try."
+  },
   "settingsAccountStatusUpToDate": {
     "message": "모두 동기화되었습니다. 마지막 동기화: $1",
     "description": "Live sync status when nothing waits to be sent. $1 is the date and time of the last sync, already formatted."
@@ -1968,16 +1976,16 @@
     "description": "Sync explanation. Quote the \"Sync now\" button by its own label."
   },
   "settingsAccountHelpNowOpen": {
-    "message": "Tabinet 페이지를 열거나 새로고침해도 같습니다. 다른 기기에서 둘 중 하나를 하면 변경 내용을 바로 받습니다.",
-    "description": "Sync explanation: the Tabinet page syncs as it loads."
+    "message": "Tabinet 페이지를 새로 열거나 새로고침해도 같습니다. 이미 열려 있는 Tabinet 탭으로 이동하는 것만으로는 동기화되지 않습니다. 다른 기기에서는 새로고침하거나 “지금 동기화”를 누르면 변경 내용을 바로 받습니다.",
+    "description": "Sync explanation: the Tabinet page syncs as it loads, and only then. Quote \"Sync now\" by its own label."
   },
   "settingsAccountHelpAwayTitle": {
     "message": "오프라인이거나 Chrome이 꺼져 있을 때",
     "description": "Heading in the sync explanation: offline or Chrome closed."
   },
   "settingsAccountHelpAwayOffline_other": {
-    "message": "오프라인이면 변경 내용은 이 기기에 남습니다. $2초 뒤에 다시 시도하고, 그다음에는 간격을 최대 $1분까지 늘립니다.",
-    "description": "Sync explanation. $1 is the longest gap between retries in minutes (15), $2 the first retry in seconds (30)."
+    "message": "오프라인 등으로 동기화에 실패하는 동안에는 새 변경 내용까지 이 기기에서 기다립니다. $2초 뒤에 다시 시도하고, 그다음에는 간격을 최대 $1분까지 늘립니다.",
+    "description": "Sync explanation: while failing, also for new changes, only the retries send. $1 is the longest gap between retries in minutes (15), $2 the first retry in seconds (30)."
   },
   "settingsAccountHelpAwayClosed": {
     "message": "Chrome이 꺼져 있으면 보내지도 받지도 않습니다. Chrome을 켜면 남은 변경 내용은 1분쯤 안에 보내고, 다른 기기의 변경 내용은 다음 확인 때 받습니다.",
@@ -1994,6 +2002,10 @@
   "settingsAccountHelpWhatLocal": {
     "message": "동기화되지 않음: 스냅샷(“보관”하면 동기화됨), 열린 탭, 단축키, 기기마다 허용해야 하는 “YouTube 접근 권한”",
     "description": "Sync explanation: what never syncs. Quote \"Keep\" and \"Access to YouTube\" by their own labels."
+  },
+  "settingsAccountHelpWhatTooLarge": {
+    "message": "너무 커서 동기화되지 않음: 약 $1KB를 넘는 세션, 동영상 하나의 메모, 스크린샷. 이 기기에만 남습니다.",
+    "description": "Sync explanation: the size limit of one item. $1 is the limit in KB (768)."
   },
   "settingsAccountHelpConflictTitle": {
     "message": "두 기기에서 같은 것을 바꿨을 때",

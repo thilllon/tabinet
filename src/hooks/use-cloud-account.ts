@@ -9,6 +9,7 @@ import {
   keepSyncKeyFor,
   loadLiveCloudAccount,
   loadSyncKey,
+  showsSyncRow,
   withCloudAccount,
 } from '@/lib/cloud-auth';
 import { isCloudSyncEnabled } from '@/lib/cloud-config';
@@ -21,6 +22,8 @@ export interface CloudAccountView {
   account: CloudAccount | null;
   /** The server's passphrase setup, once known (needed to unlock). */
   keySetup: CloudKeySetup | null | undefined;
+  /** Whether the Sync row shows (`showsSyncRow()`): also before the server answered, or while it cannot. */
+  syncRow: boolean;
   /** Why the server could not be asked, in the UI language; cleared by `refresh()`. */
   error: string | undefined;
   /** Reads everything again (after sign-in, a passphrase, sign-out, or a failure). */
@@ -85,10 +88,13 @@ export function useCloudAccount(): CloudAccountView {
         if (storedAccount === null) {
           return;
         }
-        const answer = await withCloudAccount((current) => me(current.token));
-        const kept = await keepSyncKeyFor(answer.keySetup);
+        const { answer, token } = await withCloudAccount(async (current) => ({
+          answer: await me(current.token),
+          token: current.token,
+        }));
+        const kept = await keepSyncKeyFor(answer.keySetup, token);
         if (live) {
-          setupToken.current = storedAccount.token;
+          setupToken.current = token;
           setKeySetup(answer.keySetup);
           setHasKey(kept);
         }
@@ -123,5 +129,7 @@ export function useCloudAccount(): CloudAccountView {
       ? 'unknown'
       : 'unconfigured';
 
-  return { state, account, keySetup, error, refresh, setKeySetup: recordKeySetup };
+  const syncRow = showsSyncRow(state, account, hasKey, Date.now());
+
+  return { state, syncRow, account, keySetup, error, refresh, setKeySetup: recordKeySetup };
 }

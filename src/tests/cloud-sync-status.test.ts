@@ -1,11 +1,13 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { SUPPORTED_LOCALES } from '@/constants';
 import { CLOUD_SYNC_ALARM, CLOUD_SYNC_SOON_ALARM, SYNC_LOCK_NAME } from '@/lib/cloud-sync';
 import { syncHelp } from '@/lib/cloud-sync-help';
 import {
   loadSyncFacts,
+  nextCheckAt,
   nextCheckText,
+  nextCheckVariants,
   nextReadAt,
   NO_SYNC_FACTS,
   sameFacts,
@@ -79,6 +81,26 @@ describe('syncPhase', () => {
     });
   });
 
+  it('too large or unreadable has its own status: no next sync, never up to date', () => {
+    const stuck = { pending: true, lastError: 'x' };
+    expect(syncPhase(facts({ ...stuck, tooLarge: 2 }), NOW)).toEqual({
+      kind: 'tooLarge',
+      count: 2,
+    });
+    expect(syncPhase(facts({ unreadable: 1 }), NOW)).toEqual({ kind: 'unreadable', count: 1 });
+    // Work a run can still do is said first, with its time.
+    const more = facts({ ...stuck, tooLarge: 1, soonAt: SOON });
+    expect(syncPhase(more, NOW)).toEqual({ kind: 'waiting', at: SOON });
+  });
+
+  it('failed names the retry, not a check that waits for it', () => {
+    const late = facts({ failing: true, soonAt: CHECK + 60_000 });
+    expect(syncPhase(late, NOW)).toEqual({ kind: 'failed', at: CHECK + 60_000 });
+    expect(nextCheckAt(late)).toBe(CHECK + 60_000);
+    expect(nextCheckAt({ ...late, running: true })).toBe(CHECK);
+    expect(nextCheckAt(facts({ soonAt: SOON }))).toBe(CHECK);
+  });
+
   it('up to date carries the last sync time', () => {
     expect(syncPhase(facts(), NOW)).toEqual({ kind: 'upToDate', at: NOW - 60_000 });
   });
@@ -113,7 +135,13 @@ describe('the text', () => {
   it('every status, in English', () => {
     const at = formatClockTime(SOON, 'seconds');
     const day = formatDateTime(NOW);
-    expect(syncPhaseVariants(NOW, 2).slice(0, 1)).toEqual(['Syncing now...']);
+    expect(syncPhaseVariants(facts()).slice(0, 1)).toEqual(['Syncing now...']);
+    expect(syncPhaseText({ kind: 'tooLarge', count: 1 })).toBe(
+      '1 item is too large to sync and stays on this device.',
+    );
+    expect(syncPhaseText({ kind: 'unreadable', count: 2 })).toBe(
+      '2 items from the cloud could not be read here and were skipped.',
+    );
     expect(syncPhaseText({ kind: 'failed', at: SOON })).toBe(
       `Sync failed. It will try again at ${at}.`,
     );
@@ -134,6 +162,23 @@ describe('the text', () => {
     expect(syncPhaseText({ kind: 'notSynced' })).toBe('Not synced yet.');
   });
 
+  it('room is kept for the widest time, not for the one shown', () => {
+    // The case that moved the row: last synced at 1:11:11, the next sync at 22:58:58.
+    const shown = facts({ lastSyncAt: new Date(2026, 10, 23, 1, 11, 11).getTime() });
+    for (const hour of [10, 22]) {
+      const wide = new Date(2028, 10, 28, hour, 58, 58).getTime();
+      for (const kind of ['failed', 'partial', 'waiting', 'upToDate'] as const) {
+        expect(syncPhaseVariants(shown)).toContain(syncPhaseText({ kind, at: wide }));
+      }
+      expect(nextCheckVariants()).toContain(nextCheckText(wide));
+    }
+  });
+
+  it('the help says only loading the page syncs', () => {
+    const now = syncHelp().sections[2]?.points.join(' ');
+    expect(now).toContain('switching to a Tabinet tab that is already open does not');
+  });
+
   it('the next check shows its time and the 15 minutes', () => {
     expect(nextCheckText(CHECK)).toBe(
       `Next check for changes from other devices: ${formatClockTime(CHECK)} (every 15 minutes)`,
@@ -143,7 +188,7 @@ describe('the text', () => {
 
   it.each(SUPPORTED_LOCALES)('is complete in %s, the help with its real numbers', (locale) => {
     getChromeFake().setUiLanguage(locale);
-    for (const text of syncPhaseVariants(NOW, 2)) {
+    for (const text of syncPhaseVariants(facts())) {
       expect(text).not.toBe('');
       expect(text).not.toMatch(/\$\d/);
     }
@@ -153,7 +198,7 @@ describe('the text', () => {
       expect(text).not.toBe('');
       expect(text).not.toMatch(/\$\d/);
     }
-    for (const number of ['10', '15', '30', '100']) {
+    for (const number of ['10', '15', '30', '100', '768']) {
       expect(all.join(' ')).toContain(number);
     }
     // Buttons and settings are quoted by their own labels.
@@ -168,6 +213,16 @@ describe('loadSyncFacts', () => {
     await chrome.alarms.create(CLOUD_SYNC_SOON_ALARM, { when: SOON });
     await chrome.alarms.create(CLOUD_SYNC_ALARM, { when: CHECK });
     expect(await loadSyncFacts()).toMatchObject({ soonAt: SOON, checkAt: CHECK, running: false });
+  });
+
+  it('a run that ends while it is being read is syncing, not failed', async () => {
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({ held: [{ name: SYNC_LOCK_NAME, mode: 'exclusive' }] })
+      .mockResolvedValue({ held: [] });
+    vi.stubGlobal('navigator', { locks: { query } });
+    expect((await loadSyncFacts()).running).toBe(true);
+    vi.unstubAllGlobals();
   });
 
   it('syncing is the lock being held, and ends when it is let go', async () => {

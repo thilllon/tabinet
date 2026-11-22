@@ -8,12 +8,14 @@ const RESULT: SyncResult = { outcome: 'synced', pulled: 0, pushed: 0 };
 function setUp() {
   const runs: (SyncOptions | undefined)[] = [];
   const ends: (() => void)[] = [];
+  const signals: (AbortSignal | undefined)[] = [];
   const report = vi.fn<(err: unknown) => void>();
   const sync = (options?: SyncOptions) => {
-    runs.push(options);
+    runs.push(options === undefined ? undefined : { onlyIf: options.onlyIf });
+    signals.push(options?.signal);
     return new Promise<SyncResult>((resolve) => ends.push(() => resolve(RESULT)));
   };
-  return { runs, ends, report, scheduler: createSyncScheduler({ sync, report }) };
+  return { runs, ends, signals, report, scheduler: createSyncScheduler({ sync, report }) };
 }
 
 beforeEach(() => {
@@ -68,6 +70,19 @@ describe('createSyncScheduler', () => {
     ends[0]();
     await vi.advanceTimersByTimeAsync(20_000);
     expect(runs).toHaveLength(1);
+  });
+
+  it('"stop" gives up the run on its way, "periodic" ranks between "due" and "always"', async () => {
+    const { runs, ends, signals, scheduler } = setUp();
+    scheduler.run('changed');
+    scheduler.run('periodic');
+    scheduler.run('due');
+    ends[0]();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(runs.map((run) => run?.onlyIf)).toEqual(['changed', 'periodic']);
+    expect(signals[1]?.aborted).toBe(false);
+    scheduler.trigger('stop');
+    expect(signals[1]?.aborted).toBe(true);
   });
 
   it('reports a run that threw and keeps working', async () => {

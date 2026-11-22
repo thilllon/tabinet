@@ -30,6 +30,8 @@ export const NO_SYNC_FACTS: SyncFacts = {
   changedAt: null,
   pending: false,
   failing: false,
+  unreadable: 0,
+  tooLarge: 0,
   lastError: undefined,
   heldImages: 0,
   heldImagesNoticed: false,
@@ -42,6 +44,8 @@ export type SyncPhase =
   | { kind: 'syncing' }
   | { kind: 'failed'; at: number | null }
   | { kind: 'sendingSoon' }
+  | { kind: 'tooLarge'; count: number }
+  | { kind: 'unreadable'; count: number }
   | { kind: 'partial'; at: number | null }
   | { kind: 'waiting'; at: number | null }
   | { kind: 'held'; count: number; at: number }
@@ -71,16 +75,30 @@ function nextRunAt(facts: SyncFacts): number | null {
   return times.length === 0 ? null : Math.min(...times);
 }
 
-/** The one status that is true now. Pure. */
+/**
+ * The one status that is true now. An item too large or unreadable is never promised a next sync
+ * (that would not change it), and never hidden behind "up to date". Pure.
+ */
 export function syncPhase(facts: SyncFacts, now: number): SyncPhase {
   if (facts.running) {
     return { kind: 'syncing' };
   }
   if (facts.failing) {
-    return { kind: 'failed', at: nextRunAt(facts) };
+    // The retry alone: a periodic check before its time makes no request.
+    return { kind: 'failed', at: facts.soonAt ?? facts.checkAt };
   }
   if (timerIsDue(facts, now)) {
     return { kind: 'sendingSoon' };
+  }
+  if (facts.pending && facts.soonAt !== null) {
+    // The soon alarm stands only for work a run can still do.
+    return { kind: 'waiting', at: nextRunAt(facts) };
+  }
+  if (facts.tooLarge > 0) {
+    return { kind: 'tooLarge', count: facts.tooLarge };
+  }
+  if (facts.unreadable > 0) {
+    return { kind: 'unreadable', count: facts.unreadable };
   }
   if (facts.lastError !== undefined) {
     return { kind: 'partial', at: nextRunAt(facts) };
@@ -107,6 +125,10 @@ export function syncPhaseText(phase: SyncPhase): string {
         : t('settingsAccountStatusFailed', formatClockTime(phase.at, 'seconds'));
     case 'sendingSoon':
       return t('settingsAccountStatusSoon');
+    case 'tooLarge':
+      return tp('settingsAccountStatusTooLarge', phase.count);
+    case 'unreadable':
+      return tp('settingsAccountStatusUnreadable', phase.count);
     case 'partial':
       return phase.at === null
         ? t('settingsAccountStatusPartialPlain')
@@ -124,22 +146,53 @@ export function syncPhaseText(phase: SyncPhase): string {
   }
 }
 
-/** Every sentence the line can hold, for reserving the height of the tallest. Pure but for `t()`. */
-export function syncPhaseVariants(at: number, heldImages: number): string[] {
-  const phases: SyncPhase[] = [
-    { kind: 'syncing' },
-    { kind: 'failed', at },
-    { kind: 'sendingSoon' },
-    { kind: 'partial', at },
-    { kind: 'waiting', at },
-    { kind: 'held', count: Math.max(1, heldImages), at },
-    { kind: 'upToDate', at },
-    { kind: 'notSynced' },
-  ];
-  return phases.map(syncPhaseText);
+/**
+ * Times as wide as any, at tabular digits: two-digit hours on either side of noon, in the months
+ * whose short names are the widest of some language (May, Sept, Nov, December).
+ */
+function widestTimes(): number[] {
+  return [4, 8, 10, 11].flatMap((month) =>
+    [10, 22].map((hour) => new Date(2028, month, 28, hour, 58, 58).getTime()),
+  );
 }
 
-/** When other devices' changes are next looked for, with the period in it. */
+/**
+ * Every sentence the line can hold at its widest, for reserving the height of the tallest: not
+ * the time it happens to show, as the next one can be wider. Pure but for `t()`.
+ */
+export function syncPhaseVariants(facts: SyncFacts): string[] {
+  const count = (value: number) => [1, Math.max(88, value)];
+  const phases: SyncPhase[] = [
+    { kind: 'syncing' },
+    { kind: 'sendingSoon' },
+    { kind: 'notSynced' },
+    ...count(facts.tooLarge).map((n) => ({ kind: 'tooLarge', count: n }) as const),
+    ...count(facts.unreadable).map((n) => ({ kind: 'unreadable', count: n }) as const),
+    ...widestTimes().flatMap((at): SyncPhase[] => [
+      { kind: 'failed', at },
+      { kind: 'partial', at },
+      { kind: 'waiting', at },
+      { kind: 'upToDate', at },
+      ...count(facts.heldImages).map((n) => ({ kind: 'held', count: n, at }) as const),
+    ]),
+  ];
+  return [...new Set(phases.map(syncPhaseText))];
+}
+
+/** The same for the next check's line. */
+export function nextCheckVariants(): string[] {
+  return [...new Set([null, ...widestTimes()].map(nextCheckText))];
+}
+
+/**
+ * When other devices' changes are next looked for: the periodic alarm, or the retry while
+ * failing, as no check comes before that. Pure.
+ */
+export function nextCheckAt(facts: SyncFacts): number | null {
+  return !facts.running && facts.failing ? (facts.soonAt ?? facts.checkAt) : facts.checkAt;
+}
+
+/** The same, as text with the period in it. */
 export function nextCheckText(checkAt: number | null): string {
   return checkAt === null
     ? tp('settingsAccountCheckEvery', SYNC_PERIOD_MINUTES)
@@ -183,12 +236,15 @@ export async function whenSyncEnds(signal: AbortSignal): Promise<void> {
 }
 
 export async function loadSyncFacts(): Promise<SyncFacts> {
-  const [status, running, soon, check] = await Promise.all([
+  // A run counts as failing until it ends, so the lock is asked on both sides of that reading:
+  // one that just ended, or just began, must not read as a failure.
+  const wasRunning = await syncRunning();
+  const [status, soon, check] = await Promise.all([
     loadSyncStatus(),
-    syncRunning(),
     chrome.alarms.get(CLOUD_SYNC_SOON_ALARM),
     chrome.alarms.get(CLOUD_SYNC_ALARM),
   ]);
+  const running = (await syncRunning()) || wasRunning;
   return {
     ...status,
     running,

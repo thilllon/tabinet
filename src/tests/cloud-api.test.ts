@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   apiUrl,
@@ -11,6 +11,7 @@ import {
   me,
   postRecords,
   putKeys,
+  REQUEST_ANSWER_MS,
 } from '@/lib/cloud-api';
 import { overrideCloudSyncConfig } from '@/lib/cloud-config';
 import { ExplainedError, errorMessage } from '@/lib/error-message';
@@ -26,6 +27,10 @@ const SETUP: CloudKeySetup = {
   check: 'Y2hlY2s=',
   checkIv: 'aXZpdml2aXZpdml2',
 };
+const HUNG: typeof fetch = (_input, init) =>
+  new Promise<Response>((_resolve, reject) => {
+    init?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+  });
 const RECORD: CloudRecordWithSeq = {
   kind: 'session',
   id: 'abc-1',
@@ -35,6 +40,44 @@ const RECORD: CloudRecordWithSeq = {
   ciphertext: 'Y3Q=',
   seq: 7,
 };
+
+describe('deadlines', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('gives up a request without an answer, as an unreachable server', async () => {
+    vi.useFakeTimers();
+    const asked = me('tok', { fetch: HUNG }).catch((err: unknown) => err);
+    await vi.advanceTimersByTimeAsync(REQUEST_ANSWER_MS);
+    expect(await asked).toMatchObject({ userKey: 'errorCloudUnreachable' });
+  });
+
+  it('gives a big body longer to go up', async () => {
+    vi.useFakeTimers();
+    const big = { ...RECORD, ciphertext: 'A'.repeat(1024 * 1024) };
+    let ended = false;
+    const sent = postRecords('tok', [big], { fetch: HUNG }).catch(() => (ended = true));
+    await vi.advanceTimersByTimeAsync(REQUEST_ANSWER_MS + 10_000);
+    expect(ended).toBe(false);
+    await vi.advanceTimersByTimeAsync(10_000);
+    await sent;
+    expect(ended).toBe(true);
+  });
+
+  it("is given up with the caller's signal", async () => {
+    const stop = new AbortController();
+    const asked = getRecords('tok', 0, undefined, { fetch: HUNG, signal: stop.signal });
+    stop.abort();
+    await expect(asked).rejects.toMatchObject({ userKey: 'errorCloudUnreachable' });
+  });
+
+  it('a body cut off is the network, not an unreadable answer', async () => {
+    const cut = new ReadableStream({ start: (stream) => stream.error(new TypeError('cut')) });
+    const asked = me('tok', { fetch: async () => new Response(cut) });
+    await expect(asked).rejects.toMatchObject({ userKey: 'errorCloudUnreachable' });
+  });
+});
 
 beforeEach(() => {
   overrideCloudSyncConfig(() => ({ apiBase: `${API}/`, googleClientId: 'client.apps' }));

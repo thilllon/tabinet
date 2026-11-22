@@ -5,6 +5,7 @@ import {
   CLOUD_SYNC_ALARM,
   handleCloudStorageChange,
   isSyncAlarm,
+  rearmFallback,
   resumeSync,
   syncNow,
 } from '@/lib/cloud-sync';
@@ -313,8 +314,9 @@ async function onStartup(): Promise<void> {
 }
 
 /**
- * `alarms.onAlarm` handler. `cloud-sync` always runs a sync and `cloud-sync-soon` one only if
- * something still waits; a sync returns `'notReady'` by itself when this device is not ready. Both history alarms take an `origin: 'alarm'` snapshot;
+ * `alarms.onAlarm` handler. `cloud-sync` runs a sync unless a retry waits for a later time;
+ * `cloud-sync-soon` first puts itself back (`rearmFallback()`, as the worker can die with the run
+ * queued) and runs one only if something still waits. A sync returns `'notReady'` by itself when this device is not ready. Both history alarms take an `origin: 'alarm'` snapshot;
  * `takeHistorySnapshot` itself returns `'disabled'` (without querying windows) when the user
  * turned history off after the alarm was scheduled, so no settings read is needed here.
  */
@@ -325,7 +327,12 @@ function onAlarm(alarm: chrome.alarms.Alarm): void {
   // alarm lands inside those 2 s; a stale ✓ that never goes away is the worse failure.
   clearBadge();
   if (isSyncAlarm(alarm.name)) {
-    syncScheduler.run(alarm.name === CLOUD_SYNC_ALARM ? 'always' : 'due');
+    if (alarm.name === CLOUD_SYNC_ALARM) {
+      syncScheduler.run('periodic');
+    } else {
+      rearmFallback().catch(report);
+      syncScheduler.run('due');
+    }
     return;
   }
   if (alarm.name !== HISTORY_ALARM && alarm.name !== HISTORY_FIRST_ALARM) {

@@ -35,16 +35,21 @@ interface AccountFieldProps {
  * Settings > Account: one row for each state of the cloud sync account (`accountState()` in
  * `src/lib/cloud-auth.ts`). Signed out, a Google sign-in button; signed in without a passphrase
  * on the server, a form creating one (typed twice, with the warning that it cannot be
- * recovered); with one on the server but not on this device, a form entering it; ready, the
- * address with Sign out and Delete cloud data, then the Sync row (`SyncStatusField`: the live
- * status, the next check, the ? help, Sync now). Rendered only when cloud sync is configured.
+ * recovered); with one on the server but not on this device, a form entering it; with the key
+ * here (`showsSyncRow()`: ready, and also before the server answered or while it is out of
+ * reach), the address with Sign out and Delete cloud data, then the Sync row (`SyncStatusField`:
+ * the live status, the next check, the ? help, Sync now). Rendered only when cloud sync is
+ * configured.
  */
 export function AccountField({ onNotice, onError }: AccountFieldProps) {
   const cloud = useCloudAccount();
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const syncing = useCloudSync(cloud.state === 'ready');
-  useErrorToast(syncing.facts.lastError);
+  const syncing = useCloudSync(cloud.syncRow);
+  // Beside the Sync row a failed account check takes no line or button of its own, which would
+  // move the row: it is a toast, and Sync now is the way to try again. One toast with the sync's
+  // own error, as offline both say the same.
+  useErrorToast(syncing.facts.lastError ?? (cloud.syncRow ? cloud.error : undefined));
 
   // Screenshots the server refused over its cap: said once, as a toast, and remembered as said.
   const { heldImages, heldImagesNoticed } = syncing.facts;
@@ -71,6 +76,10 @@ export function AccountField({ onNotice, onError }: AccountFieldProps) {
     void syncing.sync().then((synced) => {
       if (synced) {
         onNotice(t('settingsAccountSynced'));
+        if (cloud.error !== undefined) {
+          // The server answers again, so the account check that failed can be made.
+          cloud.refresh();
+        }
       }
     });
   };
@@ -124,7 +133,7 @@ export function AccountField({ onNotice, onError }: AccountFieldProps) {
     return null;
   }
 
-  if (cloud.state === 'unknown') {
+  if (cloud.state === 'unknown' && !cloud.syncRow) {
     return (
       <SettingsField label={t('settingsAccountGoogle')} hint={cloud.error ?? t('commonLoading')}>
         {cloud.error !== undefined && (
@@ -159,7 +168,7 @@ export function AccountField({ onNotice, onError }: AccountFieldProps) {
 
   const email = cloud.account?.email ?? '';
 
-  if (cloud.state === 'ready') {
+  if (cloud.syncRow) {
     return (
       <>
         <SettingsField

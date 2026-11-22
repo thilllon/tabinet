@@ -13,12 +13,12 @@ export const SYNC_DEBOUNCE_MS = POLICY.sync.debounceMs;
 export const SYNC_MAX_WAIT_MS = POLICY.sync.maxWaitMs;
 
 /**
- * `'changed'`: the debounce timer. `'due'`: the soon alarm. `'always'`: the periodic alarm, or an
- * account or key that just became ready.
+ * `'changed'`: the debounce timer. `'due'`: the soon alarm. `'periodic'`: the periodic alarm.
+ * `'always'`: an account or key that just became ready.
  */
-export type SyncRunMode = 'changed' | 'due' | 'always';
+export type SyncRunMode = 'changed' | 'due' | 'periodic' | 'always';
 
-const STRENGTH: Record<SyncRunMode, number> = { changed: 0, due: 1, always: 2 };
+const STRENGTH: Record<SyncRunMode, number> = { changed: 0, due: 1, periodic: 2, always: 3 };
 
 /** The wait for the timer when a change lands `now`, in a burst that began at `burstStart`. Pure. */
 export function debounceDelay(burstStart: number, now: number): number {
@@ -38,7 +38,7 @@ export function createSyncScheduler(deps: {
 }): SyncScheduler {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let burstStart: number | undefined;
-  let running = false;
+  let running: AbortController | undefined;
   let waiting: SyncRunMode | undefined;
 
   const cancelTimer = () => {
@@ -48,22 +48,23 @@ export function createSyncScheduler(deps: {
   };
 
   const run = (mode: SyncRunMode) => {
-    if (mode === 'always') {
+    if (mode === 'periodic' || mode === 'always') {
       // This run reads what is dirty when it starts, so it sends what the timer was waiting to.
       cancelTimer();
     }
-    if (running) {
+    if (running !== undefined) {
       if (waiting === undefined || STRENGTH[mode] > STRENGTH[waiting]) {
         waiting = mode;
       }
       return;
     }
-    running = true;
+    running = new AbortController();
+    const { signal } = running;
     deps
-      .sync(mode === 'always' ? {} : { onlyIf: mode })
+      .sync(mode === 'always' ? { signal } : { signal, onlyIf: mode })
       .catch(deps.report)
       .finally(() => {
-        running = false;
+        running = undefined;
         const next = waiting;
         waiting = undefined;
         if (next !== undefined) {
@@ -78,6 +79,8 @@ export function createSyncScheduler(deps: {
     } else if (what === 'stop') {
       cancelTimer();
       waiting = undefined;
+      // Signed out: what is on the way belongs to nobody here any more.
+      running?.abort();
     } else if (what === 'soon') {
       const now = Date.now();
       burstStart ??= now;

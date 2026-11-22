@@ -30,7 +30,7 @@ Your sorting preferences (the grouping mode and how duplicate tabs are handled) 
 
 Automatic snapshots are **on by default**. Every 5 minutes (or another interval you choose, from 1 minute to 24 hours), and each time you click the icon to sort, the extension records the layout of your open windows as described above, but only when something changed since the last snapshot. Snapshots are stored in the same local storage as saved sessions and are subject to the same rules.
 
-To turn snapshots off, open Tabinet (right-click the icon → Options) and switch automatic snapshots off in Settings. With snapshots off, no timer exists. The extension still wakes briefly when Chrome starts, when it is installed or updated, and when you change a setting, to keep its own saved data tidy; none of that touches the network.
+To turn snapshots off, open Tabinet (right-click the icon → Options) and switch automatic snapshots off in Settings. With snapshots off, no snapshot timer exists (signed in to cloud sync, the sync timers still run). The extension still wakes briefly when Chrome starts, when it is installed or updated, and when you change a setting, to keep its own saved data tidy. Without cloud sync, none of that touches the network. Signed in to cloud sync, a changed setting is sent within seconds, and changes left waiting are sent after Chrome starts.
 
 ### Pausing YouTube videos
 

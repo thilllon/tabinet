@@ -48,8 +48,21 @@ export interface CloudSyncMeta {
    * the next one.
    */
   changedAt?: number;
-  /** Runs that failed in a row; absent after one that reached the end. */
+  /**
+   * Runs in a row that did not reach the end, counted as each starts (a worker that dies mid-run
+   * cannot count afterwards); absent after one that did.
+   */
   failures?: number;
+  /** With `failures`: no automatic run before this time (ms). */
+  retryAt?: number;
+  /**
+   * Records from the server this device skipped as unreadable, `kind:id` to their version. The
+   * cursor is past them, so no later run mentions them again: they stay here until a readable
+   * version arrives or this device's own replaces it.
+   */
+  unreadable?: Record<string, number>;
+  /** How many items the last finished run left here as too large for the server. */
+  tooLarge?: number;
   /** Why the last sync did not fully succeed, in the UI language of that moment. */
   lastError?: string;
   /** Saved sessions changed here and not yet accepted by the server: id to `updatedAt`. */
@@ -166,6 +179,9 @@ export function parseSyncMeta(value: unknown): CloudSyncMeta | undefined {
     !(value.lastAttemptAt === undefined || isCount(value.lastAttemptAt)) ||
     !(value.changedAt === undefined || isCount(value.changedAt)) ||
     !(value.failures === undefined || isCount(value.failures)) ||
+    !(value.retryAt === undefined || isCount(value.retryAt)) ||
+    !(value.unreadable === undefined || isStampMap(value.unreadable)) ||
+    !(value.tooLarge === undefined || isCount(value.tooLarge)) ||
     !isStampMap(value.dirtySessions) ||
     !isStampMap(value.deletedSessions) ||
     !(value.knownVersions === undefined || isStampMap(value.knownVersions)) ||
@@ -207,6 +223,15 @@ export function parseSyncMeta(value: unknown): CloudSyncMeta | undefined {
   }
   if (value.failures !== undefined) {
     meta.failures = value.failures;
+  }
+  if (value.retryAt !== undefined) {
+    meta.retryAt = value.retryAt;
+  }
+  if (value.unreadable !== undefined) {
+    meta.unreadable = { ...value.unreadable };
+  }
+  if (value.tooLarge !== undefined) {
+    meta.tooLarge = value.tooLarge;
   }
   if (value.settingsHash !== undefined) {
     meta.settingsHash = value.settingsHash;
@@ -332,6 +357,29 @@ export function withLocalChange(meta: CloudSyncMeta, now: number): CloudSyncMeta
 export function localChangeMade(oldValue: unknown, newValue: unknown): boolean {
   const changedAt = parseSyncMeta(newValue)?.changedAt;
   return changedAt !== undefined && changedAt !== parseSyncMeta(oldValue)?.changedAt;
+}
+
+/**
+ * `meta` after records were read from the server: `read` maps `kind:id` to the version that could
+ * not be read, or to `null` for one that could. Pure.
+ */
+export function withReadResults(
+  meta: CloudSyncMeta,
+  read: ReadonlyMap<string, number | null>,
+): CloudSyncMeta {
+  const unreadable = { ...meta.unreadable };
+  for (const [key, version] of read) {
+    if (version === null) {
+      delete unreadable[key];
+    } else {
+      unreadable[key] = version;
+    }
+  }
+  const next: CloudSyncMeta = { ...meta, unreadable };
+  if (Object.keys(unreadable).length === 0) {
+    delete next.unreadable;
+  }
+  return next;
 }
 
 /** Whether something waits to be sent, or received settings wait to be written. Pure. */
@@ -554,8 +602,12 @@ export interface SyncStatus {
   changedAt: number | null;
   /** Something waits to be sent. */
   pending: boolean;
-  /** The last run failed and will be tried again. */
+  /** The last run failed, or never reached its end, and will be tried again. */
   failing: boolean;
+  /** Records from the server that this device could not read and skipped. */
+  unreadable: number;
+  /** Items too large for the server, left on this device. */
+  tooLarge: number;
   lastError: string | undefined;
   /** Screenshots the server refused over its cap, kept on this device only. */
   heldImages: number;
@@ -573,6 +625,8 @@ export async function loadSyncStatus(): Promise<SyncStatus> {
     changedAt: meta?.changedAt ?? null,
     pending: meta !== undefined && hasPendingWork(meta),
     failing: (meta?.failures ?? 0) > 0,
+    unreadable: Object.keys(meta?.unreadable ?? {}).length,
+    tooLarge: meta?.tooLarge ?? 0,
     lastError: meta?.lastError,
     heldImages: Object.keys(meta?.heldImages ?? {}).length,
     heldImagesNoticed: meta?.heldImagesNoticed === true,

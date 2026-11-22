@@ -87,7 +87,7 @@ export const es: SiteCopy = {
       points: [
         'Se conservan las 20 más recientes; tú eliges el intervalo y cuántas',
         'Conservar pasa una instantánea a tus sesiones guardadas para siempre',
-        'Activadas por defecto, se desactivan con un clic y entonces no queda ningún temporizador',
+        'Activadas por defecto, se desactivan con un clic y entonces no queda ningún temporizador de instantáneas',
       ],
       alt: 'Una instantánea recuperada abierta en Tabinet, con tres instantáneas automáticas en la columna izquierda',
     },
@@ -208,7 +208,7 @@ export const es: SiteCopy = {
       },
       {
         q: '¿Qué guardan las instantáneas automáticas? ¿Puedo desactivarlas?',
-        a: 'Una instantánea contiene lo mismo que una sesión guardada: direcciones, títulos, pestañas fijadas, grupos de pestañas y disposición de las ventanas. Se toma cada 5 minutos (puedes cambiarlo) si algo ha cambiado, y cada vez que haces clic en el icono para ordenar. Por defecto se conservan las 20 más recientes (tú eliges cuántas), además de las que protejas. Desactívalas en Configuración y no queda ningún temporizador.',
+        a: 'Una instantánea contiene lo mismo que una sesión guardada: direcciones, títulos, pestañas fijadas, grupos de pestañas y disposición de las ventanas. Se toma cada 5 minutos (puedes cambiarlo) si algo ha cambiado, y cada vez que haces clic en el icono para ordenar. Por defecto se conservan las 20 más recientes (tú eliges cuántas), además de las que protejas. Desactívalas en Configuración y no queda ningún temporizador de instantáneas (los de sincronización solo funcionan mientras tienes la sesión iniciada en ella).',
       },
       {
         q: '¿Cómo restauro una sesión?',

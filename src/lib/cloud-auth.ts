@@ -44,6 +44,23 @@ export function isCloudAccount(value: unknown): value is CloudAccount {
 }
 
 /**
+ * Whether Settings shows the Sync row and the buttons of a signed-in device: ready, or the server
+ * not asked yet (or out of reach) with a live account and a key here, which is what the engine
+ * syncs with. Without this the row would be missing exactly when sync is failing. Pure.
+ */
+export function showsSyncRow(
+  state: AccountState | 'unknown',
+  account: CloudAccount | null,
+  hasLocalKey: boolean,
+  now: number,
+): boolean {
+  if (state === 'ready') {
+    return true;
+  }
+  return state === 'unknown' && hasLocalKey && account !== null && account.expiresAt > now;
+}
+
+/**
  * The state for what is known: whether sync is configured, the stored account, whether this device
  * holds a key for the server's setup, and that setup (`undefined` while it is not known yet).
  * 'ready' needs both halves: a setup on the server and its key here, so a key is never trusted
@@ -141,8 +158,14 @@ export async function loadSyncKey(): Promise<string | null> {
   return typeof value === 'string' && value !== '' ? value : null;
 }
 
-/** Forgets the account and the key on this device. Local sessions are untouched. */
-export async function forgetCloudAccount(): Promise<void> {
+/**
+ * Forgets the account and the key on this device. Local sessions are untouched. With `token`,
+ * only while that account is the stored one: a late 401 must not sign a newer sign-in out.
+ */
+export async function forgetCloudAccount(token?: string): Promise<void> {
+  if (token !== undefined && (await loadCloudAccount())?.token !== token) {
+    return;
+  }
   await chrome.storage.local.remove([CLOUD_ACCOUNT_KEY, CLOUD_SYNC_KEY]);
 }
 
@@ -163,13 +186,20 @@ export async function loadLiveCloudAccount(now: number): Promise<CloudAccount | 
  * Keeps the key on this device only when it opens `setup`, the account's setup on the server:
  * with no setup there, or one made with another passphrase (another account, or a passphrase
  * created again after the cloud data was deleted), the key is removed. Whether a key is kept.
+ * With `token` (whose setup it is), nothing is removed once another account is the stored one.
  */
-export async function keepSyncKeyFor(setup: CloudKeySetup | null): Promise<boolean> {
+export async function keepSyncKeyFor(
+  setup: CloudKeySetup | null,
+  token?: string,
+): Promise<boolean> {
   const rawKey = await loadSyncKey();
   if (rawKey === null) {
     return false;
   }
   if (setup !== null && (await keyMatchesSetup(rawKey, setup))) {
+    return true;
+  }
+  if (token !== undefined && (await loadCloudAccount())?.token !== token) {
     return true;
   }
   await chrome.storage.local.remove(CLOUD_SYNC_KEY);
@@ -202,11 +232,12 @@ async function requireAccount(): Promise<CloudAccount> {
  * good) and is then thrown on, so the page says so and shows "Sign in" again.
  */
 export async function withCloudAccount<T>(run: (account: CloudAccount) => Promise<T>): Promise<T> {
+  const account = await requireAccount();
   try {
-    return await run(await requireAccount());
+    return await run(account);
   } catch (err: unknown) {
     if (err instanceof CloudUnauthorizedError) {
-      await forgetCloudAccount();
+      await forgetCloudAccount(account.token);
     }
     throw err;
   }

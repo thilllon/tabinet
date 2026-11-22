@@ -31,7 +31,19 @@ export interface CloudApiOptions {
   fetch?: typeof fetch;
   /** The server origin; defaults to the configured `apiBase`. */
   apiBase?: string;
+  /** Gives the request up (the sync run it belongs to was stopped). */
+  signal?: AbortSignal;
 }
+
+/**
+ * How long the server has to start answering. Chrome stops a worker whose fetch has no answer
+ * after 30 seconds, and a hung request holds the sync lock, so it has to end as a failure first.
+ */
+export const REQUEST_ANSWER_MS = 25_000;
+/** A body adds to that at this rate, so a slow uplink can still send a whole batch from the page. */
+const UPLOAD_BYTES_PER_MS = 64;
+/** The whole request, the answer's body included. */
+const REQUEST_TOTAL_MS = 120_000;
 
 /** What `POST /v1/auth/google` answers. `keySetup` is `null` until a passphrase was created. */
 export interface CloudSignInResult {
@@ -187,6 +199,11 @@ async function errorCode(response: Response): Promise<string | undefined> {
  * Sends one request and returns the response when it is a 2xx (or one of `accept`). Never logs
  * the token or the body.
  */
+function unreachable(route: string, err: unknown): ExplainedError {
+  const reason = err instanceof Error ? err.message : String(err);
+  return new ExplainedError(`${route}: network failure (${reason})`, 'errorCloudUnreachable');
+}
+
 async function send(
   request: Request,
   options: CloudApiOptions,
@@ -201,16 +218,28 @@ async function send(
     headers['Content-Type'] = 'application/json';
   }
   const route = `${request.method} ${request.path.split('?')[0]}`;
+  const body = request.body === undefined ? undefined : JSON.stringify(request.body);
+  const unanswered = new AbortController();
+  const answerTimer = setTimeout(
+    () => unanswered.abort(),
+    REQUEST_ANSWER_MS + Math.round((body?.length ?? 0) / UPLOAD_BYTES_PER_MS),
+  );
+  const signals = [unanswered.signal, AbortSignal.timeout(REQUEST_TOTAL_MS)];
+  if (options.signal !== undefined) {
+    signals.push(options.signal);
+  }
   let response: Response;
   try {
     response = await doFetch(apiUrl(options.apiBase ?? cloudSyncConfig().apiBase, request.path), {
       method: request.method,
       headers,
-      body: request.body === undefined ? undefined : JSON.stringify(request.body),
+      body,
+      signal: AbortSignal.any(signals),
     });
   } catch (err: unknown) {
-    const reason = err instanceof Error ? err.message : String(err);
-    throw new ExplainedError(`${route}: network failure (${reason})`, 'errorCloudUnreachable');
+    throw unreachable(route, err);
+  } finally {
+    clearTimeout(answerTimer);
   }
   if (response.ok || accept.includes(response.status)) {
     return response;
@@ -229,8 +258,9 @@ async function json(response: Response, route: string): Promise<unknown> {
   try {
     const body: unknown = await response.json();
     return body;
-  } catch {
-    throw badResponse(route);
+  } catch (err: unknown) {
+    // Not JSON is a bad answer; a body cut off on the way is the network's.
+    throw err instanceof SyntaxError ? badResponse(route) : unreachable(route, err);
   }
 }
 
