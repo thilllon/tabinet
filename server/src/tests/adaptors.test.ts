@@ -1,6 +1,7 @@
 // Both production entry points as their hosts run them: the function Vercel calls, and the process
 // Railway starts with the start script.
 import { type ChildProcess, spawn } from 'node:child_process';
+import { randomInt } from 'node:crypto';
 import { once } from 'node:events';
 import { readFileSync } from 'node:fs';
 import http from 'node:http';
@@ -21,6 +22,37 @@ const START: string = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), '
 
 const children = new Set<ChildProcess>();
 
+async function canListen(port: number, host?: string): Promise<boolean> {
+  const probe = net.createServer();
+  const free = await new Promise<boolean>((resolve) => {
+    probe.once('error', () => resolve(false));
+    probe.listen(port, host, () => resolve(true));
+  });
+  if (free) {
+    await new Promise((resolve) => probe.close(resolve));
+  }
+  return free;
+}
+
+/**
+ * The server cannot be given PORT=0: on every interface, macOS hands out ports that another
+ * program holds on 127.0.0.1, and that program then gets the test's requests. So the port is
+ * checked on each address, and is below the range connections and PORT=0 draw from, or one of
+ * those could take it before the server does.
+ */
+async function freePort(): Promise<number> {
+  for (;;) {
+    const port = randomInt(20_000, 32_000);
+    if (
+      (await canListen(port, '127.0.0.1')) &&
+      (await canListen(port, '::1')) &&
+      (await canListen(port))
+    ) {
+      return port;
+    }
+  }
+}
+
 /** The start script, with the fake network loaded first and only the environment given here. */
 async function start(env: Record<string, string> = FAKE_ENV) {
   const [, ...args] = START.split(' ');
@@ -28,7 +60,7 @@ async function start(env: Record<string, string> = FAKE_ENV) {
   const child = spawn(
     process.execPath,
     [...args, '--import', './src/tests/fake-network.ts', script],
-    { cwd: ROOT, env: { PATH: process.env.PATH, PORT: '0', ...env } },
+    { cwd: ROOT, env: { PATH: process.env.PATH, PORT: String(await freePort()), ...env } },
   );
   children.add(child);
   const exited = once(child, 'exit').then(([code]) => code as number | null);
