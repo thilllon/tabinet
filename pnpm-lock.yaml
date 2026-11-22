@@ -96,25 +96,25 @@ importers:
 
   server:
     dependencies:
+      '@hono/node-server':
+        specifier: 2.1.8
+        version: 2.1.8(hono@4.13.18)
       '@neondatabase/serverless':
         specifier: 1.2.0
         version: 1.2.0
       hono:
         specifier: 4.13.18
         version: 4.13.18
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
     devDependencies:
       '@electric-sql/pglite':
         specifier: 0.5.15
         version: 0.5.15
-      '@hono/node-server':
-        specifier: 2.1.8
-        version: 2.1.8(hono@4.13.18)
       '@types/node':
         specifier: ^26.6.6
         version: 26.6.6
-      tsx:
-        specifier: ^4.23.15
-        version: 4.23.15
       typescript:
         specifier: 6.0.3
         version: 6.0.3

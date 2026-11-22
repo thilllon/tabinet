@@ -1,4 +1,4 @@
-// Production entry point: Vercel builds this file into the function /api/vercel-adapter.
+// Production entry point: Vercel builds this file into the function /api/vercel.adaptor.
 // vercel.json rewrites /v1/* to it, and it hands each request, original url intact, to src/app.ts.
 import { createServer } from '../src/production.js';
 

@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import * as adapter from '../../api/vercel-adapter.js';
+import * as adaptor from '../../api/vercel.adaptor.js';
 
 const ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -33,27 +33,87 @@ function importsOf(entry: string): { files: Set<string>; packages: Set<string> }
   return { files, packages };
 }
 
-describe('the Vercel adapter', () => {
+function readPackage(): { scripts: Record<string, string>; dependencies: Record<string, string> } {
+  return JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+}
+
+describe('the Vercel adaptor', () => {
   it('exports exactly the methods Vercel hands over, all one handler', () => {
-    expect(Object.keys(adapter).sort()).toEqual(['DELETE', 'GET', 'OPTIONS', 'POST', 'PUT']);
-    expect(new Set(Object.values(adapter)).size).toBe(1);
+    expect(Object.keys(adaptor).sort()).toEqual(['DELETE', 'GET', 'OPTIONS', 'POST', 'PUT']);
+    expect(new Set(Object.values(adaptor)).size).toBe(1);
   });
 
   it('is where vercel.json rewrites /v1/*', () => {
     expect(JSON.parse(readFileSync(path.join(ROOT, 'vercel.json'), 'utf8')).rewrites).toEqual([
-      { source: '/v1/:path*', destination: '/api/vercel-adapter' },
+      { source: '/v1/:path*', destination: '/api/vercel.adaptor' },
     ]);
   });
 
-  it('never pulls in dev or what only dev uses', () => {
-    const { files, packages } = importsOf('api/vercel-adapter.ts');
+  it('never pulls in dev, Railway or a Node server', () => {
+    const { files, packages } = importsOf('api/vercel.adaptor.ts');
     expect(files).toContain('src/app.ts');
     expect(files).not.toContain('src/dev.ts');
+    expect(files).not.toContain('src/railway.adaptor.ts');
     expect([...packages].sort()).toEqual(['@neondatabase/serverless', 'hono', 'node:crypto']);
   });
 });
 
+describe('the Railway adaptor', () => {
+  it('runs the same server as Vercel', () => {
+    const { files, packages } = importsOf('src/railway.adaptor.ts');
+    const vercel = importsOf('api/vercel.adaptor.ts');
+    expect([...files].sort()).toEqual(
+      [...vercel.files]
+        .filter((file) => !file.startsWith('api/'))
+        .concat('src/railway.adaptor.ts')
+        .sort(),
+    );
+    expect([...packages].sort()).toEqual(
+      [...vercel.packages, '@hono/node-server', 'node:net'].sort(),
+    );
+  });
+
+  it('never migrates, when it starts or before', () => {
+    expect(importsOf('src/railway.adaptor.ts').files).not.toContain('src/db/migrations.ts');
+    const { scripts } = readPackage();
+    expect(scripts.start).toBe('node --import tsx src/railway.adaptor.ts');
+    for (const hook of ['prestart', 'poststart', 'preinstall', 'postinstall', 'prepare']) {
+      expect(scripts).not.toHaveProperty(hook);
+    }
+  });
+
+  it('has the start script as the documented Railway start command', () => {
+    // Not the script itself there: pnpm ends a clean SIGTERM with exit code 1.
+    const readme = readFileSync(path.join(ROOT, 'README.md'), 'utf8');
+    expect(readme).toContain(`cd server && exec ${readPackage().scripts.start}`);
+  });
+
+  it('needs production dependencies only', () => {
+    const { dependencies } = readPackage();
+    const { packages } = importsOf('src/railway.adaptor.ts');
+    // tsx too: the start script loads it.
+    for (const name of [...packages, 'tsx'].filter((name) => !name.startsWith('node:'))) {
+      expect(dependencies).toHaveProperty([name]);
+    }
+  });
+
+  it('is imported by nothing', () => {
+    const sources = ['api', 'src', 'scripts'].flatMap((dir) =>
+      readdirSync(path.join(ROOT, dir), { recursive: true, encoding: 'utf8' })
+        .filter((file) => file.endsWith('.ts') && !file.startsWith('tests'))
+        .map((file) => path.join(dir, file)),
+    );
+    for (const source of sources.filter((file) => file !== 'src/railway.adaptor.ts')) {
+      expect(importsOf(source).files).not.toContain('src/railway.adaptor.ts');
+    }
+  });
+});
+
 describe('what Vercel builds', () => {
+  it('finds one function in api/', () => {
+    expect(readdirSync(path.join(ROOT, 'api'), { recursive: true })).toEqual(['vercel.adaptor.ts']);
+  });
+
   it('pins the preset "Other", so Hono is never detected in its place', () => {
     // Absent is not the same as null: on a project's first deployment Vercel then detects Hono from
     // the dependency and builds src/app.ts instead of api/, which fails.

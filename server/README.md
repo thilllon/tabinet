@@ -2,14 +2,17 @@
 
 ## Entry points
 
-| To         | File                    | Started by                                                                         |
-| ---------- | ----------------------- | ---------------------------------------------------------------------------------- |
-| Production | `api/vercel-adapter.ts` | Vercel: `vercel.json` rewrites `/v1/*` to it, and it calls the app in `src/app.ts` |
-| Local      | `src/dev.ts`            | `pnpm --filter tabinet-server dev`: 127.0.0.1:8787, an empty in-memory database    |
-| Migrate    | `scripts/migrate.ts`    | `DATABASE_URL=... pnpm --filter tabinet-server migrate`                            |
+| To         | File                     | Started by                                                                         |
+| ---------- | ------------------------ | ---------------------------------------------------------------------------------- |
+| Production | `api/vercel.adaptor.ts`  | Vercel: `vercel.json` rewrites `/v1/*` to it, and it calls the app in `src/app.ts` |
+| Railway    | `src/railway.adaptor.ts` | `PORT=... pnpm --filter tabinet-server start`; see "Deploy to Railway"             |
+| Local      | `src/dev.ts`             | `pnpm --filter tabinet-server dev`: 127.0.0.1:8787, an empty in-memory database    |
+| Migrate    | `scripts/migrate.ts`     | `DATABASE_URL=... pnpm --filter tabinet-server migrate`                            |
 
-The adapter has to be in `api/`: that is the only folder Vercel builds functions from with the
-"Other" preset. It is the only Vercel-specific code. To read the API, start at `src/app.ts`.
+The Vercel adaptor has to be in `api/`: that is the only folder Vercel builds functions from with
+the "Other" preset. It is the only Vercel-specific code. For the same reason the Railway adaptor
+must never be in `api/`: Vercel would deploy it. Both serve the one handler from
+`createServer()` in `src/production.ts`. To read the API, start at `src/app.ts`.
 
 `tabinet-server` keeps a signed-in user's saved sessions, YouTube notes (with their screenshots) and settings in step across devices. It
 stores them **end-to-end encrypted**: a device encrypts each record with a key derived from the
@@ -28,9 +31,10 @@ A Hono app, kept thin: a route handler calls the store directly. No services, cl
 
 | Path                              | What it is                                                                          |
 | --------------------------------- | ----------------------------------------------------------------------------------- |
-| `api/vercel-adapter.ts`           | The Vercel function: the five methods it exports, all one handler                   |
+| `api/vercel.adaptor.ts`           | The Vercel function: the five methods it exports, all one handler                   |
 | `src/app.ts`                      | `createApp(deps)`: the whole API, top to bottom                                     |
 | `src/production.ts`               | The real dependencies and `createServer()`, which builds the app on first use       |
+| `src/railway.adaptor.ts`          | The Railway server: `PORT`, graceful shutdown; imported by nothing                  |
 | `src/dev.ts`                      | The local server; never imported by what is deployed                                |
 | `src/env.ts`                      | Environment parsing; an error names the variable, never its value                   |
 | `src/context.ts`                  | `Deps`, and what middleware leaves on the request's context                         |
@@ -40,7 +44,7 @@ A Hono app, kept thin: a route handler calls the store directly. No services, cl
 | `src/routes/keys.ts`              | The key setup, set once                                                             |
 | `src/routes/records.ts`           | List and write records                                                              |
 | `src/middleware/auth.ts`          | The bearer token, checked before any body is read                                   |
-| `src/middleware/body-limit.ts`    | Reads a JSON body of at most 4 MiB                                                  |
+| `src/middleware/body-limit.ts`    | Reads a JSON body of at most 4 MiB, and stops reading there                         |
 | `src/middleware/cors.ts`          | CORS for the origins in `ALLOWED_ORIGINS` only, and every `OPTIONS`                 |
 | `src/middleware/errors.ts`        | Anything thrown becomes a JSON 500                                                  |
 | `src/middleware/unmatched.ts`     | 404, 405 with `Allow`, and no automatic `HEAD`                                      |
@@ -72,9 +76,12 @@ JSON, base path `/v1`. Every route but `POST /v1/auth/google` and `OPTIONS` need
 `{"error":"method_not_allowed"}` with `Allow`, any other path (a trailing slash included) 404
 `{"error":"not_found"}`, both whatever the token.
 
-Those are the app's answers. In production Vercel answers two cases before the app runs, without
-JSON, `Allow` or CORS: a method the adapter does not export (`HEAD`, `PATCH`) is its own empty
-405, and a path the rewrite does not match (a trailing slash) its own plain-text 404.
+Those are the app's answers. On Vercel two cases are answered before the app runs, without JSON,
+`Allow` or CORS: a method the adaptor does not export (`HEAD`, `PATCH`) is Vercel's own empty
+405, and a path the rewrite does not match (a trailing slash) its own plain-text 404. On Railway
+every path and method reaches the app, so those two get the app's answers, and there is no
+`robots.txt` (a 404). A request Node cannot turn into a URL (no `Host`, `OPTIONS *`, a backslash in
+the path) is an empty 400 there.
 
 | Route                                      | Answer                                                                                                                                                                    |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -110,7 +117,9 @@ Limits and rules:
 - At most 100 records and at most 4 MiB of body per request, whichever comes first, so a client
   splits its batches by size as well as by count; unknown fields are refused. One bad record
   refuses the whole request. (Vercel itself refuses a body over 4.5 MB before the function runs,
-  with no CORS headers and no JSON, which the 4 MiB limit keeps a client clear of.)
+  with no CORS headers and no JSON, which the 4 MiB limit keeps a client clear of. Railway has no
+  such cap: the app stops reading just past 4 MiB, and the Node server then closes the connection.
+  A client still uploading may see that reset instead of the 413.)
 - Last writer wins per `(kind, id)`: a write applies only when its `updatedAt` is greater than the
   stored one; a tie or an older one comes back `stale` with the stored record, read after the
   write. Each record is one conditional upsert statement, so concurrent writers cannot lose an
@@ -144,13 +153,13 @@ never reads a `.env` file or `DATABASE_URL`, and listens on 127.0.0.1 only. It h
 sign-in either: without `GOOGLE_CLIENT_IDS` in the shell every sign-in is a 401, and with it tokens
 are checked with Google as in production. `PORT` and `ALLOWED_ORIGINS` are read from the shell too.
 
-## Deploy
+## Deploy to Vercel
 
 1. **Create the Vercel project.** In Vercel, "Add New... > Project", import this repository and set
    **Root Directory** to `server`. Framework preset "Other"; no build command. `"framework": null`
    in `vercel.json` pins that preset and has to stay: without the key a project's first deployment
    detects Hono from the dependency even when "Other" was chosen, builds `src/app.ts` instead of
-   `api/`, and fails. The function runs on the Node.js runtime. Vercel compiles `api/vercel-adapter.ts` with the `typescript` it finds in `server/`,
+   `api/`, and fails. The function runs on the Node.js runtime. Vercel compiles `api/vercel.adaptor.ts` with the `typescript` it finds in `server/`,
    which needs the compiler API that TypeScript 7 no longer ships, so `server/` pins TypeScript 6.
 2. **Add Postgres.** In the project's **Storage** tab, add **Neon** from the Vercel Marketplace and
    connect it to the project. This sets `DATABASE_URL` for every environment.
@@ -184,3 +193,44 @@ are checked with Google as in production. `PORT` and `ALLOWED_ORIGINS` are read 
    extension" client for the unpacked id and add it to `GOOGLE_CLIENT_IDS` (comma-separated).
 
 Check it: `curl https://<project>.vercel.app/v1/me` answers 401 `{"error":"unauthorized"}`.
+
+## Deploy to Railway
+
+The same app on a long-running Node server. These settings follow Railway's and Railpack's
+documentation and have not been tried on Railway itself.
+
+| Setting (service)  | Value                                                                                                              |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| Root Directory     | empty: the repository root, for the lockfile, the workspace and files outside `server/` such as `src/constants.ts` |
+| Builder            | Railpack (Node and pnpm versions come from `mise.toml`)                                                            |
+| Build Command      | `echo no build` (without one Railpack runs the root `build`, the extension's)                                      |
+| Start Command      | `cd server && exec node --import tsx src/railway.adaptor.ts`                                                       |
+| Pre-Deploy Command | empty: migrations are never part of a deploy or a start                                                            |
+| Healthcheck Path   | empty: it needs a 2xx, and no route here answers a plain GET with one                                              |
+| Region             | Southeast Asia (Singapore), next to the database                                                                   |
+| Watch Paths        | `/server/**`, `/src/constants.ts`, `/package.json`, `/pnpm-lock.yaml`, `/pnpm-workspace.yaml`, `/mise.toml`        |
+| Networking         | a public domain, on the port Railway passes in `PORT`                                                              |
+
+| Variable                              | Value                                                                                                                       |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                        | as on Vercel: a **Neon** connection string. The driver speaks Neon's HTTP protocol, so Railway's own Postgres does not work |
+| `GOOGLE_CLIENT_IDS`                   | as on Vercel                                                                                                                |
+| `ALLOWED_ORIGINS`                     | as on Vercel                                                                                                                |
+| `PORT`                                | set by Railway; the server does not start without it                                                                        |
+| `RAILPACK_INSTALL_CMD`                | `pnpm install --frozen-lockfile --prod --filter tabinet-server`                                                             |
+| `RAILWAY_DEPLOYMENT_DRAINING_SECONDS` | `15`. The default is 0, which kills the server straight after SIGTERM                                                       |
+| `RAILWAY_DEPLOYMENT_OVERLAP_SECONDS`  | `10`. Without a health check this covers the new server's start                                                             |
+
+- The start command is the `start` script's own command, run with `exec` so that Node gets the
+  SIGTERM. Do not put `pnpm --filter tabinet-server start` there: pnpm ends a clean stop with exit
+  code 1, and `node --run start` does not pass the signal on.
+- On SIGTERM the server takes no new connection, lets the requests in flight finish for up to 10
+  seconds (hence the 15 above) and exits with 0.
+- A bad variable is reported as on Vercel: the server starts, and every request is a 500 with
+  `configuration failed` in the log. Only a missing or invalid `PORT` stops it from starting.
+- `tsx` is a production dependency because it is what runs the TypeScript. There is no build.
+- Create the tables by hand, as in step 4 above.
+- The extension calls `CLOUD_SYNC.apiBase` only. Moving production here means changing it and
+  saying so in `PRIVACY_POLICY.md`.
+
+Check it: `curl https://<service>.up.railway.app/v1/me` answers 401 `{"error":"unauthorized"}`.

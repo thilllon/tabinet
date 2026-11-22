@@ -38,3 +38,12 @@ export function readEnv(env: NodeJS.ProcessEnv): {
     allowedOrigins: listFromEnv(env.ALLOWED_ORIGINS),
   };
 }
+
+/** The port Railway gives the server in PORT. Vercel has none, so `readEnv()` does not ask for it. */
+export function readPort(env: NodeJS.ProcessEnv): number {
+  const value = requireEnv(env, 'PORT');
+  if (!/^\d+$/.test(value) || Number(value) > 65_535) {
+    throw new Error('Environment variable PORT is not a port');
+  }
+  return Number(value);
+}

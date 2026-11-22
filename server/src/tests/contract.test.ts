@@ -92,7 +92,7 @@ describe('paths', () => {
     '/v1/me%20',
     '/v1/%',
     '/v1/%E0%A4%A',
-    '/api/vercel-adapter',
+    '/api/vercel.adaptor',
   ])('%s is 404 for any method, without looking at the token', async (path) => {
     const { app, store } = setUp();
     for (const method of ['GET', 'POST', 'HEAD', 'PATCH']) {
@@ -222,6 +222,56 @@ describe('body', () => {
       expect(pull).not.toHaveBeenCalled();
     },
   );
+
+  it.each(['/v1/auth/google', '/v1/keys', '/v1/records'])(
+    '%s stops reading a body that never ends',
+    async (path) => {
+      const chunk = new Uint8Array(64 * 1024).fill(32);
+      let sent = 0;
+      const body = new ReadableStream<Uint8Array>(
+        {
+          pull(controller) {
+            // Ends far over the limit, so a reader without one fails here instead of running out of memory.
+            if (sent > MAX_BODY_BYTES * 4) {
+              controller.close();
+              return;
+            }
+            controller.enqueue(chunk);
+            sent += chunk.length;
+          },
+        },
+        { highWaterMark: 0 },
+      );
+      const req = new Request(`https://x.test${path}`, {
+        method: path === '/v1/keys' ? 'PUT' : 'POST',
+        headers: { Authorization: `Bearer ${TOKEN}` },
+        body,
+        duplex: 'half',
+      });
+      expect((await setUp().app.fetch(req)).status).toBe(413);
+      expect(sent).toBeLessThanOrEqual(MAX_BODY_BYTES + 2 * chunk.length);
+    },
+  );
+
+  it.each([
+    ['a byte order mark is not counted', [0xef, 0xbb, 0xbf], MAX_BODY_BYTES, 400],
+    [
+      'a byte order mark does not hide a byte too many',
+      [0xef, 0xbb, 0xbf],
+      MAX_BODY_BYTES + 1,
+      413,
+    ],
+    ['an invalid byte counts as its replacement', [0xff], MAX_BODY_BYTES - 1, 413],
+  ])('%s', async (_name, start, spaces, status) => {
+    const bytes = new Uint8Array(start.length + spaces).fill(32);
+    bytes.set(start);
+    const req = new Request('https://x.test/v1/records', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${TOKEN}` },
+      body: bytes,
+    });
+    expect((await setUp().app.fetch(req)).status).toBe(status);
+  });
 
   it('counts the bytes whatever Content-Length says', async () => {
     const { app } = setUp();
