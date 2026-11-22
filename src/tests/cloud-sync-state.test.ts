@@ -547,7 +547,8 @@ describe('alarms', () => {
       periodInMinutes: POLICY.sync.periodMinutes,
     });
     await scheduleSoonSync();
-    expect(state.alarms.get(CLOUD_SYNC_SOON_ALARM)).toMatchObject({ delayInMinutes: 1 });
+    // The fallback behind the debounce timer, at Chrome's shortest alarm.
+    expect(state.alarms.get(CLOUD_SYNC_SOON_ALARM)).toEqual({ when: Date.now() + 30_000 });
 
     state.local.delete(CLOUD_SYNC_KEY);
     await ensureSyncAlarm();

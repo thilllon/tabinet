@@ -1185,11 +1185,14 @@ export function createChromeFake(): ChromeFake {
     onClicked: onActionClicked,
   };
 
+  // As in Chrome, a delay counts from when the alarm was created, not from when it is read.
+  const alarmTimes = new WeakMap<chrome.alarms.AlarmCreateInfo, number>();
   const toAlarm = (name: string, info: chrome.alarms.AlarmCreateInfo): chrome.alarms.Alarm => ({
     name,
     periodInMinutes: info.periodInMinutes,
     persistAcrossSessions: true,
-    scheduledTime: info.when ?? Date.now() + (info.delayInMinutes ?? 0) * 60_000,
+    scheduledTime:
+      alarmTimes.get(info) ?? info.when ?? Date.now() + (info.delayInMinutes ?? 0) * 60_000,
   });
 
   const alarms = {
@@ -1203,7 +1206,9 @@ export function createChromeFake(): ChromeFake {
       if (!info) {
         throw new Error('alarms.create: alarmInfo is required');
       }
-      state.alarms.set(name, { ...info });
+      const stored = { ...info };
+      alarmTimes.set(stored, info.when ?? Date.now() + (info.delayInMinutes ?? 0) * 60_000);
+      state.alarms.set(name, stored);
     },
     async clear(name?: string): Promise<boolean> {
       return state.alarms.delete(name ?? '');

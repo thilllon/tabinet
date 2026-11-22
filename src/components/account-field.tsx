@@ -1,9 +1,10 @@
-import { KeyRound, LogOut, RefreshCw, RotateCw, Trash2 } from 'lucide-react';
+import { KeyRound, LogOut, RotateCw, Trash2 } from 'lucide-react';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 
 import { DeleteCloudDataDialog } from '@/components/delete-cloud-data-dialog';
 import { GoogleLogo } from '@/components/google-logo';
 import { SettingsField } from '@/components/settings-field';
+import { SyncStatusField } from '@/components/sync-status-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,9 +22,8 @@ import {
 } from '@/lib/cloud-auth';
 import { canSignInHere } from '@/lib/cloud-config';
 import { markHeldImagesNoticed } from '@/lib/cloud-sync';
-import { formatDateTime } from '@/lib/display-format';
 import { reportError } from '@/lib/error-message';
-import { formatNumber, joinSentences, t, tp } from '@/lib/i18n';
+import { formatNumber, t, tp } from '@/lib/i18n';
 import type { CloudKeySetup } from '@/types';
 
 interface AccountFieldProps {
@@ -36,18 +36,18 @@ interface AccountFieldProps {
  * `src/lib/cloud-auth.ts`). Signed out, a Google sign-in button; signed in without a passphrase
  * on the server, a form creating one (typed twice, with the warning that it cannot be
  * recovered); with one on the server but not on this device, a form entering it; ready, the
- * address, when the last sync finished (and why it failed), Sync now, Sign out and Delete cloud
- * data. Rendered only when cloud sync is configured.
+ * address with Sign out and Delete cloud data, then the Sync row (`SyncStatusField`: the live
+ * status, the next check, the ? help, Sync now). Rendered only when cloud sync is configured.
  */
 export function AccountField({ onNotice, onError }: AccountFieldProps) {
   const cloud = useCloudAccount();
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const syncing = useCloudSync(cloud.state === 'ready');
-  useErrorToast(syncing.lastError);
+  useErrorToast(syncing.facts.lastError);
 
   // Screenshots the server refused over its cap: said once, as a toast, and remembered as said.
-  const { heldImages, heldImagesNoticed } = syncing;
+  const { heldImages, heldImagesNoticed } = syncing.facts;
   const noticeRef = useRef(onNotice);
   noticeRef.current = onNotice;
   const heldShown = useRef(false);
@@ -164,33 +164,22 @@ export function AccountField({ onNotice, onError }: AccountFieldProps) {
       <>
         <SettingsField
           label={t('settingsAccountGoogle')}
-          hint={joinSentences(
-            t('settingsAccountSignedInAs', email),
-            syncing.lastSyncAt === null
-              ? t('settingsAccountNotSyncedYet')
-              : t('settingsAccountLastSync', formatDateTime(syncing.lastSyncAt)),
-          )}
+          hint={t('settingsAccountSignedInAs', email)}
         >
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={startSync}
-            disabled={busy || syncing.syncing}
-          >
-            <RefreshCw className={syncing.syncing ? 'animate-spin' : undefined} />
-            {t('settingsAccountSyncNow')}
-          </Button>
-          {signOutButton}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setConfirmDelete(true)}
-            disabled={busy}
-          >
-            <Trash2 />
-            {t('settingsAccountDelete')}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {signOutButton}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirmDelete(true)}
+              disabled={busy}
+            >
+              <Trash2 />
+              {t('settingsAccountDelete')}
+            </Button>
+          </div>
         </SettingsField>
+        <SyncStatusField view={syncing} disabled={busy} onSync={startSync} />
         <DeleteCloudDataDialog
           open={confirmDelete}
           busy={busy}

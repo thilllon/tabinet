@@ -2035,17 +2035,157 @@
     "message": "Sync now",
     "description": "Button in Settings > Account that syncs saved sessions and settings with the server right away. Keep it short."
   },
-  "settingsAccountLastSync": {
-    "message": "Last synced $1.",
-    "description": "Grey hint in Settings > Account once syncing is set up. $1 is the date and time of the last sync, already formatted."
-  },
   "settingsAccountNotSyncedYet": {
     "message": "Not synced yet.",
-    "description": "Grey hint in Settings > Account before the first sync has finished on this device."
+    "description": "Live sync status in Settings > Account before the first sync has finished on this device."
   },
   "settingsAccountSynced": {
     "message": "Synced.",
     "description": "Toast after \"Sync now\" finished."
+  },
+  "settingsAccountSync": {
+    "message": "Sync",
+    "description": "Label of the Sync row in Settings > Account, next to a ? button. One word."
+  },
+  "settingsAccountSyncNowHint": {
+    "message": "Send this device’s changes and get the changes from other devices now",
+    "description": "Tooltip of the \"Sync now\" button."
+  },
+  "settingsAccountStatusSyncing": {
+    "message": "Syncing now...",
+    "description": "Live sync status in Settings > Account while a sync runs. One short sentence."
+  },
+  "settingsAccountStatusSoon": {
+    "message": "Changes waiting. They will be sent in a few seconds.",
+    "description": "Live sync status: a change on this device waits for its short timer. One short sentence."
+  },
+  "settingsAccountStatusWaiting": {
+    "message": "Changes waiting. They will be sent at $1.",
+    "description": "Live sync status: changes wait for a scheduled sync. $1 is that time of day with seconds, already formatted."
+  },
+  "settingsAccountStatusWaitingPlain": {
+    "message": "Changes waiting to be sent.",
+    "description": "Live sync status: changes wait to be sent and the time is not known yet."
+  },
+  "settingsAccountStatusFailed": {
+    "message": "Sync failed. It will try again at $1.",
+    "description": "Live sync status after a failed sync. $1 is the time of day of the next try with seconds, already formatted."
+  },
+  "settingsAccountStatusFailedPlain": {
+    "message": "Sync failed. It will try again.",
+    "description": "Live sync status after a failed sync, when the time of the next try is not known yet."
+  },
+  "settingsAccountStatusPartial": {
+    "message": "Some items did not sync. Next sync at $1.",
+    "description": "Live sync status when a sync finished but left some items out. $1 is the time of day of the next sync, already formatted."
+  },
+  "settingsAccountStatusPartialPlain": {
+    "message": "Some items did not sync.",
+    "description": "Live sync status when a sync finished but left some items out and the next time is not known yet."
+  },
+  "settingsAccountStatusUpToDate": {
+    "message": "Up to date. Last synced $1.",
+    "description": "Live sync status when nothing waits to be sent. $1 is the date and time of the last sync, already formatted."
+  },
+  "settingsAccountStatusHeld_one": {
+    "message": "Synced $2, except $1 screenshot over the limit.",
+    "description": "Live sync status when all but screenshots over the account limit are synced. $1 is how many stay only on this device, $2 the date and time of the last sync."
+  },
+  "settingsAccountStatusHeld_other": {
+    "message": "Synced $2, except $1 screenshots over the limit.",
+    "description": "Live sync status when all but screenshots over the account limit are synced. $1 is how many stay only on this device, $2 the date and time of the last sync."
+  },
+  "settingsAccountNextCheck_other": {
+    "message": "Next check for changes from other devices: $2 (every $1 minutes)",
+    "description": "Line under the sync status, always visible. $1 is the period in minutes (15), $2 the time of day of the next check, already formatted."
+  },
+  "settingsAccountCheckEvery_other": {
+    "message": "Changes from other devices are checked every $1 minutes.",
+    "description": "Line under the sync status while the time of the next check is not known yet. $1 is the period in minutes (15)."
+  },
+  "settingsAccountHelpLabel": {
+    "message": "How sync works",
+    "description": "Label and tooltip of the ? button next to Sync, and the title of the explanation it opens."
+  },
+  "settingsAccountHelpIntro": {
+    "message": "Devices sync with each other when they are signed in to the same Google account and unlocked with its sync passphrase.",
+    "description": "First paragraph of the sync explanation: both the same Google account and the same passphrase are needed."
+  },
+  "settingsAccountHelpSendTitle": {
+    "message": "When this device’s changes are sent",
+    "description": "Heading in the sync explanation: when this device sends."
+  },
+  "settingsAccountHelpSendChange_other": {
+    "message": "A few seconds after you change something. While you keep editing, at least every $1 seconds.",
+    "description": "Sync explanation. $1 is the longest wait in seconds (10) while edits keep coming."
+  },
+  "settingsAccountHelpSendSignIn": {
+    "message": "Right away when you create or enter the passphrase.",
+    "description": "Sync explanation: no wait after the passphrase."
+  },
+  "settingsAccountHelpSendPaused_other": {
+    "message": "If Chrome stops Tabinet in the background before that, within about $1 seconds.",
+    "description": "Sync explanation: the fallback when Chrome stopped the extension in the background. $1 is seconds (30)."
+  },
+  "settingsAccountHelpReceiveTitle": {
+    "message": "When other devices receive them",
+    "description": "Heading in the sync explanation: when other devices receive."
+  },
+  "settingsAccountHelpReceiveEvery_other": {
+    "message": "Each device checks every $1 minutes, so a change can take that long to appear there.",
+    "description": "Sync explanation. $1 is the period in minutes (15)."
+  },
+  "settingsAccountHelpReceiveWhy": {
+    "message": "It is not instant because the server cannot notify a device: each one has to ask. Asking much more often would keep Chrome and the server working all the time.",
+    "description": "Sync explanation: why receiving is not instant."
+  },
+  "settingsAccountHelpNowTitle": {
+    "message": "If you do not want to wait",
+    "description": "Heading in the sync explanation: how not to wait."
+  },
+  "settingsAccountHelpNowButton": {
+    "message": "“Sync now” sends and receives at once.",
+    "description": "Sync explanation. Quote the \"Sync now\" button by its own label."
+  },
+  "settingsAccountHelpNowOpen": {
+    "message": "Opening or reloading the Tabinet page does the same. On the other device, either one gets your changes immediately.",
+    "description": "Sync explanation: the Tabinet page syncs as it loads."
+  },
+  "settingsAccountHelpAwayTitle": {
+    "message": "Offline or Chrome closed",
+    "description": "Heading in the sync explanation: offline or Chrome closed."
+  },
+  "settingsAccountHelpAwayOffline_other": {
+    "message": "Offline, changes stay on this device. Sync tries again after $2 seconds, then less often, up to $1 minutes apart.",
+    "description": "Sync explanation. $1 is the longest gap between retries in minutes (15), $2 the first retry in seconds (30)."
+  },
+  "settingsAccountHelpAwayClosed": {
+    "message": "With Chrome closed, nothing is sent or received. After Chrome starts, waiting changes go out within about a minute and others arrive at the next check.",
+    "description": "Sync explanation: Chrome closed or the computer asleep."
+  },
+  "settingsAccountHelpWhatTitle": {
+    "message": "What syncs and what does not",
+    "description": "Heading in the sync explanation: what syncs."
+  },
+  "settingsAccountHelpWhatSynced_other": {
+    "message": "Synced: saved sessions, YouTube notes with their screenshots (up to $1 per account) and settings, including the language.",
+    "description": "Sync explanation. $1 is the screenshot limit per account (100)."
+  },
+  "settingsAccountHelpWhatLocal": {
+    "message": "Not synced: snapshots (“Keep” one to sync it), open tabs, keyboard shortcuts and “Access to YouTube”, which you allow on each device.",
+    "description": "Sync explanation: what never syncs. Quote \"Keep\" and \"Access to YouTube\" by their own labels."
+  },
+  "settingsAccountHelpConflictTitle": {
+    "message": "If two devices change the same thing",
+    "description": "Heading in the sync explanation: conflicting edits."
+  },
+  "settingsAccountHelpConflictNewer": {
+    "message": "The later change wins, by each device’s clock, and replaces the other. A deletion counts as a change.",
+    "description": "Sync explanation: last writer wins, by each device’s clock, deletions included."
+  },
+  "settingsAccountHelpConflictWhole": {
+    "message": "Changes are not merged: a session, all notes of one video, or all settings are replaced as a whole.",
+    "description": "Sync explanation: the unit that is replaced."
   },
   "settingsAccountImagesHeld_one": {
     "message": "$1 screenshot did not sync: your account already holds $2 screenshots, the most it keeps. It stays on this device and syncs once you delete a screenshot.",

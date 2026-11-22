@@ -1867,17 +1867,153 @@
     "message": "今すぐ同期",
     "description": "Button in Settings > Account that syncs saved sessions and settings with the server right away. Keep it short."
   },
-  "settingsAccountLastSync": {
-    "message": "最終同期: $1",
-    "description": "Grey hint in Settings > Account once syncing is set up. $1 is the date and time of the last sync, already formatted."
-  },
   "settingsAccountNotSyncedYet": {
     "message": "まだ同期していません。",
-    "description": "Grey hint in Settings > Account before the first sync has finished on this device."
+    "description": "Live sync status in Settings > Account before the first sync has finished on this device."
   },
   "settingsAccountSynced": {
     "message": "同期しました。",
     "description": "Toast after \"Sync now\" finished."
+  },
+  "settingsAccountSync": {
+    "message": "同期",
+    "description": "Label of the Sync row in Settings > Account, next to a ? button. One word."
+  },
+  "settingsAccountSyncNowHint": {
+    "message": "この端末の変更を今すぐ送信し、他の端末の変更を受け取ります",
+    "description": "Tooltip of the \"Sync now\" button."
+  },
+  "settingsAccountStatusSyncing": {
+    "message": "同期しています...",
+    "description": "Live sync status in Settings > Account while a sync runs. One short sentence."
+  },
+  "settingsAccountStatusSoon": {
+    "message": "未送信の変更があります。数秒以内に送信します。",
+    "description": "Live sync status: a change on this device waits for its short timer. One short sentence."
+  },
+  "settingsAccountStatusWaiting": {
+    "message": "未送信の変更があります。$1に送信します。",
+    "description": "Live sync status: changes wait for a scheduled sync. $1 is that time of day with seconds, already formatted."
+  },
+  "settingsAccountStatusWaitingPlain": {
+    "message": "未送信の変更があります。",
+    "description": "Live sync status: changes wait to be sent and the time is not known yet."
+  },
+  "settingsAccountStatusFailed": {
+    "message": "同期できませんでした。$1に再試行します。",
+    "description": "Live sync status after a failed sync. $1 is the time of day of the next try with seconds, already formatted."
+  },
+  "settingsAccountStatusFailedPlain": {
+    "message": "同期できませんでした。再試行します。",
+    "description": "Live sync status after a failed sync, when the time of the next try is not known yet."
+  },
+  "settingsAccountStatusPartial": {
+    "message": "一部を同期できませんでした。次の同期は$1です。",
+    "description": "Live sync status when a sync finished but left some items out. $1 is the time of day of the next sync, already formatted."
+  },
+  "settingsAccountStatusPartialPlain": {
+    "message": "一部を同期できませんでした。",
+    "description": "Live sync status when a sync finished but left some items out and the next time is not known yet."
+  },
+  "settingsAccountStatusUpToDate": {
+    "message": "すべて同期済みです。最終同期: $1",
+    "description": "Live sync status when nothing waits to be sent. $1 is the date and time of the last sync, already formatted."
+  },
+  "settingsAccountStatusHeld_other": {
+    "message": "上限を超えたスクリーンショット $1 枚を除いて同期済みです。最終同期: $2",
+    "description": "Live sync status when all but screenshots over the account limit are synced. $1 is how many stay only on this device, $2 the date and time of the last sync."
+  },
+  "settingsAccountNextCheck_other": {
+    "message": "他の端末の変更を次に確認: $2($1分ごと)",
+    "description": "Line under the sync status, always visible. $1 is the period in minutes (15), $2 the time of day of the next check, already formatted."
+  },
+  "settingsAccountCheckEvery_other": {
+    "message": "他の端末の変更は$1分ごとに確認します。",
+    "description": "Line under the sync status while the time of the next check is not known yet. $1 is the period in minutes (15)."
+  },
+  "settingsAccountHelpLabel": {
+    "message": "同期の仕組み",
+    "description": "Label and tooltip of the ? button next to Sync, and the title of the explanation it opens."
+  },
+  "settingsAccountHelpIntro": {
+    "message": "同じ Google アカウントでログインし、そのアカウントの同期パスフレーズでロック解除した端末どうしで同期します。",
+    "description": "First paragraph of the sync explanation: both the same Google account and the same passphrase are needed."
+  },
+  "settingsAccountHelpSendTitle": {
+    "message": "この端末の変更を送信するタイミング",
+    "description": "Heading in the sync explanation: when this device sends."
+  },
+  "settingsAccountHelpSendChange_other": {
+    "message": "変更の数秒後に送信します。編集が続いていても、遅くとも$1秒ごとに送信します。",
+    "description": "Sync explanation. $1 is the longest wait in seconds (10) while edits keep coming."
+  },
+  "settingsAccountHelpSendSignIn": {
+    "message": "パスフレーズを作成または入力すると、すぐに同期します。",
+    "description": "Sync explanation: no wait after the passphrase."
+  },
+  "settingsAccountHelpSendPaused_other": {
+    "message": "その前に Chrome がバックグラウンドの Tabinet を停止した場合は、約$1秒以内に送信します。",
+    "description": "Sync explanation: the fallback when Chrome stopped the extension in the background. $1 is seconds (30)."
+  },
+  "settingsAccountHelpReceiveTitle": {
+    "message": "他の端末が受け取るタイミング",
+    "description": "Heading in the sync explanation: when other devices receive."
+  },
+  "settingsAccountHelpReceiveEvery_other": {
+    "message": "各端末が$1分ごとに確認するため、他の端末に表示されるまでその分かかることがあります。",
+    "description": "Sync explanation. $1 is the period in minutes (15)."
+  },
+  "settingsAccountHelpReceiveWhy": {
+    "message": "すぐに届かないのは、サーバーから端末へ通知できず、各端末が問い合わせる必要があるためです。問い合わせの回数を大きく増やすと、Chrome とサーバーが休みなく動き続けることになります。",
+    "description": "Sync explanation: why receiving is not instant."
+  },
+  "settingsAccountHelpNowTitle": {
+    "message": "待たずに同期するには",
+    "description": "Heading in the sync explanation: how not to wait."
+  },
+  "settingsAccountHelpNowButton": {
+    "message": "「今すぐ同期」で、すぐに送受信します。",
+    "description": "Sync explanation. Quote the \"Sync now\" button by its own label."
+  },
+  "settingsAccountHelpNowOpen": {
+    "message": "Tabinet のページを開くか再読み込みしても同じです。他の端末でどちらかを行えば、変更をすぐに受け取れます。",
+    "description": "Sync explanation: the Tabinet page syncs as it loads."
+  },
+  "settingsAccountHelpAwayTitle": {
+    "message": "オフラインまたは Chrome を終了しているとき",
+    "description": "Heading in the sync explanation: offline or Chrome closed."
+  },
+  "settingsAccountHelpAwayOffline_other": {
+    "message": "オフラインの間、変更はこの端末に残ります。$2秒後に再試行し、その後は間隔を最長$1分まで延ばします。",
+    "description": "Sync explanation. $1 is the longest gap between retries in minutes (15), $2 the first retry in seconds (30)."
+  },
+  "settingsAccountHelpAwayClosed": {
+    "message": "Chrome を終了している間は送受信しません。Chrome を起動すると、未送信の変更は約1分以内に送信し、他の端末の変更は次の確認時に受け取ります。",
+    "description": "Sync explanation: Chrome closed or the computer asleep."
+  },
+  "settingsAccountHelpWhatTitle": {
+    "message": "同期されるものとされないもの",
+    "description": "Heading in the sync explanation: what syncs."
+  },
+  "settingsAccountHelpWhatSynced_other": {
+    "message": "同期される: 保存したセッション、YouTube メモとそのスクリーンショット(アカウントごとに最大$1枚)、言語を含む設定",
+    "description": "Sync explanation. $1 is the screenshot limit per account (100)."
+  },
+  "settingsAccountHelpWhatLocal": {
+    "message": "同期されない: スナップショット(「保持」すると同期)、開いているタブ、キーボードショートカット、端末ごとに許可する「YouTube へのアクセス」",
+    "description": "Sync explanation: what never syncs. Quote \"Keep\" and \"Access to YouTube\" by their own labels."
+  },
+  "settingsAccountHelpConflictTitle": {
+    "message": "2台の端末で同じものを変更したとき",
+    "description": "Heading in the sync explanation: conflicting edits."
+  },
+  "settingsAccountHelpConflictNewer": {
+    "message": "各端末の時計で後に行った変更が残り、もう一方を上書きします。削除も変更として扱います。",
+    "description": "Sync explanation: last writer wins, by each device’s clock, deletions included."
+  },
+  "settingsAccountHelpConflictWhole": {
+    "message": "内容は統合されません。セッション1件、動画1本分のメモ全体、または設定全体が丸ごと置き換わります。",
+    "description": "Sync explanation: the unit that is replaced."
   },
   "settingsAccountImagesHeld_other": {
     "message": "スクリーンショット $1 枚を同期できませんでした。アカウントにはすでに上限の $2 枚があります。この端末には残っていて、スクリーンショットを削除すると同期されます。",

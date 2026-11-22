@@ -38,8 +38,18 @@ export interface CloudSyncMeta {
   keyId: string;
   /** The server's change feed position: the last `seq` this device has read. */
   cursor: number;
-  /** When the last sync finished (ms), or `null` before the first. */
+  /** When the last sync that reached the end finished (ms); a failed one does not move it. */
   lastSyncAt: number | null;
+  /** When the last run started (ms), written as it starts. */
+  lastAttemptAt?: number;
+  /**
+   * When this device last changed something to send. Only the change trackers move it, never a
+   * run's own bookkeeping, and only its moving asks for a sync: that is why a sync cannot set off
+   * the next one.
+   */
+  changedAt?: number;
+  /** Runs that failed in a row; absent after one that reached the end. */
+  failures?: number;
   /** Why the last sync did not fully succeed, in the UI language of that moment. */
   lastError?: string;
   /** Saved sessions changed here and not yet accepted by the server: id to `updatedAt`. */
@@ -153,6 +163,9 @@ export function parseSyncMeta(value: unknown): CloudSyncMeta | undefined {
     !isCount(value.cursor) ||
     !(value.lastSyncAt === null || isCount(value.lastSyncAt)) ||
     !(value.lastError === undefined || typeof value.lastError === 'string') ||
+    !(value.lastAttemptAt === undefined || isCount(value.lastAttemptAt)) ||
+    !(value.changedAt === undefined || isCount(value.changedAt)) ||
+    !(value.failures === undefined || isCount(value.failures)) ||
     !isStampMap(value.dirtySessions) ||
     !isStampMap(value.deletedSessions) ||
     !(value.knownVersions === undefined || isStampMap(value.knownVersions)) ||
@@ -185,6 +198,15 @@ export function parseSyncMeta(value: unknown): CloudSyncMeta | undefined {
   };
   if (value.lastError !== undefined) {
     meta.lastError = value.lastError;
+  }
+  if (value.lastAttemptAt !== undefined) {
+    meta.lastAttemptAt = value.lastAttemptAt;
+  }
+  if (value.changedAt !== undefined) {
+    meta.changedAt = value.changedAt;
+  }
+  if (value.failures !== undefined) {
+    meta.failures = value.failures;
   }
   if (value.settingsHash !== undefined) {
     meta.settingsHash = value.settingsHash;
@@ -301,6 +323,33 @@ export function withKnownVersion(
   return { ...meta, knownVersions: { ...meta.knownVersions, [id]: updatedAt } };
 }
 
+/** `meta` with a change of this device's own recorded as made `now`, always moving forward. Pure. */
+export function withLocalChange(meta: CloudSyncMeta, now: number): CloudSyncMeta {
+  return { ...meta, changedAt: Math.max(now, (meta.changedAt ?? 0) + 1) };
+}
+
+/** Whether a `storage.onChanged` change of `cloudSyncMeta` is a change of this device's own. Pure. */
+export function localChangeMade(oldValue: unknown, newValue: unknown): boolean {
+  const changedAt = parseSyncMeta(newValue)?.changedAt;
+  return changedAt !== undefined && changedAt !== parseSyncMeta(oldValue)?.changedAt;
+}
+
+/** Whether something waits to be sent, or received settings wait to be written. Pure. */
+export function hasPendingWork(meta: CloudSyncMeta): boolean {
+  return (
+    meta.settingsDirty ||
+    meta.pendingSettings !== undefined ||
+    [
+      meta.dirtySessions,
+      meta.deletedSessions,
+      meta.notes?.dirty,
+      meta.notes?.deleted,
+      meta.images?.dirty,
+      meta.images?.deleted,
+    ].some((entries) => entries !== undefined && Object.keys(entries).length > 0)
+  );
+}
+
 /** Saved-session writes for the dirty sets: what changed (with its new `updatedAt`) or was deleted. */
 export interface SessionChanges {
   changed?: readonly (readonly [SessionId, number])[];
@@ -356,7 +405,7 @@ export async function trackSessionChanges(
   if (meta === undefined) {
     return;
   }
-  await writeSyncMeta(withSessionChanges(meta, changes, now));
+  await writeSyncMeta(withLocalChange(withSessionChanges(meta, changes, now), now));
 }
 
 /** Note-side writes for the dirty sets (`notesRepo`, src/lib/notes-repo.ts). */
@@ -468,13 +517,14 @@ export async function trackNoteChanges(
   }
   const next = withNoteChanges(meta, changes, now);
   if (next !== meta) {
-    await writeSyncMeta(next);
+    await writeSyncMeta(withLocalChange(next, now));
   }
 }
 
 /**
- * Whether a `storage.onChanged` change of `cloudSyncMeta` added something to send: a session id
- * that was not pending before (or is pending with a newer stamp), or settings that became dirty.
+ * Whether the bookkeeping gained something to send between two readings of it: an id that was
+ * not pending before (or is pending with a newer stamp), or settings that became dirty. The end
+ * of a run uses it to see whether work appeared after the push had read what to send.
  * Clearing entries, moving the cursor and recording a result do not count. Pure.
  */
 export function syncWorkGrew(oldValue: unknown, newValue: unknown): boolean {
@@ -500,6 +550,12 @@ export function syncWorkGrew(oldValue: unknown, newValue: unknown): boolean {
 /** What Settings > Account shows about syncing. */
 export interface SyncStatus {
   lastSyncAt: number | null;
+  lastAttemptAt: number | null;
+  changedAt: number | null;
+  /** Something waits to be sent. */
+  pending: boolean;
+  /** The last run failed and will be tried again. */
+  failing: boolean;
   lastError: string | undefined;
   /** Screenshots the server refused over its cap, kept on this device only. */
   heldImages: number;
@@ -513,6 +569,10 @@ export async function loadSyncStatus(): Promise<SyncStatus> {
   const meta = context === null ? undefined : await readSyncMetaFor(context);
   return {
     lastSyncAt: meta?.lastSyncAt ?? null,
+    lastAttemptAt: meta?.lastAttemptAt ?? null,
+    changedAt: meta?.changedAt ?? null,
+    pending: meta !== undefined && hasPendingWork(meta),
+    failing: (meta?.failures ?? 0) > 0,
     lastError: meta?.lastError,
     heldImages: Object.keys(meta?.heldImages ?? {}).length,
     heldImagesNoticed: meta?.heldImagesNoticed === true,

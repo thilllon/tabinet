@@ -1,6 +1,6 @@
 # Política de privacidad - Tabinet
 
-Última actualización: 12 de noviembre de 2026
+Última actualización: 23 de noviembre de 2026
 
 ## Resumen
 
@@ -87,7 +87,7 @@ Esta extensión necesita los siguientes permisos:
 - **contextMenus**: para agregar «¡Reunir!», «Guardar todas las ventanas como sesión», «Pausar todos los vídeos de YouTube» y «Notas de YouTube» al menú contextual del icono de la extensión. No se agrega ningún elemento de menú a las páginas web.
 - **unlimitedStorage**: permite que las sesiones grandes superen la cuota predeterminada del almacenamiento local de Chrome. No cambia dónde se guardan los datos y no envía nada a ningún sitio.
 - **favicon**: para mostrar, junto a las pestañas de la página de Tabinet, los iconos de los sitios desde la caché local de favicons de Chrome. No se descarga ningún icono de la red y la extensión no guarda datos de iconos.
-- **alarms**: se usa como temporizador de las instantáneas automáticas, con el intervalo que elijas, y, mientras tienes iniciada la sesión de sincronización en la nube, para sincronizar cada 15 minutos y poco después de cada cambio. Con las instantáneas automáticas desactivadas y sin sesión iniciada, no existe ningún temporizador.
+- **alarms**: se usa como temporizador de las instantáneas automáticas, con el intervalo que elijas, y, mientras tienes iniciada la sesión de sincronización en la nube, para buscar cambios cada 15 minutos, enviar un cambio si Chrome detuvo la extensión antes de que pudiera hacerlo y reintentar una sincronización fallida. Con las instantáneas automáticas desactivadas y sin sesión iniciada, no existe ningún temporizador.
 - **identity**: solo para la sincronización en la nube, cuando haces clic en «Iniciar sesión con Google»: pide a Chrome un token de acceso de Google con los ámbitos `openid` y `email`, como se describe en «Sincronización en la nube». Si no inicias sesión, nunca se usa.
 - **scripting**: solo en YouTube: para pausar los vídeos cuando lo pides, como se describe en «Pausar los vídeos de YouTube», y, para las notas de YouTube, para leer el tiempo y el título del vídeo, llevarlo al tiempo de una nota y hacer una captura cuando lo pides, como se describe en «Notas de YouTube». Solo funciona en los sitios que permitas a continuación.
 - **sidePanel**: para mostrar las notas de YouTube en el panel lateral de Chrome cuando lo abres desde el menú contextual, su combinación de teclas o la página de Tabinet. Hacer clic en el icono nunca lo abre.

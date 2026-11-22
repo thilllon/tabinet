@@ -25,6 +25,10 @@
  * the worker never sync at once; network calls happen outside the sessions lock, and every local
  * write goes through `sessionRepo` or `notesRepo` (`applyRemote()` for what the server sent).
  *
+ * When it runs (#257): at once when the account and key become ready, a few seconds after a
+ * change (`src/lib/cloud-sync-scheduler.ts`, with the soon alarm behind it), on retry after a
+ * failure, and every `SYNC_PERIOD_MINUTES` for what other devices changed.
+ *
  * The settings apply path (`writeReceivedSettings()`) is the one place sessions code writes
  * `chrome.storage.sync`: the sort settings and `uiLanguage` live there, so applying settings from
  * another device must write them there. `readLocalSettings()` is the matching read.
@@ -46,13 +50,17 @@ import {
   CLOUD_SYNC_META_KEY,
   type CloudSyncMeta,
   freshSyncMeta,
+  hasPendingWork,
   loadSyncContext,
+  localChangeMade,
   readSyncMeta,
+  parseSyncMeta,
   readSyncMetaFor,
   type SyncContext,
   syncWorkGrew,
   withKnownVersion,
   withHeldImages,
+  withLocalChange,
   writeSyncMeta,
 } from '@/lib/cloud-sync-state';
 import { errorMessage, ExplainedError } from '@/lib/error-message';
@@ -76,12 +84,24 @@ import type {
 
 /** The periodic sync alarm, every `POLICY.sync.periodMinutes` while ready. */
 export const CLOUD_SYNC_ALARM = 'cloud-sync';
-/** The one-shot alarm about a minute after a local change. */
+/** The one-shot alarm behind the debounce timer (which dies with the worker), and for retries. */
 export const CLOUD_SYNC_SOON_ALARM = 'cloud-sync-soon';
-const SYNC_SOON_MINUTES = 1;
+/**
+ * The one wait that is needed: the server cannot push, so this is how often another device's
+ * changes are looked for. Asking more often would also keep the serverless Postgres (idle timeout
+ * 5 minutes) from ever suspending.
+ */
+export const SYNC_PERIOD_MINUTES = POLICY.sync.periodMinutes;
+/** The shortest delay Chrome accepts for an alarm (Chrome 120+). */
+export const SYNC_FALLBACK_MS = POLICY.sync.fallbackMs;
+
+/** The wait after the `failures`th failed run in a row: 30 seconds, doubled up to the period. Pure. */
+export function retryDelayMs(failures: number): number {
+  return Math.min(SYNC_FALLBACK_MS * 2 ** (failures - 1), SYNC_PERIOD_MINUTES * 60_000);
+}
 
 /** The Web Lock one sync holds from start to end, shared by the page and the worker. */
-const SYNC_LOCK_NAME = 'tabinet:cloud-sync';
+export const SYNC_LOCK_NAME = 'tabinet:cloud-sync';
 
 /** The id of the one settings record. */
 const SETTINGS_RECORD_ID = 'settings';
@@ -97,7 +117,7 @@ export interface SyncedSettings {
 }
 
 export interface SyncResult {
-  outcome: 'synced' | 'notReady' | 'failed';
+  outcome: 'synced' | 'skipped' | 'notReady' | 'failed';
   /** Remote changes applied on this device. */
   pulled: number;
   /** Local changes the server accepted. */
@@ -105,6 +125,12 @@ export interface SyncResult {
 }
 
 export interface SyncOptions extends CloudApiOptions {
+  /**
+   * Run only if still called for once the sync lock is ours, so a run queued behind one that
+   * already sent everything makes no request. `'changed'` (the debounce timer): something waits
+   * and the server is not failing. `'due'` (the soon alarm): something waits or a retry is due.
+   */
+  onlyIf?: 'changed' | 'due';
   /** Records per `GET /v1/records` page; `POLICY.request.maxRecordsPerPull` when omitted. */
   pageSize?: number;
 }
@@ -274,7 +300,8 @@ export async function noteSettingsChange(
     }
     const next = settingsState(meta, settingsFingerprint(await readLocalSettings()), reason, now);
     if (next !== meta) {
-      await writeSyncMeta(next);
+      const edited = reason === 'changed' && next.settingsDirty;
+      await writeSyncMeta(edited ? withLocalChange(next, now) : next);
     }
     return false;
   });
@@ -362,6 +389,9 @@ interface RunState {
   pushed: number;
   /** Problems that did not stop the run (a record that does not decrypt, one too large). */
   problems: unknown[];
+  startedAt: number;
+  /** The bookkeeping as the push read it: work that appears after it needs another run. */
+  collected?: CloudSyncMeta;
   /** A screenshot tombstone reached the server in this run (pulled, or pushed and applied). */
   imageDeletedOnServer: boolean;
 }
@@ -730,6 +760,7 @@ async function collectOutgoing(run: RunState): Promise<Outgoing[]> {
   if (meta === undefined) {
     return [];
   }
+  run.collected = meta;
   const outgoing: Outgoing[] = [];
 
   const dirtyIds = Object.keys(meta.dirtySessions).filter((id) => RECORD_ID.test(id));
@@ -887,13 +918,20 @@ export function withHeldImagesReleased(meta: CloudSyncMeta): CloudSyncMeta {
   return { ...withHeldImages(meta, {}), images: { ...meta.images, dirty } };
 }
 
-/** After a screenshot was deleted on the server in this run, the held-back ones are offered again. */
-async function releaseHeldImages(run: RunState): Promise<void> {
+/**
+ * After a screenshot was deleted on the server in this run, the held-back ones are offered again.
+ * Released before the push they go with it; released by the push itself (`'afterPush'`) they
+ * count as a change of this device's, so another run follows in seconds.
+ */
+async function releaseHeldImages(run: RunState, when: 'beforePush' | 'afterPush'): Promise<void> {
   if (!run.imageDeletedOnServer) {
     return;
   }
   run.imageDeletedOnServer = false;
-  await updateMeta(run.context, withHeldImagesReleased);
+  await updateMeta(run.context, (meta) => {
+    const next = withHeldImagesReleased(meta);
+    return next !== meta && when === 'afterPush' ? withLocalChange(next, Date.now()) : next;
+  });
 }
 
 async function push(run: RunState): Promise<void> {
@@ -1000,8 +1038,14 @@ export async function markHeldImagesNoticed(): Promise<void> {
   });
 }
 
-/** Records how the run ended: `lastSyncAt` and `lastError`, in the UI language. */
-async function finish(context: SyncContext, problem: unknown): Promise<void> {
+/**
+ * Records how the run ended and sets the soon alarm to match. A failed run is retried after
+ * `retryDelayMs()` (30 seconds when a change was made during it). After one that reached the end
+ * the alarm stays only for work that appeared during it: whatever the server would not take waits
+ * for the next change or periodic check, so it cannot become a loop. Decided under the sessions
+ * lock, so a change is either seen here or arms the alarm after this.
+ */
+async function finish(run: RunState, failed: boolean, problem: unknown): Promise<void> {
   let lastError: string | undefined;
   if (problem !== undefined) {
     // The worker words text only once the language chosen in Settings is known.
@@ -1009,14 +1053,78 @@ async function finish(context: SyncContext, problem: unknown): Promise<void> {
     lastError = errorMessage(problem);
   }
   const now = Date.now();
-  await updateMeta(context, (meta) => {
-    const next: CloudSyncMeta = { ...meta, lastSyncAt: now };
+  await withLock(async () => {
+    const meta = await readSyncMetaFor(run.context);
+    if (meta === undefined) {
+      return;
+    }
+    const next: CloudSyncMeta = { ...meta };
     if (lastError === undefined) {
       delete next.lastError;
     } else {
       next.lastError = lastError;
     }
-    return next;
+    const changedDuringRun = (meta.changedAt ?? 0) >= run.startedAt;
+    // The alarm before the write: Settings reads both when the write's event reaches it.
+    if (failed) {
+      next.failures = (meta.failures ?? 0) + 1;
+      const delay = changedDuringRun ? SYNC_FALLBACK_MS : retryDelayMs(next.failures);
+      // Not after a sign-out, which cleared the alarms.
+      if ((await loadSyncContext()) !== null) {
+        await chrome.alarms.create(CLOUD_SYNC_SOON_ALARM, { when: now + delay });
+      }
+    } else {
+      next.lastSyncAt = now;
+      delete next.failures;
+      const newWork =
+        changedDuringRun || (run.collected !== undefined && syncWorkGrew(run.collected, meta));
+      if (hasPendingWork(meta) && newWork) {
+        await scheduleSoonSync();
+      } else {
+        await chrome.alarms.clear(CLOUD_SYNC_SOON_ALARM);
+      }
+    }
+    await writeSyncMeta(next);
+  });
+}
+
+/**
+ * Whether a conditional run (`SyncOptions.onlyIf`) is still called for, decided with the sync lock
+ * held. One that is not, with nothing left to do, takes the soon alarm down.
+ */
+async function stillCalledFor(context: SyncContext, onlyIf: 'changed' | 'due'): Promise<boolean> {
+  return withLock(async () => {
+    const meta = await readSyncMetaFor(context);
+    if (meta === undefined) {
+      // The first sync never got as far as its bookkeeping.
+      return onlyIf === 'due';
+    }
+    const failing = (meta.failures ?? 0) > 0;
+    const pending = hasPendingWork(meta);
+    if (!failing && !pending) {
+      await chrome.alarms.clear(CLOUD_SYNC_SOON_ALARM);
+      return false;
+    }
+    // A failing server is retried by the alarm, never by the timer.
+    return onlyIf === 'due' || !failing;
+  });
+}
+
+/** Before the first request: says a run started and keeps the fallback up while work waits. */
+async function markRunStarted(run: RunState): Promise<void> {
+  if ((await chrome.alarms.get(CLOUD_SYNC_ALARM)) === undefined) {
+    await ensureSyncAlarm();
+  }
+  await withLock(async () => {
+    const meta = await readSyncMetaFor(run.context);
+    if (meta === undefined) {
+      return;
+    }
+    if (hasPendingWork(meta)) {
+      // The worker can be stopped mid-run.
+      await scheduleSoonSync();
+    }
+    await writeSyncMeta({ ...meta, lastAttemptAt: run.startedAt });
   });
 }
 
@@ -1024,7 +1132,8 @@ async function finish(context: SyncContext, problem: unknown): Promise<void> {
  * One sync: pull the server's changes, then push this device's. `'notReady'` while unconfigured,
  * signed out or without the key; `'failed'` when the server could not be reached or refused (the
  * dirty sets stay, so the next run retries; a 401 signs this device out); `'synced'` otherwise,
- * also when single records were skipped (they are named in `lastError`).
+ * also when single records were skipped (they are named in `lastError`); `'skipped'` when
+ * `options.onlyIf` found nothing to do.
  */
 export async function syncNow(options: SyncOptions = {}): Promise<SyncResult> {
   if (!isCloudSyncEnabled()) {
@@ -1038,8 +1147,12 @@ export async function syncNow(options: SyncOptions = {}): Promise<SyncResult> {
       await ensureSyncAlarm();
       return { outcome: 'notReady', pulled: 0, pushed: 0 };
     }
+    if (options.onlyIf !== undefined && !(await stillCalledFor(context, options.onlyIf))) {
+      return { outcome: 'skipped', pulled: 0, pushed: 0 };
+    }
     const run: RunState = {
       context,
+      startedAt: Date.now(),
       options,
       pulled: 0,
       pushed: 0,
@@ -1048,12 +1161,13 @@ export async function syncNow(options: SyncOptions = {}): Promise<SyncResult> {
     };
     try {
       await startSyncMeta(context);
+      await markRunStarted(run);
       await notesRepo.startSyncTracking();
       await resumeSettingsApply(context);
       await pull(run);
-      await releaseHeldImages(run);
+      await releaseHeldImages(run, 'beforePush');
       await push(run);
-      await releaseHeldImages(run);
+      await releaseHeldImages(run, 'afterPush');
     } catch (err: unknown) {
       if (err instanceof CloudUnauthorizedError) {
         // Signed out on the server: forget the account like every other 401 (#166). The
@@ -1062,10 +1176,10 @@ export async function syncNow(options: SyncOptions = {}): Promise<SyncResult> {
         return { outcome: 'failed', pulled: run.pulled, pushed: run.pushed };
       }
       console.warn('[tabinet:sync] sync failed', err);
-      await finish(context, err);
+      await finish(run, true, err);
       return { outcome: 'failed', pulled: run.pulled, pushed: run.pushed };
     }
-    await finish(context, run.problems[0]);
+    await finish(run, false, run.problems[0]);
     return { outcome: 'synced', pulled: run.pulled, pushed: run.pushed };
   });
 }
@@ -1100,18 +1214,39 @@ export async function ensureSyncAlarm(): Promise<void> {
 }
 
 /**
- * A sync about a minute from now, while ready. An alarm already waiting is left as it is, so a
- * stream of changes syncs a minute after the first rather than never.
+ * The fallback behind the timer: a sync no later than `SYNC_FALLBACK_MS` from now, while ready.
+ * An earlier alarm is never pushed back; a later one (a retry that backed off) is brought forward.
  */
 export async function scheduleSoonSync(): Promise<void> {
   if (!isCloudSyncEnabled() || (await loadSyncContext()) === null) {
     return;
   }
-  if ((await chrome.alarms.get(CLOUD_SYNC_SOON_ALARM)) !== undefined) {
+  const when = Date.now() + SYNC_FALLBACK_MS;
+  const waiting = await chrome.alarms.get(CLOUD_SYNC_SOON_ALARM);
+  if (waiting !== undefined && waiting.scheduledTime <= when) {
     return;
   }
-  await chrome.alarms.create(CLOUD_SYNC_SOON_ALARM, { delayInMinutes: SYNC_SOON_MINUTES });
+  await chrome.alarms.create(CLOUD_SYNC_SOON_ALARM, { when });
 }
+
+/**
+ * At browser start, install and update: the periodic alarm, and the soon alarm when a change or
+ * a retry was left waiting (Chrome may drop alarms at both).
+ */
+export async function resumeSync(): Promise<void> {
+  await ensureSyncAlarm();
+  const context = await loadSyncContext();
+  if (context === null) {
+    return;
+  }
+  const meta = await readSyncMetaFor(context);
+  if (meta === undefined || hasPendingWork(meta) || (meta.failures ?? 0) > 0) {
+    await scheduleSoonSync();
+  }
+}
+
+/** What a storage change asks of the worker's timers. */
+export type SyncTrigger = 'now' | 'soon' | 'stop' | 'none';
 
 function touchesSettings(
   changes: { [key: string]: chrome.storage.StorageChange },
@@ -1126,36 +1261,44 @@ function touchesSettings(
 /**
  * The worker's `storage.onChanged` part for sync:
  *
- * - the account or the key changed: the alarms are armed (and a sync is due soon) when this device
- *   is ready, cleared otherwise. The bookkeeping stays either way: changes are still recorded,
+ * - the account or the key changed: the alarms are armed and a sync runs at once (`'now'`) when
+ *   this device is ready; otherwise they are cleared and any waiting timer dropped (`'stop'`). The bookkeeping stays either way: changes are still recorded,
  *   and signing in again to the same account and key resumes it;
  * - a setting changed (sort settings or the language in sync storage, `sessionSettings`): the
  *   settings are marked dirty, or clean again when they are back to what the server has; while
- *   received settings are still being written, a sync soon finishes them instead;
- * - `cloudSyncMeta` gained something to send: a sync about a minute later.
+ *   received settings are still being written, the fallback alarm finishes them instead;
+ * - a change of this device's own (`changedAt` moved): the fallback alarm, then a sync a few
+ *   seconds later (`'soon'`), or only the alarm while the server is failing. A run's own
+ *   bookkeeping writes ask for nothing.
  *
- * Returns at once while cloud sync is unconfigured.
+ * Returns what the caller's timers should do (`src/lib/cloud-sync-scheduler.ts`); `'none'` at
+ * once while cloud sync is unconfigured.
  */
 export async function handleCloudStorageChange(
   changes: { [key: string]: chrome.storage.StorageChange },
   areaName: string,
-): Promise<void> {
+): Promise<SyncTrigger> {
   if (!isCloudSyncEnabled()) {
-    return;
+    return 'none';
   }
   if (areaName === 'local' && (CLOUD_ACCOUNT_KEY in changes || CLOUD_SYNC_KEY in changes)) {
     await ensureSyncAlarm();
     if ((await loadSyncContext()) === null) {
-      return;
+      return 'stop';
     }
     await scheduleSoonSync();
-    return;
+    return 'now';
   }
   if (touchesSettings(changes, areaName) && (await noteSettingsChange())) {
     await scheduleSoonSync();
   }
   const meta = changes[CLOUD_SYNC_META_KEY];
-  if (areaName === 'local' && meta !== undefined && syncWorkGrew(meta.oldValue, meta.newValue)) {
-    await scheduleSoonSync();
+  if (areaName !== 'local' || meta === undefined) {
+    return 'none';
   }
+  if (!localChangeMade(meta.oldValue, meta.newValue) || (await loadSyncContext()) === null) {
+    return 'none';
+  }
+  await scheduleSoonSync();
+  return (parseSyncMeta(meta.newValue)?.failures ?? 0) > 0 ? 'none' : 'soon';
 }

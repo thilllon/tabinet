@@ -73,3 +73,10 @@ export function windowStateLabel(state: WindowSnapshot['state']): string {
       return t('treeWindowStateNormal');
   }
 }
+
+/** A time of day in the UI language, with seconds for a time that may be under a minute away. */
+export function formatClockTime(epochMs: number, precision?: 'seconds'): string {
+  return new Intl.DateTimeFormat(uiLocale(), {
+    timeStyle: precision === 'seconds' ? 'medium' : 'short',
+  }).format(new Date(epochMs));
+}

@@ -1,6 +1,6 @@
 # Privacy Policy - Tabinet
 
-Last Updated: November 12, 2026
+Last Updated: November 23, 2026
 
 ## Overview
 
@@ -87,7 +87,7 @@ This extension requires the following permissions:
 - **contextMenus**: Used to add "Assemble!", "Save all windows as session", "Pause all YouTube videos" and "YouTube notes" to the extension icon's right-click menu. No menu items are added to web pages.
 - **unlimitedStorage**: Allows large saved sessions to exceed Chrome's default local storage quota. It does not change where data is stored and sends nothing anywhere.
 - **favicon**: Used to display site icons next to tabs in the Tabinet page from Chrome's local favicon cache. No icons are fetched from the network and no icon data is stored by the extension.
-- **alarms**: Used as the timer for automatic snapshots on the interval you choose, and, while you are signed in to cloud sync, to sync every 15 minutes and shortly after a change. When automatic snapshots are off and you are not signed in, no timer exists.
+- **alarms**: Used as the timer for automatic snapshots on the interval you choose, and, while you are signed in to cloud sync, to check for changes every 15 minutes, to send a change if Chrome stopped the extension before it could, and to retry a sync that failed. When automatic snapshots are off and you are not signed in, no timer exists.
 - **identity**: Used only for cloud sync, when you click "Sign in with Google": it asks Chrome for a Google access token with the `openid` and `email` scopes, as described in "Cloud sync". Without signing in it is never used.
 - **scripting**: Used only on YouTube: to pause videos when you ask, as described in "Pausing YouTube videos", and for YouTube notes to read the time and title of the video, move it to a note's time and take a screenshot of it when you ask, as described in "YouTube notes". It works only on the sites you allowed below.
 - **sidePanel**: Used to show YouTube notes in Chrome's side panel when you open it from the right-click menu, its keyboard shortcut or the Tabinet page. Clicking the icon never opens it.
