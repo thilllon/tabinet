@@ -1,5 +1,16 @@
 # Tabinet sync server
 
+## Entry points
+
+| To         | File                    | Started by                                                                         |
+| ---------- | ----------------------- | ---------------------------------------------------------------------------------- |
+| Production | `api/vercel-adapter.ts` | Vercel: `vercel.json` rewrites `/v1/*` to it, and it calls the app in `src/app.ts` |
+| Local      | `src/dev.ts`            | `pnpm --filter tabinet-server dev`: 127.0.0.1:8787, an empty in-memory database    |
+| Migrate    | `scripts/migrate.ts`    | `DATABASE_URL=... pnpm --filter tabinet-server migrate`                            |
+
+The adapter has to be in `api/`: that is the only folder Vercel builds functions from with the
+"Other" preset. It is the only Vercel-specific code. To read the API, start at `src/app.ts`.
+
 `tabinet-server` keeps a signed-in user's saved sessions, YouTube notes (with their screenshots) and settings in step across devices. It
 stores them **end-to-end encrypted**: a device encrypts each record with a key derived from the
 user's passphrase before it is sent, so the server holds `{kind, id, updatedAt, deleted, iv,
@@ -13,28 +24,51 @@ The functions run in Vercel region `sin1` (Singapore), pinned in `vercel.json`.
 
 ## Layout
 
+A Hono app, kept thin: a route handler calls the store directly. No services, classes or container.
+
 | Path                              | What it is                                                                          |
 | --------------------------------- | ----------------------------------------------------------------------------------- |
-| `api/index.ts`                    | The Vercel function. `vercel.json` rewrites `/v1/*` to it                           |
-| `src/app.ts`                      | `handle(request, deps)`: the whole API as one web-standard router                   |
+| `api/vercel-adapter.ts`           | The Vercel function: the five methods it exports, all one handler                   |
+| `src/app.ts`                      | `createApp(deps)`: the whole API, top to bottom                                     |
+| `src/production.ts`               | The real dependencies and `createServer()`, which builds the app on first use       |
+| `src/dev.ts`                      | The local server; never imported by what is deployed                                |
+| `src/env.ts`                      | Environment parsing; an error names the variable, never its value                   |
+| `src/context.ts`                  | `Deps`, and what middleware leaves on the request's context                         |
+| `src/responses.ts`                | The three kinds of answer (JSON, error, no content) with their exact headers        |
+| `src/routes/auth.ts`              | Sign in with Google, log out                                                        |
+| `src/routes/account.ts`           | `me`, delete the account                                                            |
+| `src/routes/keys.ts`              | The key setup, set once                                                             |
+| `src/routes/records.ts`           | List and write records                                                              |
+| `src/middleware/auth.ts`          | The bearer token, checked before any body is read                                   |
+| `src/middleware/body-limit.ts`    | Reads a JSON body of at most 4 MiB                                                  |
+| `src/middleware/cors.ts`          | CORS for the origins in `ALLOWED_ORIGINS` only, and every `OPTIONS`                 |
+| `src/middleware/errors.ts`        | Anything thrown becomes a JSON 500                                                  |
+| `src/middleware/unmatched.ts`     | 404, 405 with `Allow`, and no automatic `HEAD`                                      |
+| `src/db/client.ts`                | Neon's HTTP driver (production only)                                                |
+| `src/db/store.ts`                 | `createSqlStore(query)`: every SQL statement, over a one-function `query()` adapter |
+| `src/db/migrations.ts`            | Applies `migrations/NNN_*.sql` once each, recorded in `schema_migrations`           |
 | `src/validation.ts`               | Strict parsing of every body and query (sizes, id pattern, kinds, base64)           |
-| `src/store.ts`                    | `createSqlStore(query)`: every SQL statement, over a one-function `query()` adapter |
 | `src/google-auth.ts`              | Google access token verification through Google's tokeninfo endpoint                |
 | `src/tokens.ts`                   | Bearer tokens: 32 random bytes, stored only as their sha256                         |
-| `src/cors.ts`                     | CORS for the origins in `ALLOWED_ORIGINS` only                                      |
-| `src/production.ts`               | The real dependencies (Neon, Google, clock, random bytes) and `createServer()`      |
-| `src/migrations.ts`               | Applies `migrations/NNN_*.sql` once each, recorded in `schema_migrations`           |
 | `migrations/001_init.sql`         | `users`, `auth_tokens`, `records` and the `record_seq` sequence                     |
 | `migrations/002_notes_images.sql` | The `notes` and `image` kinds, and `apply_image_record()` for the screenshot cap    |
 | `scripts/migrate.ts`              | `pnpm --filter tabinet-server migrate`                                              |
 | `src/tests/`                      | vitest; the store and the routes run against PGlite (Postgres in WASM), no network  |
+
+Hono's defaults differ from this API in a few places, each overridden and pinned by
+`src/tests/contract.test.ts`: it serves `HEAD` as `GET` (here a 405), decodes the path before
+matching (here the exact pathname), passes only `Error`s to `onError` (here every throw is the same
+500), and its `c.json()` and `bodyLimit` answer differently (so `responses.ts` and
+`middleware/body-limit.ts` are used instead).
 
 ## API
 
 JSON, base path `/v1`. Every route but `POST /v1/auth/google` and `OPTIONS` needs
 `Authorization: Bearer <token>`; a missing, unknown or expired token gets 401
 `{"error":"unauthorized"}`. Any bad input gets 400 `{"error":"bad_request"}`, a body over 4 MiB
-413 `{"error":"payload_too_large"}`.
+413 `{"error":"payload_too_large"}`. A known path with another method (`HEAD` included) gets 405
+`{"error":"method_not_allowed"}` with `Allow`, any other path (a trailing slash included) 404
+`{"error":"not_found"}`, both whatever the token.
 
 | Route                                      | Answer                                                                                                                                                                    |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -77,7 +111,7 @@ Limits and rules:
   update, and every applied write takes a new `seq` from one global sequence. The statement locks
   the user's row first, so a user's writes commit in `seq` order and paging by `since` never
   skips one.
-- At most `IMAGE_RECORD_LIMIT` (100, `src/store.ts`) live `image` records per account. A write
+- At most `IMAGE_RECORD_LIMIT` (100, `src/db/store.ts`) live `image` records per account. A write
   that would add one more is answered `rejected` with `reason: "image_limit"` and stores nothing;
   tombstones and writes to an image that is already live are always accepted. Image writes go
   through the SQL function `apply_image_record()` (migration 002): it takes the same user row lock
@@ -96,13 +130,21 @@ Limits and rules:
 pnpm install                          # from the repository root
 pnpm server:typecheck                 # tsc over server/
 pnpm server:test                      # vitest, against PGlite
+pnpm --filter tabinet-server dev      # http://127.0.0.1:8787, stop with Ctrl+C
 ```
+
+`dev` cannot touch production: it always uses an empty in-memory PGlite with the real migrations,
+never reads a `.env` file or `DATABASE_URL`, and listens on 127.0.0.1 only. It has no way around
+sign-in either: without `GOOGLE_CLIENT_IDS` in the shell every sign-in is a 401, and with it tokens
+are checked with Google as in production. `PORT` and `ALLOWED_ORIGINS` are read from the shell too.
 
 ## Deploy
 
 1. **Create the Vercel project.** In Vercel, "Add New... > Project", import this repository and set
-   **Root Directory** to `server`. Framework preset "Other"; no build command. The function runs on
-   the Node.js runtime. Vercel compiles `api/index.ts` with the `typescript` it finds in `server/`,
+   **Root Directory** to `server`. Framework preset "Other"; no build command. Vercel suggests "Hono"
+   because it finds the dependency and `src/app.ts`: do not take it. That preset builds another
+   entry point instead of `api/` (its build of this package fails). The function runs on
+   the Node.js runtime. Vercel compiles `api/vercel-adapter.ts` with the `typescript` it finds in `server/`,
    which needs the compiler API that TypeScript 7 no longer ships, so `server/` pins TypeScript 6.
 2. **Add Postgres.** In the project's **Storage** tab, add **Neon** from the Vercel Marketplace and
    connect it to the project. This sets `DATABASE_URL` for every environment.

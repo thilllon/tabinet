@@ -1,7 +1,7 @@
 import type { PGlite } from '@electric-sql/pglite';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { createSqlStore, IMAGE_RECORD_LIMIT, type Query, type Store } from '../store.js';
+import { createSqlStore, IMAGE_RECORD_LIMIT, type Query, type Store } from '../db/store.js';
 import type { RecordInput } from '../types.js';
 import { b64, createTestDb, imageRecord, resetDb, validKeySetup } from './helpers.js';
 

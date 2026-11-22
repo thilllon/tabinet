@@ -92,7 +92,7 @@ export const CLOUD_SYNC: CloudSyncConfig = {
 
 /**
  * The most note screenshots one cloud sync account keeps on the server (`IMAGE_RECORD_LIMIT` in
- * server/src/store.ts; the server enforces it, this copy only words the notice in Settings).
+ * server/src/db/store.ts; the server enforces it, this copy only words the notice in Settings).
  */
 export const CLOUD_IMAGE_LIMIT = 100;
 

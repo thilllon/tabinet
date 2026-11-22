@@ -1,8 +1,9 @@
 import type { PGlite } from '@electric-sql/pglite';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { type Deps, handle } from '../app.js';
-import { IMAGE_RECORD_LIMIT, type Query, type Store } from '../store.js';
+import { createApp } from '../app.js';
+import type { Deps } from '../context.js';
+import { IMAGE_RECORD_LIMIT, type Query, type Store } from '../db/store.js';
 import { TOKEN_TTL_MS } from '../tokens.js';
 import type { StoredRecord } from '../types.js';
 import {
@@ -51,7 +52,7 @@ interface ApiBody {
 }
 
 async function call(req: Request): Promise<{ status: number; body: ApiBody; res: Response }> {
-  const res = await handle(req, deps);
+  const res = await createApp(deps).fetch(req);
   const text = await res.text();
   const body: unknown = text === '' ? undefined : JSON.parse(text);
   return { status: res.status, body: body as ApiBody, res };
@@ -166,9 +167,8 @@ describe('authentication', () => {
   });
 
   it('refuses a malformed Authorization header', async () => {
-    const res = await handle(
+    const res = await createApp(deps).fetch(
       new Request('https://x.test/v1/me', { headers: { Authorization: 'Basic abc' } }),
-      deps,
     );
     expect(res.status).toBe(401);
   });
@@ -615,7 +615,7 @@ describe('CORS', () => {
   });
 
   it('answers an allowed preflight with methods, headers and Vary', async () => {
-    const res = await handle(request('OPTIONS', '/v1/records', { origin: ORIGIN }), deps);
+    const res = await createApp(deps).fetch(request('OPTIONS', '/v1/records', { origin: ORIGIN }));
     expect(res.status).toBe(204);
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe(ORIGIN);
     expect(res.headers.get('Access-Control-Allow-Methods')).toBe('GET, POST, PUT, DELETE');
@@ -624,9 +624,8 @@ describe('CORS', () => {
   });
 
   it('answers a preflight from another origin without CORS headers and without auth', async () => {
-    const res = await handle(
+    const res = await createApp(deps).fetch(
       request('OPTIONS', '/v1/records', { origin: 'https://evil.example' }),
-      deps,
     );
     expect(res.status).toBe(204);
     expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull();
@@ -635,7 +634,7 @@ describe('CORS', () => {
 
   it('answers nothing when no origin is configured', async () => {
     deps.allowedOrigins = [];
-    const res = await handle(request('OPTIONS', '/v1/me', { origin: ORIGIN }), deps);
+    const res = await createApp(deps).fetch(request('OPTIONS', '/v1/me', { origin: ORIGIN }));
     expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull();
   });
 });

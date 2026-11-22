@@ -5,7 +5,7 @@
  */
 import { Pool } from '@neondatabase/serverless';
 
-import { runMigrations } from '../src/migrations.js';
+import { runMigrations } from '../src/db/migrations.js';
 
 const connectionString = process.env.DATABASE_URL;
 if (connectionString === undefined || connectionString === '') {
