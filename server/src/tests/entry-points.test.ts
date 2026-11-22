@@ -58,7 +58,7 @@ describe('the Vercel adaptor', () => {
   });
 
   it('takes one file from outside server/, the import-free constants', () => {
-    const { files } = importsOf('api/vercel-adapter.ts');
+    const { files } = importsOf('api/vercel.adaptor.ts');
     expect([...files].filter((file) => file.startsWith('..'))).toEqual(['../src/constants.ts']);
     expect(readFileSync(path.join(ROOT, '../src/constants.ts'), 'utf8')).not.toMatch(/^import\s/m);
   });
