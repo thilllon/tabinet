@@ -9,10 +9,10 @@
     "migrate": "tsx scripts/migrate.ts"
   },
   "dependencies": {
-    "@neondatabase/serverless": "1.2.0"
+    "@neondatabase/serverless": "1.2.1"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.5.15",
+    "@electric-sql/pglite": "0.5.16",
     "@types/node": "^26.6.6",
     "tsx": "^4.23.15",
     "typescript": "6.0.3",
