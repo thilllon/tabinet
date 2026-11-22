@@ -5,7 +5,7 @@ import {
   GOOGLE_TOKENINFO_URL,
   identityFromTokenInfo,
   issuedToUs,
-} from '../src/google-auth.js';
+} from '../google-auth.js';
 
 const CLIENT_ID = 'client-1.apps.googleusercontent.com';
 const CLIENT_IDS = ['other-client', CLIENT_ID];

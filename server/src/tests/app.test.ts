@@ -1,10 +1,10 @@
 import type { PGlite } from '@electric-sql/pglite';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { type Deps, handle } from '../src/app.js';
-import { IMAGE_RECORD_LIMIT, type Query, type Store } from '../src/store.js';
-import { TOKEN_TTL_MS } from '../src/tokens.js';
-import type { StoredRecord } from '../src/types.js';
+import { type Deps, handle } from '../app.js';
+import { IMAGE_RECORD_LIMIT, type Query, type Store } from '../store.js';
+import { TOKEN_TTL_MS } from '../tokens.js';
+import type { StoredRecord } from '../types.js';
 import {
   b64,
   createTestDb,

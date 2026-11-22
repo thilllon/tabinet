@@ -1,8 +1,8 @@
 import { PGlite } from '@electric-sql/pglite';
 
-import type { Deps } from '../src/app.js';
-import { runMigrations } from '../src/migrations.js';
-import { createSqlStore, type Query, type Store } from '../src/store.js';
+import type { Deps } from '../app.js';
+import { runMigrations } from '../migrations.js';
+import { createSqlStore, type Query, type Store } from '../store.js';
 
 export const ORIGIN = 'chrome-extension://bmbpmnfhfbdjdjpblimidmbohgccmjdg';
 const BASE = 'https://sync.example.test';

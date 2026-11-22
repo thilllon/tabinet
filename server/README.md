@@ -27,7 +27,7 @@ The functions run in Vercel region `sin1` (Singapore), pinned in `vercel.json`.
 | `migrations/001_init.sql`         | `users`, `auth_tokens`, `records` and the `record_seq` sequence                     |
 | `migrations/002_notes_images.sql` | The `notes` and `image` kinds, and `apply_image_record()` for the screenshot cap    |
 | `scripts/migrate.ts`              | `pnpm --filter tabinet-server migrate`                                              |
-| `tests/`                          | vitest; the store and the routes run against PGlite (Postgres in WASM), no network  |
+| `src/tests/`                      | vitest; the store and the routes run against PGlite (Postgres in WASM), no network  |
 
 ## API
 
