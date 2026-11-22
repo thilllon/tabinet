@@ -11,8 +11,9 @@ import { fakeSyncServer, type FakeSyncServer } from './cloud-fetch';
 
 /*
  * When sync runs (GitHub issue #257): the real worker against the chrome fake and the fake
- * server, on fake timers. Encryption and storage run for real, so `settle()` lets them finish on
- * the real clock while the fake one stands still.
+ * server, on fake timers. Encryption and storage run for real, so `settle()` and `tick()` let them
+ * finish while the fake clock stands still. WebCrypto works on other threads, for as long as the
+ * machine takes: both wait for it (`cryptoAtWork`) instead of hoping that enough turns have passed.
  */
 
 const START = 1_800_000_000_000;
@@ -23,9 +24,30 @@ const realSetTimeout = globalThis.setTimeout;
 
 let server: FakeSyncServer;
 let rawKey: string;
+/** WebCrypto calls not answered yet. */
+let cryptoAtWork = 0;
+
+function countCryptoWork(): void {
+  cryptoAtWork = 0;
+  const subtle = crypto.subtle as unknown as Record<
+    string,
+    (...args: unknown[]) => Promise<unknown>
+  >;
+  for (const name of ['importKey', 'encrypt', 'decrypt'] as const) {
+    const real = subtle[name]!.bind(crypto.subtle);
+    vi.spyOn(subtle, name).mockImplementation(async (...args: unknown[]) => {
+      cryptoAtWork += 1;
+      try {
+        return await real(...args);
+      } finally {
+        cryptoAtWork -= 1;
+      }
+    });
+  }
+}
 
 async function settle(): Promise<void> {
-  for (let turn = 0; turn < 60; turn++) {
+  for (let quiet = 0; quiet < 60; quiet = cryptoAtWork > 0 ? 0 : quiet + 1) {
     await new Promise((resolve) => realSetTimeout(resolve, 0));
   }
 }
@@ -152,9 +174,11 @@ beforeEach(() => {
   rawKey = toBase64(crypto.getRandomValues(new Uint8Array(32)));
   server = fakeSyncServer();
   vi.stubGlobal('fetch', server.fetch);
+  countCryptoWork();
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.clearAllTimers();
   vi.useRealTimers();
   vi.unstubAllGlobals();
@@ -692,7 +716,7 @@ describe('no loop', () => {
 const realSetImmediate = globalThis.setImmediate;
 
 async function tick(turns = 20): Promise<void> {
-  for (let turn = 0; turn < turns; turn++) {
+  for (let quiet = 0; quiet < turns; quiet = cryptoAtWork > 0 ? 0 : quiet + 1) {
     await new Promise((resolve) => realSetImmediate(resolve));
   }
 }
