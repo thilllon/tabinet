@@ -13,6 +13,7 @@ import {
   authGoogle,
   deleteAccount,
   logout,
+  me,
   putKeys,
 } from '@/lib/cloud-api';
 import { createKeySetup, keyMatchesSetup, unlockKeySetup } from '@/lib/cloud-crypto';
@@ -186,7 +187,8 @@ export async function loadLiveCloudAccount(now: number): Promise<CloudAccount | 
  * Keeps the key on this device only when it opens `setup`, the account's setup on the server:
  * with no setup there, or one made with another passphrase (another account, or a passphrase
  * created again after the cloud data was deleted), the key is removed. Whether a key is kept.
- * With `token` (whose setup it is), nothing is removed once another account is the stored one.
+ * Only the key that was checked is removed, never one written meanwhile, and with `token` (whose
+ * setup it is) nothing once another account is the stored one.
  */
 export async function keepSyncKeyFor(
   setup: CloudKeySetup | null,
@@ -199,8 +201,12 @@ export async function keepSyncKeyFor(
   if (setup !== null && (await keyMatchesSetup(rawKey, setup))) {
     return true;
   }
-  if (token !== undefined && (await loadCloudAccount())?.token !== token) {
-    return true;
+  // The check takes a while: the account and the key as they are now, in one read.
+  const now = await chrome.storage.local.get([CLOUD_ACCOUNT_KEY, CLOUD_SYNC_KEY]);
+  const account: unknown = now[CLOUD_ACCOUNT_KEY];
+  const switched = token !== undefined && (!isCloudAccount(account) || account.token !== token);
+  if (switched || now[CLOUD_SYNC_KEY] !== rawKey) {
+    return now[CLOUD_SYNC_KEY] !== undefined;
   }
   await chrome.storage.local.remove(CLOUD_SYNC_KEY);
   return false;
@@ -235,6 +241,26 @@ export async function withCloudAccount<T>(run: (account: CloudAccount) => Promis
   const account = await requireAccount();
   try {
     return await run(account);
+  } catch (err: unknown) {
+    if (err instanceof CloudUnauthorizedError) {
+      await forgetCloudAccount(account.token);
+    }
+    throw err;
+  }
+}
+
+/**
+ * Asks the server for `account`'s passphrase setup and keeps the key only if it opens it. With that
+ * account's own token, not whatever is stored by then: one account's setup is never taken for
+ * another's. A 401 forgets that account only.
+ */
+export async function checkKeySetup(
+  account: CloudAccount,
+  options: CloudApiOptions = {},
+): Promise<{ keySetup: CloudKeySetup | null; keyKept: boolean }> {
+  try {
+    const { keySetup } = await me(account.token, options);
+    return { keySetup, keyKept: await keepSyncKeyFor(keySetup, account.token) };
   } catch (err: unknown) {
     if (err instanceof CloudUnauthorizedError) {
       await forgetCloudAccount(account.token);

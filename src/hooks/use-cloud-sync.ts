@@ -5,12 +5,15 @@ import { CLOUD_SYNC_META_KEY } from '@/lib/cloud-sync-state';
 import {
   loadSyncFacts,
   nextReadAt,
-  NO_SYNC_FACTS,
+  readingFor,
   sameFacts,
   type SyncFacts,
   syncPhase,
   type SyncPhase,
+  type SyncReading,
+  UNREAD,
   whenSyncEnds,
+  withoutPastTimes,
 } from '@/lib/cloud-sync-status';
 import { reportError } from '@/lib/error-message';
 
@@ -27,22 +30,19 @@ export interface CloudSyncView {
 }
 
 /**
- * The sync status Settings > Account shows while ready, plus "Sync now". It reads again on three
+ * The sync status Settings > Account shows for `account` (its token; none: nothing is read and
+ * nothing shown), plus "Sync now". It reads again on three
  * things, never on a tick: a change of `cloudSyncMeta` (also the worker's runs), the end of a
  * running sync (its lock released, also by a worker that died) and the next moment the line could
  * go stale (`nextReadAt()`). A reading that changes nothing renders nothing. Listener and timers
  * live in the page and die with it.
  */
-export function useCloudSync(enabled: boolean): CloudSyncView {
-  const [state, setState] = useState<{ facts: SyncFacts; phase: SyncPhase; loaded: boolean }>({
-    facts: NO_SYNC_FACTS,
-    phase: { kind: 'notSynced' },
-    loaded: false,
-  });
+export function useCloudSync(account: string | undefined): CloudSyncView {
+  const [state, setState] = useState<SyncReading>(UNREAD);
   const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
-    if (!enabled) {
+    if (account === undefined) {
       return;
     }
     const closed = new AbortController();
@@ -54,19 +54,22 @@ export function useCloudSync(enabled: boolean): CloudSyncView {
     const read = async () => {
       reading += 1;
       const mine = reading;
-      const facts = await loadSyncFacts();
+      const stored = await loadSyncFacts();
       if (closed.signal.aborted || mine !== reading) {
         return;
       }
       const now = Date.now();
+      const facts = withoutPastTimes(stored, now);
       const phase = syncPhase(facts, now);
       setState((current) =>
-        current.loaded && current.phase.kind === phase.kind && sameFacts(current.facts, facts)
+        current.of === account &&
+        current.phase.kind === phase.kind &&
+        sameFacts(current.facts, facts)
           ? current
-          : { facts, phase, loaded: true },
+          : { of: account, facts, phase, loaded: true },
       );
       clearTimeout(staleTimer);
-      const at = nextReadAt(facts, now);
+      const at = nextReadAt(stored, now);
       if (at !== null) {
         staleTimer = setTimeout(refresh, at - now);
       }
@@ -99,7 +102,7 @@ export function useCloudSync(enabled: boolean): CloudSyncView {
       clearTimeout(staleTimer);
       chrome.storage.onChanged.removeListener(onChanged);
     };
-  }, [enabled]);
+  }, [account]);
 
   const sync = useCallback(async () => {
     setSyncing(true);
@@ -113,5 +116,6 @@ export function useCloudSync(enabled: boolean): CloudSyncView {
     }
   }, []);
 
-  return { ...state, phase: syncing ? { kind: 'syncing' } : state.phase, sync };
+  const { facts, phase, loaded } = readingFor(state, account);
+  return { facts, loaded, phase: syncing ? { kind: 'syncing' } : phase, sync };
 }

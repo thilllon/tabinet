@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CloudUnauthorizedError, me } from '@/lib/cloud-api';
 import {
   accountState,
+  checkKeySetup,
   CLOUD_ACCOUNT_KEY,
   CLOUD_SYNC_KEY,
   deleteCloudData,
@@ -316,6 +317,28 @@ describe('an answer for the account before', () => {
     });
     await expect(refused).rejects.toBeInstanceOf(CloudUnauthorizedError);
     expect(await loadCloudAccount()).toEqual(NEXT);
+    expect(await loadSyncKey()).toBe('a2V5');
+  });
+
+  it('a key written while the check runs is not removed by it', async () => {
+    const { setup } = await createKeySetup('the passphrase', 1000);
+    const { rawKey: stale } = await createKeySetup('an old one', 1000);
+    await chrome.storage.local.set({ [CLOUD_ACCOUNT_KEY]: ACCOUNT, [CLOUD_SYNC_KEY]: stale });
+    const decrypt = crypto.subtle.decrypt.bind(crypto.subtle);
+    const spy = vi.spyOn(crypto.subtle, 'decrypt').mockImplementationOnce(async (...args) => {
+      await chrome.storage.local.set({ [CLOUD_SYNC_KEY]: 'just-unlocked' });
+      return decrypt(...args);
+    });
+    await keepSyncKeyFor(setup, ACCOUNT.token);
+    spy.mockRestore();
+    expect(await loadSyncKey()).toBe('just-unlocked');
+  });
+
+  it('the setup is asked for with the token of the account it is shown for', async () => {
+    await chrome.storage.local.set({ [CLOUD_ACCOUNT_KEY]: NEXT, [CLOUD_SYNC_KEY]: 'a2V5' });
+    const server = fakeFetch(jsonResponse(200, { email: ACCOUNT.email, keySetup: null }));
+    await checkKeySetup(ACCOUNT, { fetch: server.fetch });
+    expect(server.requests[0]?.headers.authorization).toBe('Bearer tok');
     expect(await loadSyncKey()).toBe('a2V5');
   });
 

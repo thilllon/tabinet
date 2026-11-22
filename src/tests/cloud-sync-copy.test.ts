@@ -28,6 +28,15 @@ describe('copy about when the extension uses the network', () => {
     expect(line).toContain(qualifier);
   });
 
+  it.each([
+    ['PRIVACY_POLICY.md', 'unless sync is failing'],
+    ['site/src/privacy/es.md', 'salvo que la sincronización esté fallando'],
+    ['site/src/privacy/ko.md', '동기화에 실패하는 중이면'],
+    ['site/src/privacy/ja.md', '同期に失敗している間は'],
+  ])('%s does not promise seconds while sync is failing', (path, exception) => {
+    expect(read(path)).toContain(exception);
+  });
+
   it('the alarms justification does not claim local bookkeeping only', () => {
     expect(read('scripts/store-listing.ts')).not.toContain(
       'in every case to do local bookkeeping only',

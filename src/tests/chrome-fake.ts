@@ -328,6 +328,10 @@ function matchPatternToRegExp(pattern: string): RegExp {
 // Factory
 // ---------------------------------------------------------------------------
 
+// As in Chrome, a delay counts from when the alarm was created, not from when it is read. Shared by
+// every fake, as an alarm outlives the worker: a test hands the same alarm to the next fake.
+const alarmTimes = new WeakMap<chrome.alarms.AlarmCreateInfo, number>();
+
 export function createChromeFake(): ChromeFake {
   const state: FakeState = {
     windows: new Map(),
@@ -1185,8 +1189,6 @@ export function createChromeFake(): ChromeFake {
     onClicked: onActionClicked,
   };
 
-  // As in Chrome, a delay counts from when the alarm was created, not from when it is read.
-  const alarmTimes = new WeakMap<chrome.alarms.AlarmCreateInfo, number>();
   const toAlarm = (name: string, info: chrome.alarms.AlarmCreateInfo): chrome.alarms.Alarm => ({
     name,
     periodInMinutes: info.periodInMinutes,

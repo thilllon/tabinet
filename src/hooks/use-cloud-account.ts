@@ -1,16 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { me } from '@/lib/cloud-api';
 import {
   type AccountState,
   accountState,
+  checkKeySetup,
   CLOUD_ACCOUNT_KEY,
   CLOUD_SYNC_KEY,
-  keepSyncKeyFor,
   loadLiveCloudAccount,
   loadSyncKey,
   showsSyncRow,
-  withCloudAccount,
 } from '@/lib/cloud-auth';
 import { isCloudSyncEnabled } from '@/lib/cloud-config';
 import { reportError } from '@/lib/error-message';
@@ -88,15 +86,11 @@ export function useCloudAccount(): CloudAccountView {
         if (storedAccount === null) {
           return;
         }
-        const { answer, token } = await withCloudAccount(async (current) => ({
-          answer: await me(current.token),
-          token: current.token,
-        }));
-        const kept = await keepSyncKeyFor(answer.keySetup, token);
+        const answer = await checkKeySetup(storedAccount);
         if (live) {
-          setupToken.current = token;
+          setupToken.current = storedAccount.token;
           setKeySetup(answer.keySetup);
-          setHasKey(kept);
+          setHasKey(answer.keyKept);
         }
       } catch (err: unknown) {
         if (live) {

@@ -45,7 +45,7 @@ export function AccountField({ onNotice, onError }: AccountFieldProps) {
   const cloud = useCloudAccount();
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const syncing = useCloudSync(cloud.syncRow);
+  const syncing = useCloudSync(cloud.syncRow ? cloud.account?.token : undefined);
   // Beside the Sync row a failed account check takes no line or button of its own, which would
   // move the row: it is a toast, and Sync now is the way to try again. One toast with the sync's
   // own error, as offline both say the same.

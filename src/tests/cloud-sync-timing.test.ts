@@ -626,10 +626,10 @@ describe('no loop', () => {
   it('a record the server refuses waits without a fast retry', async () => {
     const { sessionRepo } = await syncedWorker();
     vi.stubGlobal('fetch', async (...args: Parameters<typeof fetch>) => {
-      const response = await server.fetch(...args);
       if (args[1]?.method !== 'POST') {
-        return response;
+        return server.fetch(...args);
       }
+      // Refused: the fake server never stores it.
       return new Response(
         JSON.stringify({
           results: [{ kind: 'session', id: 's1', status: 'rejected', reason: 'unknown' }],
@@ -726,8 +726,10 @@ async function step(ms = 2000): Promise<void> {
   await vi.advanceTimersByTimeAsync(ms);
   await tick();
   const { state, fire } = getChromeFake();
-  for (const alarm of await chrome.alarms.getAll()) {
-    if (alarm.scheduledTime > Date.now() || !state.alarms.has(alarm.name)) {
+  for (const { name } of await chrome.alarms.getAll()) {
+    // As it is now: the alarm fired before it may have replaced or cleared it.
+    const alarm = await chrome.alarms.get(name);
+    if (alarm === undefined || alarm.scheduledTime > Date.now()) {
       continue;
     }
     if (alarm.periodInMinutes === undefined) {
@@ -773,14 +775,12 @@ const hungFetch: Answer = (_input, init) =>
   });
 
 /** The server refuses every write of a session for a reason this version does not know. */
-const refusingPosts: Answer = async (...args) => {
-  const response = await server.fetch(...args);
-  return args[1]?.method === 'POST'
+const refusingPosts: Answer = async (...args) =>
+  args[1]?.method === 'POST'
     ? Response.json({
         results: [{ kind: 'session', id: 's1', status: 'rejected', reason: 'unknown' }],
       })
-    : response;
-};
+    : server.fetch(...args);
 
 describe('a slow or failing server over an hour', { timeout: 60_000 }, () => {
   it.each([5, 24, 29, 31, 45])('an error after %i seconds keeps its backoff', async (seconds) => {
@@ -802,6 +802,11 @@ describe('a slow or failing server over an hour', { timeout: 60_000 }, () => {
     await sessionRepo.put(session('s1'));
     await simulate(3_600_000);
     expect(asked.length).toBeLessThanOrEqual(12);
+    expect(server.record('session', 's1')).toBeUndefined();
+    const start = asked[0]!;
+    // The first run, then nothing until the periodic check, which does come.
+    expect(asked.filter((at) => at - start > 20_000 && at - start < 840_000)).toEqual([]);
+    expect(asked.some((at) => at - start >= 840_000 && at - start < 940_000)).toBe(true);
   });
 
   it.each([20, 120])('an edit every %i seconds does not shorten the backoff', async (seconds) => {
@@ -865,6 +870,14 @@ describe('a slow or failing server over an hour', { timeout: 60_000 }, () => {
     await settle();
     expect(asked).toHaveLength(1);
   });
+});
+
+it('the periodic alarm keeps its time through a worker restart', async () => {
+  await syncedWorker();
+  const before = await chrome.alarms.get(CLOUD_SYNC_ALARM);
+  await pass(60_000);
+  killWorker();
+  expect((await chrome.alarms.get(CLOUD_SYNC_ALARM))?.scheduledTime).toBe(before?.scheduledTime);
 });
 
 describe('a worker that dies at the wrong moment', { timeout: 60_000 }, () => {
@@ -1066,7 +1079,7 @@ describe('signed out or switched during a run', () => {
     await pass(2500);
     await settle();
     expect(server.record('session', 'made-as-b')).toBeUndefined();
-    expect(await sessionRepo.get('only-in-a').catch(() => undefined)).toBeUndefined();
+    expect(await sessionRepo.get('only-in-a')).toBeUndefined();
     expect(other.record('session', 'only-in-a')).toBeUndefined();
     expect(other.record('session', 'made-as-b')).toBeDefined();
   });

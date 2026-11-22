@@ -52,6 +52,39 @@ export type SyncPhase =
   | { kind: 'upToDate'; at: number }
   | { kind: 'notSynced' };
 
+/** One reading of the facts, and the account (its token) it was read for. */
+export interface SyncReading {
+  of: string | undefined;
+  facts: SyncFacts;
+  phase: SyncPhase;
+  /** False until the first reading, so no status is claimed before one is known. */
+  loaded: boolean;
+}
+
+export const UNREAD: SyncReading = {
+  of: undefined,
+  facts: NO_SYNC_FACTS,
+  phase: { kind: 'notSynced' },
+  loaded: false,
+};
+
+/** `reading` when it is of `account`: never the status or error of the account before. Pure. */
+export function readingFor(reading: SyncReading, account: string | undefined): SyncReading {
+  return account !== undefined && reading.of === account ? reading : UNREAD;
+}
+
+/**
+ * `facts` without alarm times that have passed: Chrome can deliver an alarm late, and a time gone
+ * by is no promise. The line then says what it says without a time. Pure.
+ */
+export function withoutPastTimes(facts: SyncFacts, now: number): SyncFacts {
+  const ahead = (at: number | null) => (at !== null && at > now ? at : null);
+  return { ...facts, soonAt: ahead(facts.soonAt), checkAt: ahead(facts.checkAt) };
+}
+
+/** How soon an overdue alarm is looked at again: Chrome may be about to move or drop it. */
+const OVERDUE_READ_MS = 30_000;
+
 /** After a change the timer has run by now; later, only an alarm can still be trusted to. */
 const SOON_WINDOW_MS = SYNC_DEBOUNCE_MS + 1500;
 
@@ -206,8 +239,12 @@ export function nextCheckText(checkAt: number | null): string {
 export function nextReadAt(facts: SyncFacts, now: number): number | null {
   const times = [
     timerIsDue(facts, now) && facts.changedAt !== null ? facts.changedAt + SOON_WINDOW_MS : null,
-    facts.soonAt === null ? null : facts.soonAt + 1000,
-    facts.checkAt === null ? null : facts.checkAt + 1000,
+    ...[facts.soonAt, facts.checkAt].map((at) => {
+      if (at === null) {
+        return null;
+      }
+      return at + 1000 > now ? at + 1000 : now + OVERDUE_READ_MS;
+    }),
   ].filter((at): at is number => at !== null && at > now);
   return times.length === 0 ? null : Math.min(...times);
 }

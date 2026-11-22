@@ -10,12 +10,14 @@ import {
   nextCheckVariants,
   nextReadAt,
   NO_SYNC_FACTS,
+  readingFor,
   sameFacts,
   syncPhase,
   syncPhaseText,
   syncPhaseVariants,
   type SyncFacts,
   whenSyncEnds,
+  withoutPastTimes,
 } from '@/lib/cloud-sync-status';
 import { formatClockTime, formatDateTime } from '@/lib/display-format';
 import { t } from '@/lib/i18n';
@@ -117,8 +119,24 @@ describe('reading again', () => {
     expect(nextReadAt(facts(), NOW)).toBe(CHECK + 1000);
   });
 
-  it('never at a time already past', () => {
-    expect(nextReadAt(facts({ soonAt: NOW - 5000, checkAt: NOW - 5000 }), NOW)).toBeNull();
+  it('an overdue alarm is looked at again later, never at a time already past', () => {
+    expect(nextReadAt(facts({ soonAt: NOW - 5000, checkAt: NOW - 5000 }), NOW)).toBe(NOW + 30_000);
+    expect(nextReadAt(facts({ soonAt: null, checkAt: null }), NOW)).toBeNull();
+  });
+
+  it('an overdue alarm is not shown as a time to come', () => {
+    const late = withoutPastTimes(facts({ failing: true, soonAt: NOW - 1, checkAt: NOW }), NOW);
+    expect(syncPhase(late, NOW)).toEqual({ kind: 'failed', at: null });
+    expect(nextCheckAt(late)).toBeNull();
+    expect(withoutPastTimes(facts({ soonAt: SOON }), NOW).soonAt).toBe(SOON);
+  });
+
+  it('a reading is shown only for the account it was read for', () => {
+    const reading = { of: 'tok-a', facts: facts(), phase: syncPhase(facts(), NOW), loaded: true };
+    expect(readingFor(reading, 'tok-a')).toBe(reading);
+    for (const account of ['tok-b', undefined]) {
+      expect(readingFor(reading, account)).toMatchObject({ loaded: false, facts: NO_SYNC_FACTS });
+    }
   });
 
   it('an unchanged reading is the same', () => {
