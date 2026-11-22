@@ -1,6 +1,7 @@
+import { POLICY } from '../../../src/constants.js';
 import type { AppHandler, Deps } from '../context.js';
 import { error, json, noContent } from '../responses.js';
-import { hashToken, mintToken, TOKEN_TTL_MS } from '../tokens.js';
+import { hashToken, mintToken } from '../tokens.js';
 import { parseAccessToken } from '../validation.js';
 
 export function signInWithGoogle(deps: Deps): AppHandler {
@@ -16,7 +17,7 @@ export function signInWithGoogle(deps: Deps): AppHandler {
     const user = await deps.store.upsertUser(identity.sub, identity.email);
     const token = mintToken(deps.randomBytes);
     const now = deps.now();
-    const expiresAt = now + TOKEN_TTL_MS;
+    const expiresAt = now + POLICY.signIn.tokenLifetimeMs;
     await deps.store.createToken(hashToken(token), user.id, expiresAt, now);
     return json(200, { token, expiresAt, email: user.email, keySetup: user.keySetup });
   };

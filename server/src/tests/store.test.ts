@@ -1,7 +1,8 @@
 import type { PGlite } from '@electric-sql/pglite';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { createSqlStore, IMAGE_RECORD_LIMIT, type Query, type Store } from '../db/store.js';
+import { POLICY } from '../../../src/constants.js';
+import { createSqlStore, type Query, type Store } from '../db/store.js';
 import type { RecordInput } from '../types.js';
 import { b64, createTestDb, imageRecord, resetDb, validKeySetup } from './helpers.js';
 
@@ -168,17 +169,17 @@ describe('image records and the per-account cap', () => {
     return Number(rows[0].n);
   }
 
-  it('keeps at most IMAGE_RECORD_LIMIT live images per user, counting each user apart', async () => {
+  it('keeps at most POLICY.account.screenshots live images per user, counting each user apart', async () => {
     const a = await store.upsertUser('a', 'a@example.com');
     const b = await store.upsertUser('b', 'b@example.com');
-    for (let i = 0; i < IMAGE_RECORD_LIMIT; i += 1) {
+    for (let i = 0; i < POLICY.account.screenshots; i += 1) {
       expect((await store.applyRecord(a.id, image(`i${i}`, 1))).status).toBe('applied');
     }
     expect(await store.applyRecord(a.id, image('extra', 1))).toEqual({
       status: 'rejected',
       reason: 'image_limit',
     });
-    expect(await liveImages(a.id)).toBe(IMAGE_RECORD_LIMIT);
+    expect(await liveImages(a.id)).toBe(POLICY.account.screenshots);
     // Another account has its own count; other kinds are not counted.
     expect((await store.applyRecord(b.id, image('extra', 1))).status).toBe('applied');
     expect((await store.applyRecord(a.id, { ...image('s', 1), kind: 'notes' })).status).toBe(
@@ -188,7 +189,7 @@ describe('image records and the per-account cap', () => {
 
   it('takes tombstones over the cap, and a deleted image back only while there is room', async () => {
     const user = await store.upsertUser('a', 'a@example.com');
-    for (let i = 0; i < IMAGE_RECORD_LIMIT; i += 1) {
+    for (let i = 0; i < POLICY.account.screenshots; i += 1) {
       await store.applyRecord(user.id, image(`i${i}`, 1));
     }
     expect((await store.applyRecord(user.id, image('i0', 2, true))).status).toBe('applied');
@@ -199,7 +200,7 @@ describe('image records and the per-account cap', () => {
       status: 'rejected',
       reason: 'image_limit',
     });
-    expect(await liveImages(user.id)).toBe(IMAGE_RECORD_LIMIT);
+    expect(await liveImages(user.id)).toBe(POLICY.account.screenshots);
   });
 
   it('applies image writes last writer wins, with a new seq, and lists them by kind', async () => {

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { POLICY } from '@/constants';
 import { CLOUD_ACCOUNT_KEY, CLOUD_SYNC_KEY } from '@/lib/cloud-auth';
 import { overrideCloudSyncConfig } from '@/lib/cloud-config';
 import {
@@ -17,7 +18,6 @@ import {
   settingsFingerprint,
   settingsState,
   splitIntoBatches,
-  SYNC_PERIOD_MINUTES,
   syncNow,
   withHeldImagesReleased,
 } from '@/lib/cloud-sync';
@@ -544,7 +544,7 @@ describe('alarms', () => {
     signIn();
     await ensureSyncAlarm();
     expect(state.alarms.get(CLOUD_SYNC_ALARM)).toMatchObject({
-      periodInMinutes: SYNC_PERIOD_MINUTES,
+      periodInMinutes: POLICY.sync.periodMinutes,
     });
     await scheduleSoonSync();
     expect(state.alarms.get(CLOUD_SYNC_SOON_ALARM)).toMatchObject({ delayInMinutes: 1 });

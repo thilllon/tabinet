@@ -1,3 +1,4 @@
+import { POLICY } from '@/constants';
 import { isCloudSyncEnabled } from '@/lib/cloud-config';
 import {
   readSyncMeta,
@@ -17,8 +18,6 @@ import {
 import { defaultSessionName } from '@/lib/session-naming';
 import {
   DEFAULT_SESSION_SETTINGS,
-  HISTORY_INTERVAL_MAX_MINUTES,
-  HISTORY_INTERVAL_MIN_MINUTES,
   SESSION_SCHEMA_VERSION,
   type Session,
   type SessionId,
@@ -227,7 +226,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 /**
  * The stored snapshot interval as the alarm will use it: a finite number is rounded to whole
- * minutes and clamped into [HISTORY_INTERVAL_MIN_MINUTES, HISTORY_INTERVAL_MAX_MINUTES]; anything
+ * minutes and clamped into `POLICY.snapshots.intervalMinutes`; anything
  * that is not a number at all falls back to the default.
  */
 export function normalizeHistoryInterval(value: unknown): number {
@@ -235,8 +234,8 @@ export function normalizeHistoryInterval(value: unknown): number {
     return DEFAULT_SESSION_SETTINGS.historyIntervalMinutes;
   }
   return Math.min(
-    HISTORY_INTERVAL_MAX_MINUTES,
-    Math.max(HISTORY_INTERVAL_MIN_MINUTES, Math.round(value)),
+    POLICY.snapshots.intervalMinutes.max,
+    Math.max(POLICY.snapshots.intervalMinutes.min, Math.round(value)),
   );
 }
 
@@ -255,7 +254,7 @@ export function normalizeSettings(value: unknown): SessionSettings {
         : DEFAULT_SESSION_SETTINGS.historyEnabled,
     historyIntervalMinutes: normalizeHistoryInterval(interval),
     historyMaxSnapshots:
-      typeof max === 'number' && Number.isInteger(max) && max > 0
+      typeof max === 'number' && Number.isInteger(max) && max >= POLICY.snapshots.keep.min
         ? max
         : DEFAULT_SESSION_SETTINGS.historyMaxSnapshots,
     restoreLazy:

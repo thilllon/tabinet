@@ -10,9 +10,9 @@ import path from 'node:path';
 
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { POLICY } from '../../../src/constants.js';
 import * as vercel from '../../api/vercel.adaptor.js';
 import { readPort } from '../env.js';
-import { MAX_BODY_BYTES } from '../validation.js';
 import { FAKE_ENV, FAKE_TOKEN, RECORD_BYTES, RECORD_COUNT } from './fake-network.js';
 import { ORIGIN } from './helpers.js';
 
@@ -201,7 +201,7 @@ describe('the Railway adaptor and the Vercel adaptor', () => {
     ['bad records', { method: 'POST', path: '/v1/records', headers: signedIn, body: '[]' }],
     [
       'the largest body',
-      { method: 'POST', path: '/v1/auth/google', body: '{}'.padEnd(MAX_BODY_BYTES) },
+      { method: 'POST', path: '/v1/auth/google', body: '{}'.padEnd(POLICY.request.maxBodyBytes) },
     ],
   ])('answer %s the same', async (_name, call) => {
     expect(await viaRailway(server.port, call)).toEqual(await viaVercel(call));
@@ -211,7 +211,7 @@ describe('the Railway adaptor and the Vercel adaptor', () => {
     // Only the head goes out: the answer must not wait for the body.
     const { socket, closed } = await rawConnection(
       server.port,
-      `${SIGN_IN}Content-Length: ${MAX_BODY_BYTES + 1}\r\n\r\n`,
+      `${SIGN_IN}Content-Length: ${POLICY.request.maxBodyBytes + 1}\r\n\r\n`,
     );
     const received = await closed;
     expect(received).toMatch(/^HTTP\/1\.1 413 /);
@@ -220,7 +220,7 @@ describe('the Railway adaptor and the Vercel adaptor', () => {
     const overLimit = await viaVercel({
       method: 'POST',
       path: '/v1/auth/google',
-      body: ' '.repeat(MAX_BODY_BYTES + 1),
+      body: ' '.repeat(POLICY.request.maxBodyBytes + 1),
     });
     expect(overLimit.status).toBe(413);
     expect(overLimit.body).toBe('{"error":"payload_too_large"}');
@@ -232,7 +232,9 @@ describe('the Railway adaptor and the Vercel adaptor', () => {
       `${SIGN_IN}Transfer-Encoding: chunked\r\n\r\n`,
     );
     // One byte past what is read, and no end.
-    socket.write(`${(MAX_BODY_BYTES + 4).toString(16)}\r\n${' '.repeat(MAX_BODY_BYTES + 4)}`);
+    socket.write(
+      `${(POLICY.request.maxBodyBytes + 4).toString(16)}\r\n${' '.repeat(POLICY.request.maxBodyBytes + 4)}`,
+    );
     expect(await closed).toMatch(/^HTTP\/1\.1 413 /);
   });
 
@@ -242,7 +244,7 @@ describe('the Railway adaptor and the Vercel adaptor', () => {
       `${SIGN_IN}Transfer-Encoding: chunked\r\n\r\n`,
     );
     // Whole, and far enough over the limit that a stream's own buffer cannot hold the rest.
-    const size = MAX_BODY_BYTES + 400_000;
+    const size = POLICY.request.maxBodyBytes + 400_000;
     socket.write(`${size.toString(16)}\r\n${' '.repeat(size)}\r\n0\r\n\r\n`);
     await vi.waitFor(() => expect(received()).toContain('{"error":"payload_too_large"}'));
     // A proxy reuses the connection, perhaps for another person's request.

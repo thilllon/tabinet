@@ -7,14 +7,13 @@ import { SettingsField } from '@/components/settings-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CLOUD_IMAGE_LIMIT } from '@/constants';
+import { POLICY } from '@/constants';
 import { useCloudAccount } from '@/hooks/use-cloud-account';
 import { useCloudSync } from '@/hooks/use-cloud-sync';
 import { useErrorToast } from '@/hooks/use-toasts';
 import {
   deleteCloudData,
   newPassphraseProblem,
-  PASSPHRASE_MIN_LENGTH,
   setUpPassphrase,
   signIn,
   signOut,
@@ -62,7 +61,9 @@ export function AccountField({ onNotice, onError }: AccountFieldProps) {
       return;
     }
     heldShown.current = true;
-    noticeRef.current(tp('settingsAccountImagesHeld', heldImages, formatNumber(CLOUD_IMAGE_LIMIT)));
+    noticeRef.current(
+      tp('settingsAccountImagesHeld', heldImages, formatNumber(POLICY.account.screenshots)),
+    );
     markHeldImagesNoticed().catch((err: unknown) => reportError('held screenshots notice', err));
   }, [heldImages, heldImagesNoticed]);
 
@@ -263,7 +264,7 @@ function CreatePassphraseForm({ busy, onSubmit }: CreatePassphraseFormProps) {
     const passphrase = formText(form, 'passphrase');
     const found = newPassphraseProblem(passphrase, formText(form, 'repeated'));
     if (found === 'tooShort') {
-      setProblem(tp('settingsAccountPassphraseTooShort', PASSPHRASE_MIN_LENGTH));
+      setProblem(tp('settingsAccountPassphraseTooShort', POLICY.passphrase.minLength));
       return;
     }
     if (found === 'mismatch') {

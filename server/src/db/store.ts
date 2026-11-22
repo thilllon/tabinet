@@ -1,3 +1,4 @@
+import { POLICY } from '../../../src/constants.js';
 import {
   type ApplyResult,
   type KeySetup,
@@ -7,13 +8,6 @@ import {
   type StoredRecord,
   type User,
 } from '../types.js';
-
-/**
- * The most live screenshots (`image` records that are not tombstones) one account may keep. A
- * write that would add one more is answered `rejected` with `image_limit`, and the picture stays
- * on the device that sent it. Tombstones are always accepted, so deleting makes room.
- */
-export const IMAGE_RECORD_LIMIT = 100;
 
 /** Runs one parameterised statement and returns its rows. Neon in production, PGlite in tests. */
 export type Query = (text: string, params?: unknown[]) => Promise<Record<string, unknown>[]>;
@@ -38,7 +32,8 @@ export interface Store {
   ): Promise<StoredRecord[]>;
   /**
    * Last writer wins: applies the record only when its `updatedAt` is newer than the stored one.
-   * A live image over `IMAGE_RECORD_LIMIT` is `rejected`.
+   * One live image over `POLICY.account.screenshots` is `rejected` with `image_limit`; a tombstone
+   * is always accepted, so deleting makes room.
    */
   applyRecord(userId: string, record: RecordInput): Promise<ApplyResult>;
   /** Deletes the user; their tokens and records go with them (ON DELETE CASCADE). */
@@ -109,7 +104,7 @@ async function applyImage(query: Query, userId: string, record: RecordInput): Pr
       record.deleted,
       record.iv,
       record.ciphertext,
-      IMAGE_RECORD_LIMIT,
+      POLICY.account.screenshots,
     ],
   );
   if (rows.length === 0) {

@@ -1,3 +1,4 @@
+import { POLICY } from '../../src/constants.js';
 import {
   DEFAULT_LISTED_KINDS,
   type KeySetup,
@@ -6,21 +7,8 @@ import {
   type RecordKind,
 } from './types.js';
 
-const MAX_RECORDS_PER_REQUEST = 100;
-/**
- * The largest request body accepted, in bytes (4 MiB). Vercel refuses a body over 4.5 MB before
- * the function runs, with no CORS headers and no JSON, so the limit a client sizes its batches to
- * sits below that: up to 100 records and 4 MiB, whichever comes first.
- */
-export const MAX_BODY_BYTES = 4 * 1024 * 1024;
-/** The longest ciphertext accepted, counted in base64 characters (1 MiB). */
-const MAX_CIPHERTEXT_CHARS = 1024 * 1024;
-const MIN_ITERATIONS = 100_000;
-const MAX_ITERATIONS = 10_000_000;
-const DEFAULT_RECORDS_LIMIT = 500;
-
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
-// One character class, not a group of four: it stays linear on a 1 MiB string.
+// One character class, not a group of four: it stays linear on a whole ciphertext.
 const BASE64_PATTERN = /^[A-Za-z0-9+/]*={0,2}$/;
 const DIGITS = /^\d{1,16}$/;
 
@@ -50,9 +38,6 @@ function base64Within(value: unknown, min: number, max: number): value is string
   return bytes !== null && bytes >= min && bytes <= max;
 }
 
-/** The longest access token accepted. Google documents up to 2048 bytes; this leaves room. */
-const MAX_ACCESS_TOKEN_LENGTH = 4096;
-
 /** The Google access token in a sign-in body `{ accessToken }`, or null. */
 export function parseAccessToken(body: unknown): string | null {
   if (!isPlain(body) || !hasExactly(body, ['accessToken'])) {
@@ -61,7 +46,7 @@ export function parseAccessToken(body: unknown): string | null {
   const { accessToken } = body;
   return typeof accessToken === 'string' &&
     accessToken.length > 0 &&
-    accessToken.length <= MAX_ACCESS_TOKEN_LENGTH
+    accessToken.length <= POLICY.request.maxAccessTokenChars
     ? accessToken
     : null;
 }
@@ -80,9 +65,9 @@ export function parseKeySetup(body: unknown): KeySetup | null {
     kdf.hash !== 'SHA-256' ||
     typeof iterations !== 'number' ||
     !Number.isSafeInteger(iterations) ||
-    iterations < MIN_ITERATIONS ||
-    iterations > MAX_ITERATIONS ||
-    !base64Within(salt, 16, 64) ||
+    iterations < POLICY.kdf.minIterations ||
+    iterations > POLICY.kdf.maxIterations ||
+    !base64Within(salt, POLICY.kdf.minSaltBytes, POLICY.kdf.maxSaltBytes) ||
     !base64Within(check, 1, 1024) ||
     !base64Within(checkIv, 12, 32)
   ) {
@@ -120,7 +105,8 @@ function parseRecord(value: unknown): RecordInput | null {
   // deletion with the record's metadata, so the server cannot forge one.
   if (
     !base64Within(iv, 12, 32) ||
-    ciphertext.length > MAX_CIPHERTEXT_CHARS ||
+    // Base64 is ASCII, so its length is its size in bytes.
+    ciphertext.length > POLICY.record.maxCiphertextBytes ||
     !base64Within(ciphertext, 1, Number.MAX_SAFE_INTEGER)
   ) {
     return null;
@@ -133,7 +119,7 @@ export function parseRecordsBody(body: unknown): RecordInput[] | null {
     return null;
   }
   const { records } = body;
-  if (!Array.isArray(records) || records.length > MAX_RECORDS_PER_REQUEST) {
+  if (!Array.isArray(records) || records.length > POLICY.request.maxRecordsPerPush) {
     return null;
   }
   const parsed: RecordInput[] = [];
@@ -173,16 +159,23 @@ function parseKinds(value: string | null): RecordKind[] | null {
   return kinds;
 }
 
-/** `since` (default 0), `limit` (1..500, default 500) and `kinds` from the query string, or null. */
+/**
+ * `since` (default 0), `limit` (from 1 to `POLICY.request.maxRecordsPerPull`, which is also the
+ * default) and `kinds` from the query string, or null.
+ */
 export function parseRecordsQuery(params: URLSearchParams): RecordsQuery | null {
   const since = params.get('since') ?? '0';
-  const limit = params.get('limit') ?? String(DEFAULT_RECORDS_LIMIT);
+  const limit = params.get('limit') ?? String(POLICY.request.maxRecordsPerPull);
   if (!DIGITS.test(since) || !DIGITS.test(limit)) {
     return null;
   }
   const sinceValue = Number(since);
   const limitValue = Number(limit);
-  if (!Number.isSafeInteger(sinceValue) || limitValue < 1 || limitValue > DEFAULT_RECORDS_LIMIT) {
+  if (
+    !Number.isSafeInteger(sinceValue) ||
+    limitValue < 1 ||
+    limitValue > POLICY.request.maxRecordsPerPull
+  ) {
     return null;
   }
   const kinds = parseKinds(params.get('kinds'));

@@ -1,11 +1,11 @@
 // The parts of the HTTP contract that Hono would change by default, so an upgrade cannot either.
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { POLICY } from '../../../src/constants.js';
 import { createApp } from '../app.js';
 import type { Deps } from '../context.js';
 import type { Store } from '../db/store.js';
 import { createServer } from '../production.js';
-import { MAX_BODY_BYTES } from '../validation.js';
 import { createTestDeps, ORIGIN, request, sessionRecord } from './helpers.js';
 
 const TOKEN = 'A'.repeat(43);
@@ -200,7 +200,9 @@ describe('body', () => {
   it.each(['/v1/auth/logout', '/v1/keys', '/v1/records'])(
     '%s answers 401 before reading it, even over the limit',
     async (path) => {
-      const { req, pull } = watched(path, { 'Content-Length': String(MAX_BODY_BYTES + 1) });
+      const { req, pull } = watched(path, {
+        'Content-Length': String(POLICY.request.maxBodyBytes + 1),
+      });
       const res = await setUp().app.fetch(req);
       expect(res.status).toBe(401);
       expect(pull).not.toHaveBeenCalled();
@@ -212,7 +214,7 @@ describe('body', () => {
     async (path) => {
       const { req, pull } = watched(path, {
         Authorization: `Bearer ${TOKEN}`,
-        'Content-Length': String(MAX_BODY_BYTES + 1),
+        'Content-Length': String(POLICY.request.maxBodyBytes + 1),
         Origin: ORIGIN,
       });
       const res = await setUp().app.fetch(req);
@@ -235,7 +237,7 @@ describe('body', () => {
             // As from a socket: each chunk is a turn of the event loop.
             await new Promise((resolve) => setImmediate(resolve));
             // Ends far over the limit, so a reader without one fails here instead of running out of memory.
-            if (sent > MAX_BODY_BYTES * 4) {
+            if (sent > POLICY.request.maxBodyBytes * 4) {
               controller.close();
               readToTheEnd = true;
               return;
@@ -253,21 +255,21 @@ describe('body', () => {
         duplex: 'half',
       });
       expect((await setUp().app.fetch(req)).status).toBe(413);
-      expect(sent).toBeLessThanOrEqual(MAX_BODY_BYTES + 2 * chunk.length);
+      expect(sent).toBeLessThanOrEqual(POLICY.request.maxBodyBytes + 2 * chunk.length);
       // Left unread, it blocks the next request on the connection.
       await vi.waitFor(() => expect(readToTheEnd).toBe(true));
     },
   );
 
   it.each([
-    ['a byte order mark is not counted', [0xef, 0xbb, 0xbf], MAX_BODY_BYTES, 400],
+    ['a byte order mark is not counted', [0xef, 0xbb, 0xbf], POLICY.request.maxBodyBytes, 400],
     [
       'a byte order mark does not hide a byte too many',
       [0xef, 0xbb, 0xbf],
-      MAX_BODY_BYTES + 1,
+      POLICY.request.maxBodyBytes + 1,
       413,
     ],
-    ['an invalid byte counts as its replacement', [0xff], MAX_BODY_BYTES - 1, 413],
+    ['an invalid byte counts as its replacement', [0xff], POLICY.request.maxBodyBytes - 1, 413],
   ])('%s', async (_name, start, spaces, status) => {
     const bytes = new Uint8Array(start.length + spaces).fill(32);
     bytes.set(start);
@@ -283,8 +285,8 @@ describe('body', () => {
     const { app } = setUp();
     const json = JSON.stringify({ records: [sessionRecord('a', 1)] });
     for (const [size, status] of [
-      [MAX_BODY_BYTES, 200],
-      [MAX_BODY_BYTES + 1, 413],
+      [POLICY.request.maxBodyBytes, 200],
+      [POLICY.request.maxBodyBytes + 1, 413],
     ] as const) {
       const req = request('POST', '/v1/records', { token: TOKEN, rawBody: json.padEnd(size) });
       req.headers.set('Content-Length', '2');
@@ -293,7 +295,7 @@ describe('body', () => {
   });
 
   it('counts bytes, not characters', async () => {
-    const rawBody = 'é'.repeat(MAX_BODY_BYTES / 2 + 1);
+    const rawBody = 'é'.repeat(POLICY.request.maxBodyBytes / 2 + 1);
     const req = request('POST', '/v1/records', { token: TOKEN, rawBody });
     expect((await setUp().app.fetch(req)).status).toBe(413);
   });

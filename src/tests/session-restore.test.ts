@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { LAZY_AUTO_THRESHOLD } from '@/constants';
+import { POLICY } from '@/constants';
 import {
   clampToScreen,
   executeRestore,
@@ -287,8 +287,8 @@ describe('isLazyRestore', () => {
   it("mirrors the planner: 'always' is lazy, 'never' is not, 'auto' is lazy above 10 tabs", () => {
     expect(isLazyRestore('always', 1)).toBe(true);
     expect(isLazyRestore('never', 500)).toBe(false);
-    expect(isLazyRestore('auto', LAZY_AUTO_THRESHOLD)).toBe(false);
-    expect(isLazyRestore('auto', LAZY_AUTO_THRESHOLD + 1)).toBe(true);
+    expect(isLazyRestore('auto', POLICY.restore.lazyAboveTabs)).toBe(false);
+    expect(isLazyRestore('auto', POLICY.restore.lazyAboveTabs + 1)).toBe(true);
   });
 });
 

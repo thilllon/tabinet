@@ -86,7 +86,7 @@ export interface FakeSyncServer {
   tamper(kind: FakeKind, id: string): void;
   /** The stored record, if any. */
   record(kind: FakeKind, id: string): FakeServerRecord | undefined;
-  /** The most live `image` records the account may hold (the server's `IMAGE_RECORD_LIMIT`). */
+  /** The most live `image` records the account may hold (`POLICY.account.screenshots`). */
   imageLimit: number;
   /** Stores a record as another device's accepted write would, with the next `seq`. */
   inject(record: Omit<FakeServerRecord, 'seq'>): void;

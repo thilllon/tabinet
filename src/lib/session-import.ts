@@ -335,7 +335,7 @@ const TRAILING_PUNCTUATION = '.,;:!?\'"]}';
  * user can even confirm the import. Trimming by repeated `slice`/anchored-regex instead is
  * quadratic: each pass re-scans (and re-flattens) the whole string, so a run of trailing `)`
  * costs O(n^2) -- measured at ~12 s for 40k characters, i.e. hours for a 1 MB paste, three orders
- * of magnitude under MAX_IMPORT_BYTES.
+ * of magnitude under `POLICY.import.maxFileBytes`.
  */
 function trimTrailingPunctuation(url: string): string {
   let opens = 0;

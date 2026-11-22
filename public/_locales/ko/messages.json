@@ -337,7 +337,7 @@
   },
   "settingsLazyAuto": {
     "message": "자동(탭 $1개 초과 시)",
-    "description": "Lazy restore dropdown option: only when a session has more tabs than $1, the formatted threshold (LAZY_AUTO_THRESHOLD in src/constants.ts)."
+    "description": "Lazy restore dropdown option: only when a session has more tabs than $1, the formatted threshold (POLICY.restore.lazyAboveTabs in src/constants.ts)."
   },
   "settingsLazyAlways": {
     "message": "항상",

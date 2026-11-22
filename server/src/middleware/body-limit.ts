@@ -1,10 +1,10 @@
+import { POLICY } from '../../../src/constants.js';
 import type { AppMiddleware } from '../context.js';
 import { error } from '../responses.js';
-import { MAX_BODY_BYTES } from '../validation.js';
 
 // The limit is on the bytes of the decoded text. Decoding drops a byte order mark (3 bytes) and
 // never shrinks anything else, so past this many bytes on the wire a body is over it, whatever it is.
-const MAX_READ_BYTES = MAX_BODY_BYTES + 3;
+const MAX_READ_BYTES = POLICY.request.maxBodyBytes + 3;
 
 /**
  * The body, or null as soon as it is longer than `MAX_READ_BYTES`. It goes into one buffer, since
@@ -54,14 +54,14 @@ async function discardRest(reader: ReadableStreamDefaultReader<Uint8Array>): Pro
 
 /**
  * Reads the body as JSON into `c.get('body')` (undefined when it is not JSON, which the handler's
- * parser answers with 400), or answers 413 over `MAX_BODY_BYTES`, never holding more than that:
- * not every host caps a body before it gets here. Not Hono's bodyLimit: that one trusts
+ * parser answers with 400), or answers 413 over `POLICY.request.maxBodyBytes`, never holding
+ * more than that: not every host caps a body before it gets here. Not Hono's bodyLimit: that one trusts
  * Content-Length when it is there, and the real byte count has to be checked too.
  */
 export const readJsonBody: AppMiddleware = async (c, next) => {
   const request = c.req.raw;
   // Content-Length first, so an honest oversized request is refused without reading it.
-  if (Number(request.headers.get('Content-Length') ?? 0) > MAX_BODY_BYTES) {
+  if (Number(request.headers.get('Content-Length') ?? 0) > POLICY.request.maxBodyBytes) {
     return error(413, 'payload_too_large');
   }
   const bytes = await readAtMost(request.body);
@@ -69,7 +69,7 @@ export const readJsonBody: AppMiddleware = async (c, next) => {
     return error(413, 'payload_too_large');
   }
   const text = new TextDecoder().decode(bytes);
-  if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) {
+  if (new TextEncoder().encode(text).length > POLICY.request.maxBodyBytes) {
     return error(413, 'payload_too_large');
   }
   let body: unknown;

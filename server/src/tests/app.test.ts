@@ -1,10 +1,10 @@
 import type { PGlite } from '@electric-sql/pglite';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { POLICY } from '../../../src/constants.js';
 import { createApp } from '../app.js';
 import type { Deps } from '../context.js';
-import { IMAGE_RECORD_LIMIT, type Query, type Store } from '../db/store.js';
-import { TOKEN_TTL_MS } from '../tokens.js';
+import type { Query, Store } from '../db/store.js';
 import type { StoredRecord } from '../types.js';
 import {
   b64,
@@ -74,7 +74,7 @@ describe('POST /v1/auth/google', () => {
     expect(status).toBe(200);
     expect(body).toEqual({
       token: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
-      expiresAt: clock.now + TOKEN_TTL_MS,
+      expiresAt: clock.now + POLICY.signIn.tokenLifetimeMs,
       email: 'a@example.com',
       keySetup: null,
     });
@@ -175,7 +175,7 @@ describe('authentication', () => {
 
   it('accepts a token until it expires, and refuses it from then on', async () => {
     const token = await signIn();
-    clock.now += TOKEN_TTL_MS - 1;
+    clock.now += POLICY.signIn.tokenLifetimeMs - 1;
     expect((await call(request('GET', '/v1/me', { token }))).status).toBe(200);
     clock.now += 1;
     const { status, body } = await call(request('GET', '/v1/me', { token }));
@@ -185,7 +185,7 @@ describe('authentication', () => {
 
   it("drops the user's expired tokens at the next sign-in", async () => {
     await signIn();
-    clock.now += TOKEN_TTL_MS + 1;
+    clock.now += POLICY.signIn.tokenLifetimeMs + 1;
     await signIn();
     expect(await query('SELECT token_hash FROM auth_tokens')).toHaveLength(1);
   });
@@ -383,7 +383,9 @@ describe('records', () => {
 
   it('refuses a live image over the per-account cap, record by record, and always takes tombstones', async () => {
     const token = await signIn();
-    const full = Array.from({ length: IMAGE_RECORD_LIMIT }, (_, i) => imageRecord(`img${i}`, 1));
+    const full = Array.from({ length: POLICY.account.screenshots }, (_, i) =>
+      imageRecord(`img${i}`, 1),
+    );
     expect(
       (await post(token, full)).body.results.every(
         (r: { status: string }) => r.status === 'applied',
@@ -421,7 +423,7 @@ describe('records', () => {
     const token = await signIn();
     await post(
       token,
-      Array.from({ length: IMAGE_RECORD_LIMIT }, (_, i) => imageRecord(`img${i}`, 5)),
+      Array.from({ length: POLICY.account.screenshots }, (_, i) => imageRecord(`img${i}`, 5)),
     );
     const { body } = await post(token, [imageRecord('img0', 4, true)]);
     expect(body.results[0]).toMatchObject({
