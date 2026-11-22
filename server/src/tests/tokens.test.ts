@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { bearerToken, hashToken, mintToken } from '../src/tokens.js';
+import { bearerToken, hashToken, mintToken } from '../tokens.js';
 
 describe('tokens', () => {
   it('mints 32 random bytes as base64url', () => {

@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  base64Bytes,
-  parseKeySetup,
-  parseRecordsBody,
-  parseRecordsQuery,
-} from '../src/validation.js';
+import { base64Bytes, parseKeySetup, parseRecordsBody, parseRecordsQuery } from '../validation.js';
 import { b64, sessionRecord, tombstone, validKeySetup } from './helpers.js';
 
 describe('base64Bytes', () => {

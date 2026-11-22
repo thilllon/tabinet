@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createProductionDeps, createServer, listFromEnv } from '../src/production.js';
+import { createProductionDeps, createServer, listFromEnv } from '../production.js';
 import { createTestDeps, ORIGIN, request } from './helpers.js';
 
 const SECRET = 'hunter2-password';
