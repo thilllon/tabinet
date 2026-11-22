@@ -1873,7 +1873,7 @@
   },
   "settingsAccountImagesHeld_other": {
     "message": "스크린샷 $1개를 동기화하지 못했습니다. 계정에 이미 최대치인 스크린샷 $2개가 있습니다. 이 기기에는 남아 있고, 스크린샷을 지우면 동기화됩니다.",
-    "description": "Toast in Settings > Account, shown once, when the sync server refused note screenshots because the account is at its limit. $1 is how many are held back on this device, $2 the limit (100)."
+    "description": "Toast in Settings > Account, shown once, when the sync server refused note screenshots because the account is at its limit. $1 is how many are held back on this device, $2 the limit (POLICY.account.screenshots)."
   },
   "errorCloudUnreachable": {
     "message": "동기화 서버에 연결할 수 없습니다. 연결을 확인하고 다시 시도하세요.",

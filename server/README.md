@@ -167,9 +167,10 @@ are checked with Google as in production. `PORT` and `ALLOWED_ORIGINS` are read 
    `api/`, and fails. The function runs on the Node.js runtime. Vercel compiles `api/vercel.adaptor.ts` with the `typescript` it finds in `server/`,
    which needs the compiler API that TypeScript 7 no longer ships, so `server/` pins TypeScript 6.
    In the Root Directory settings keep **Include source files outside of the Root Directory** on:
-   the function bundles `../src/constants.ts`. Turn **Skip deployment** (unaffected projects) off:
-   that file belongs to the root workspace package, which `tabinet-server` does not list as a
-   dependency, so Vercel could skip the deploy of a commit that only changes `POLICY`.
+   the function bundles `../src/constants.ts`. After a commit that changes only `POLICY`, check
+   that the server was deployed. Vercel's docs say a change outside the workspace packages deploys
+   every project, but nobody has tested it with this repository (the server does not depend on the
+   root package). If such a commit is skipped, turn **Skip deployment** off.
 
 2. **Add Postgres.** In the project's **Storage** tab, add **Neon** from the Vercel Marketplace and
    connect it to the project. This sets `DATABASE_URL` for every environment.

@@ -13,7 +13,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /**
  * Every policy number of Tabinet: how much, how many, how long. The extension and the sync server
  * both read this object, so a limit is changed here and nowhere else. A changed limit reaches the
- * server when it is deployed and people when the extension is released.
+ * server when it is deployed and people when the extension is released: which of the two goes
+ * first is in AGENTS.md, "Policy numbers".
  */
 export const POLICY = {
   /** What one cloud sync account may keep on the server. */
@@ -88,7 +89,11 @@ export const POLICY = {
      * alarm under half a minute; over a day is no use for crash recovery.
      */
     intervalMinutes: { min: 1, default: 5, max: 1440, choices: [5, 10, 30] },
-    /** How many are kept before the oldest is deleted. */
+    /**
+     * How many are kept before the oldest is deleted. `max` limits only what can be typed in
+     * Settings: a bigger number already stored, or received by sync, stays. One under `min`
+     * becomes the default.
+     */
     keep: { min: 1, default: 20, max: 200 },
     /** The newest "Previous session (recovered)" snapshots, which are kept on top of those. */
     keepRecovered: 2,

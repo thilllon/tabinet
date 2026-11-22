@@ -2049,11 +2049,11 @@
   },
   "settingsAccountImagesHeld_one": {
     "message": "$1 captura no se sincronizó: tu cuenta ya guarda $2 capturas, el máximo. Se queda en este dispositivo y se sincronizará cuando elimines una captura.",
-    "description": "Toast in Settings > Account, shown once, when the sync server refused note screenshots because the account is at its limit. $1 is how many are held back on this device, $2 the limit (100)."
+    "description": "Toast in Settings > Account, shown once, when the sync server refused note screenshots because the account is at its limit. $1 is how many are held back on this device, $2 the limit (POLICY.account.screenshots)."
   },
   "settingsAccountImagesHeld_other": {
     "message": "$1 capturas no se sincronizaron: tu cuenta ya guarda $2 capturas, el máximo. Se quedan en este dispositivo y se sincronizarán cuando elimines una captura.",
-    "description": "Toast in Settings > Account, shown once, when the sync server refused note screenshots because the account is at its limit. $1 is how many are held back on this device, $2 the limit (100)."
+    "description": "Toast in Settings > Account, shown once, when the sync server refused note screenshots because the account is at its limit. $1 is how many are held back on this device, $2 the limit (POLICY.account.screenshots)."
   },
   "errorCloudUnreachable": {
     "message": "No se pudo conectar con el servidor de sincronización. Revisa la conexión e inténtalo de nuevo.",

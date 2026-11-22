@@ -513,10 +513,11 @@ pnpm server:test                     # the sync server's vitest (PGlite, no netw
 
 - **Every policy number goes into `POLICY` in `src/constants.ts` and nowhere else**: limits, sizes, lifetimes, periods, bounds and defaults the owner would tune. Read it where it is used (`POLICY.account.screenshots`): no local constant, alias or copy, in the extension or in `server/`. Numbers quoted in this file and the READMEs only describe it; the object wins, and a change to it updates them, plus the website, the store text and `PRIVACY_POLICY.md` where they quote it.
 - Not policy, so they stay where they are used: UI timings, layout numbers and format invariants (IV, key and token byte sizes, the id pattern, schema versions).
-- The server imports the same file by relative path (`../../src/constants.js` from `server/src/`), so `src/constants.ts` has no imports. The server is deployed on its own: a limit the client must respect is raised server first and lowered client first.
+- The server imports the same file by relative path (`../../src/constants.js` from `server/src/`), so `src/constants.ts` has no imports.
+- One edit changes both sides, but they ship apart and released extensions keep their old numbers. **Widen** what the server accepts (a higher maximum, a lower minimum) by deploying the server before the extension that uses it. **Narrow** it (a lower maximum, a higher minimum) by releasing the extension first and holding the server deploy until older versions no longer send what it would refuse. `POLICY.kdf` is stricter, because every extension also checks the key setup the server hands back and a stored one is never replaced: no key is made outside the old range until every extension in use accepts it, and the range is never narrowed past a key that exists.
 - A function serialized into a page (`chrome.scripting`) cannot read `POLICY`: pass the value in `args`, as `captureFrame()` does.
 - `src/tests/policy.test.ts` pins every value and checks that the client and the server's validation agree at the boundaries. Tests may spell numbers out; a SQL migration is never edited for one (pass it as a parameter).
-- `account.storageBytes` is not enforced yet (issue #261).
+- Two numbers promise less than they look: `account.storageBytes` is not enforced yet (issue #261), and `snapshots.keep.max` limits only the Settings input (`normalizeSettings()` does not clamp a stored or synced value to it).
 
 ### Git Conventions
 

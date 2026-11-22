@@ -1,4 +1,5 @@
-import { POLICY } from '@/constants';
+// Relative, not `@/`: scripts/ load this file with tsx, from any working directory.
+import { POLICY } from './constants';
 
 export type SortBy = 'url' | 'title' | 'custom';
 

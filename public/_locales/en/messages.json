@@ -2049,11 +2049,11 @@
   },
   "settingsAccountImagesHeld_one": {
     "message": "$1 screenshot did not sync: your account already holds $2 screenshots, the most it keeps. It stays on this device and syncs once you delete a screenshot.",
-    "description": "Toast in Settings > Account, shown once, when the sync server refused note screenshots because the account is at its limit. $1 is how many are held back on this device, $2 the limit (100)."
+    "description": "Toast in Settings > Account, shown once, when the sync server refused note screenshots because the account is at its limit. $1 is how many are held back on this device, $2 the limit (POLICY.account.screenshots)."
   },
   "settingsAccountImagesHeld_other": {
     "message": "$1 screenshots did not sync: your account already holds $2 screenshots, the most it keeps. They stay on this device and sync once you delete a screenshot.",
-    "description": "Toast in Settings > Account, shown once, when the sync server refused note screenshots because the account is at its limit. $1 is how many are held back on this device, $2 the limit (100)."
+    "description": "Toast in Settings > Account, shown once, when the sync server refused note screenshots because the account is at its limit. $1 is how many are held back on this device, $2 the limit (POLICY.account.screenshots)."
   },
   "errorCloudUnreachable": {
     "message": "Could not reach the sync server. Check the connection and try again.",

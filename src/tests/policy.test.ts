@@ -116,6 +116,10 @@ describe('the client and the server draw the same lines', () => {
     }
   });
 
+  it('sends no batch bigger than the body the server reads', () => {
+    expect(POLICY.request.pushBatchBytes).toBeLessThan(POLICY.request.maxBodyBytes);
+  });
+
   it.each([
     // AES-GCM adds 16 bytes and base64 turns 3 bytes into 4: the first is exactly 1 MiB, the
     // second the next size there is.
