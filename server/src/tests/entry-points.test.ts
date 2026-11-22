@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -50,6 +50,22 @@ describe('the Vercel adapter', () => {
     expect(files).toContain('src/app.ts');
     expect(files).not.toContain('src/dev.ts');
     expect([...packages].sort()).toEqual(['@neondatabase/serverless', 'hono', 'node:crypto']);
+  });
+});
+
+describe('what Vercel builds', () => {
+  it('pins the preset "Other", so Hono is never detected in its place', () => {
+    // Absent is not the same as null: on a project's first deployment Vercel then detects Hono from
+    // the dependency and builds src/app.ts instead of api/, which fails.
+    expect(JSON.parse(readFileSync(path.join(ROOT, 'vercel.json'), 'utf8'))).toHaveProperty(
+      'framework',
+      null,
+    );
+  });
+
+  it('serves robots.txt as the only static file', () => {
+    // Without public/, Vercel serves the whole package, src/dev.ts included.
+    expect(readdirSync(path.join(ROOT, 'public'), { recursive: true })).toEqual(['robots.txt']);
   });
 });
 

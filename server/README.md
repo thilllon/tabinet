@@ -53,6 +53,8 @@ A Hono app, kept thin: a route handler calls the store directly. No services, cl
 | `migrations/001_init.sql`         | `users`, `auth_tokens`, `records` and the `record_seq` sequence                     |
 | `migrations/002_notes_images.sql` | The `notes` and `image` kinds, and `apply_image_record()` for the screenshot cap    |
 | `scripts/migrate.ts`              | `pnpm --filter tabinet-server migrate`                                              |
+| `public/`                         | The only static files Vercel serves (`robots.txt`); never delete it                 |
+| `vercel.json`                     | Preset "Other" (`"framework": null`), the region and the `/v1/*` rewrite            |
 | `src/tests/`                      | vitest; the store and the routes run against PGlite (Postgres in WASM), no network  |
 
 Hono's defaults differ from this API in a few places, each overridden and pinned by
@@ -141,10 +143,10 @@ are checked with Google as in production. `PORT` and `ALLOWED_ORIGINS` are read 
 ## Deploy
 
 1. **Create the Vercel project.** In Vercel, "Add New... > Project", import this repository and set
-   **Root Directory** to `server`. Framework preset "Other"; no build command. Vercel suggests "Hono"
-   because it finds the dependency and `src/app.ts`: do not take it. That preset builds another
-   entry point instead of `api/` (its build of this package fails). The function runs on
-   the Node.js runtime. Vercel compiles `api/vercel-adapter.ts` with the `typescript` it finds in `server/`,
+   **Root Directory** to `server`. Framework preset "Other"; no build command. `"framework": null`
+   in `vercel.json` pins that preset and has to stay: without the key a project's first deployment
+   detects Hono from the dependency even when "Other" was chosen, builds `src/app.ts` instead of
+   `api/`, and fails. The function runs on the Node.js runtime. Vercel compiles `api/vercel-adapter.ts` with the `typescript` it finds in `server/`,
    which needs the compiler API that TypeScript 7 no longer ships, so `server/` pins TypeScript 6.
 2. **Add Postgres.** In the project's **Storage** tab, add **Neon** from the Vercel Marketplace and
    connect it to the project. This sets `DATABASE_URL` for every environment.
