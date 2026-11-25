@@ -11,16 +11,16 @@
     "migrate": "tsx scripts/migrate.ts"
   },
   "dependencies": {
-    "@hono/node-server": "2.1.8",
-    "@neondatabase/serverless": "1.2.0",
-    "hono": "4.13.18",
+    "@hono/node-server": "2.1.9",
+    "@neondatabase/serverless": "1.2.1",
+    "hono": "4.13.19",
     "tsx": "^4.23.15"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.5.15",
+    "@electric-sql/pglite": "0.5.16",
     "@types/node": "^26.6.6",
     "typescript": "6.0.3",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.1"
   },
   "engines": {
     "node": ">=22"
