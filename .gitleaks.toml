@@ -8,3 +8,7 @@ useDefault = true
 [[allowlists]]
 description = "Generated output: build, store packages, screenshots, lockfile"
 paths = ['''^dist/''', '''^release/''', '''^assets/''', '''^pnpm-lock\.yaml$''']
+
+[[allowlists]]
+description = "Published test vectors of the v10 key format: made-up keys, never used anywhere real"
+paths = ['''^src/tests/key-vectors\.json$''']
