@@ -71,11 +71,7 @@ describe('the derivations match the vectors', () => {
 
   it('derives the doc record ids and the memo copy id', async () => {
     expect(await docRecordId(vectors.dek, 'memo', DATA_ID)).toBe(vectors.docIds.memo);
-    // The vectors file's youtubeNote id does not follow the rule of spec 3.2 (the memo id, from the
-    // same key and rule, does): only its shape and that it differs by type are checked here.
-    const note = await docRecordId(vectors.dek, 'youtubeNote', DATA_ID);
-    expect(note).toMatch(/^[A-Za-z0-9_-]{43}$/);
-    expect(note).not.toBe(vectors.docIds.memo);
+    expect(await docRecordId(vectors.dek, 'youtubeNote', DATA_ID)).toBe(vectors.docIds.youtubeNote);
     expect(await memoCopyId(DATA_ID, 'hello\n', 0)).toBe(vectors.memoCopyId);
     expect(await memoCopyId(DATA_ID, 'hello\n', 1)).not.toBe(vectors.memoCopyId);
   });
