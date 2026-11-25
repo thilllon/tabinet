@@ -356,7 +356,7 @@ ${PRODUCT_DETAILS.privacyPolicyUrl}
 
 ## 6. Test instructions tab
 
-Username and password: leave both empty (no test account is needed; the optional sync signs in with the reviewer's own Google account).
+Username and password: leave both empty (no test account is needed; the optional sync signs in with the reviewer's own Google account, and Chrome confirms that account again when a passphrase is created, entered or changed and when cloud data is deleted).
 
 \`\`\`
 ${TEST_INSTRUCTIONS}
