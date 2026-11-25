@@ -6,7 +6,7 @@ import {
   type RecordKind,
   type StoredRecord,
   type User,
-} from './types.js';
+} from '../types.js';
 
 /**
  * The most live screenshots (`image` records that are not tombstones) one account may keep. A

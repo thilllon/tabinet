@@ -5,7 +5,7 @@ import path from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
 import { describe, expect, it } from 'vitest';
 
-import { migrationFiles, type MigrationDb, runMigrations } from '../migrations.js';
+import { migrationFiles, type MigrationDb, runMigrations } from '../db/migrations.js';
 
 function adapter(db: PGlite): MigrationDb {
   return {
