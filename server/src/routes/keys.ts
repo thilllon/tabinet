@@ -6,7 +6,8 @@ import { error, json } from '../responses.js';
 import type { GoogleIdentity, KeyEnvelope } from '../types.js';
 import { parseAccessToken, parseKeysBody } from '../validation.js';
 
-type Checked = GoogleIdentity | Response;
+/** The verified identity, or the 403 to answer. A tagged union, so narrowing needs no `instanceof`. */
+type Checked = { identity: GoogleIdentity; refusal?: undefined } | { refusal: Response };
 
 /** The Google token must be live and of the bearer's account, or the answer is a 403. */
 export async function sameAccount(
@@ -16,12 +17,12 @@ export async function sameAccount(
 ): Promise<Checked> {
   const identity = await verifySameAccount(deps.verifyGoogleToken, accessToken, googleSub);
   if (identity === 'refused') {
-    return error(403, 'google_refused');
+    return { refusal: error(403, 'google_refused') };
   }
   if (identity === 'mismatch') {
-    return error(403, 'google_account_mismatch');
+    return { refusal: error(403, 'google_account_mismatch') };
   }
-  return identity;
+  return { identity };
 }
 
 /**
@@ -35,10 +36,11 @@ export function openKey(deps: Deps): AppHandler {
       return error(400, 'bad_request');
     }
     const account = c.get('account');
-    const identity = await sameAccount(deps, accessToken, account.googleSub);
-    if (identity instanceof Response) {
-      return identity;
+    const checked = await sameAccount(deps, accessToken, account.googleSub);
+    if (checked.refusal !== undefined) {
+      return checked.refusal;
     }
+    const { identity } = checked;
     const state = await deps.store.readSealed(account.id);
     if (state.status === 'no_account') {
       return error(401, 'unauthorized');
@@ -91,10 +93,11 @@ export function putKey(deps: Deps): AppHandler {
       return error(400, 'bad_request');
     }
     const account = c.get('account');
-    const identity = await sameAccount(deps, body.accessToken, account.googleSub);
-    if (identity instanceof Response) {
-      return identity;
+    const checked = await sameAccount(deps, body.accessToken, account.googleSub);
+    if (checked.refusal !== undefined) {
+      return checked.refusal;
     }
+    const { identity } = checked;
     const { envelope } = body;
     const writeVerifier = writeVerifierOf(body.proof);
     const key = await deps.store.writeKey(account.id, identity.sub, {

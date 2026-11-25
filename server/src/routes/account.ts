@@ -20,11 +20,11 @@ export function deleteAccount(deps: Deps): AppHandler {
       return error(400, 'bad_request');
     }
     const account = c.get('account');
-    const identity = await sameAccount(deps, accessToken, account.googleSub);
-    if (identity instanceof Response) {
-      return identity;
+    const checked = await sameAccount(deps, accessToken, account.googleSub);
+    if (checked.refusal !== undefined) {
+      return checked.refusal;
     }
-    await deps.store.deleteAccount(account.id, identity.sub);
+    await deps.store.deleteAccount(account.id, checked.identity.sub);
     return noContent();
   };
 }
