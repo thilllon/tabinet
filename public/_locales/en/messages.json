@@ -1076,7 +1076,7 @@
     "description": "Notice toast when the user opens a saved session while another one is still being opened (restored)."
   },
   "appSearchNothingFound": {
-    "message": "Nothing in your open tabs or saved sessions.",
+    "message": "Nothing in your open tabs, saved sessions, notes or memos.",
     "description": "Shown in the search results when nothing matches; a button offering to search automatic snapshots follows it."
   },
   "appSearchHistoryTitle": {
@@ -1508,11 +1508,11 @@
     "description": "Accessible name of the search box at the top of the app page. One word."
   },
   "searchInputTitle": {
-    "message": "Search open tabs, saved sessions, their addresses and your notes",
+    "message": "Search open tabs, saved sessions, their addresses, your notes and your memos",
     "description": "Tooltip of the search box at the top of the app page."
   },
   "searchPlaceholder": {
-    "message": "Search tabs and sessions (press /)",
+    "message": "Search tabs, sessions and notes (press /)",
     "description": "Placeholder text inside the empty search box. The \"/\" is the keyboard key that focuses the box; keep it as is. Keep it short enough to fit a narrow box (about 40 characters)."
   },
   "searchClear": {
@@ -2392,12 +2392,112 @@
     "description": "Error toast when a screenshot of the video failed for any other reason."
   },
   "appNavNotes": {
-    "message": "Notes",
-    "description": "Sidebar section heading above the list of YouTube videos with notes. Shown in uppercase. Keep short."
+    "message": "YouTube notes",
+    "description": "Sidebar section heading over the videos that have YouTube notes. Keep it distinct from the Memos section."
   },
   "appNavNoNotes": {
     "message": "Notes you take on YouTube videos show here.",
     "description": "Shown in the sidebar's Notes section when no YouTube video has notes yet."
+  },
+  "appNavMemos": {
+    "message": "Memos",
+    "description": "Sidebar section heading over the free-form memos the person writes on the Tabinet page. Not the YouTube notes: Korean and Japanese call those 메모 / メモ, so memos are 자유 메모 / 自由メモ."
+  },
+  "appNavNoMemos": {
+    "message": "Free-form memos you write show here.",
+    "description": "Shown in the sidebar's Memos section when there is no memo yet."
+  },
+  "memoNew": {
+    "message": "New memo",
+    "description": "Button on the sidebar's Memos heading that opens an empty memo. Button text, short."
+  },
+  "memoNewTitle": {
+    "message": "Write a new memo",
+    "description": "Tooltip of the New memo button."
+  },
+  "memoUntitled": {
+    "message": "Untitled memo",
+    "description": "The title shown for a memo whose text is empty or blank (a memo's title is its first line)."
+  },
+  "memoLabel": {
+    "message": "Memo text",
+    "description": "Accessible label of the memo's text box."
+  },
+  "memoPlaceholder": {
+    "message": "Write anything. It saves as you go.",
+    "description": "Placeholder of an empty memo's text box."
+  },
+  "memoTextTitle": {
+    "message": "Saves as you write. $1 saves now.",
+    "description": "Tooltip of the memo's text box. $1 is the key that saves at once, such as Ctrl+Enter or ⌘+Enter."
+  },
+  "memoUpdatedAt": {
+    "message": "Updated $1",
+    "description": "Under a memo's title and in the sidebar: when it last changed. $1 is a date and time."
+  },
+  "memoExport": {
+    "message": "Export Markdown",
+    "description": "Button on a memo's page that saves the memo as a Markdown file. Button text, short; the same wording as the notes page's export button."
+  },
+  "memoExportTitle": {
+    "message": "Save this memo as a Markdown file",
+    "description": "Tooltip of the memo's Export Markdown button."
+  },
+  "memoDelete": {
+    "message": "Delete",
+    "description": "Button on a memo's page that deletes it (undo is offered in a toast). Button text, short."
+  },
+  "memoDeleteTitle": {
+    "message": "Delete this memo. You can undo it for a few seconds.",
+    "description": "Tooltip of the memo's Delete button."
+  },
+  "memoDeleted": {
+    "message": "Memo deleted.",
+    "description": "Toast after a memo was deleted; it carries an Undo button."
+  },
+  "memoUndo": {
+    "message": "Undo",
+    "description": "Button in the toast after a memo was deleted. Button text, short."
+  },
+  "memoUndoTitle": {
+    "message": "Bring the deleted memo back",
+    "description": "Tooltip of the Undo button in the toast after a memo was deleted."
+  },
+  "memoConflictBadge": {
+    "message": "Conflict copy",
+    "description": "Badge on a memo kept as a copy because it was changed in two places at once. Short."
+  },
+  "memoConflictTitle": {
+    "message": "This memo was changed in two places, so both versions were kept",
+    "description": "Tooltip of the Conflict copy badge."
+  },
+  "memoConflictHint": {
+    "message": "This is a copy kept from a conflict. Merge it into the other memo if you need to, then delete it.",
+    "description": "One line above a conflict copy's text."
+  },
+  "memoConflictNotice": {
+    "message": "A memo was changed in two places. Both versions were kept.",
+    "description": "Toast when a memo conflict made a copy (from sync, or from an edit of a memo changed elsewhere)."
+  },
+  "memoSaveFailed": {
+    "message": "The memo was not saved.",
+    "description": "Error toast when saving a memo failed; the text stays in the box."
+  },
+  "memoCopyText": {
+    "message": "Copy text",
+    "description": "Button in the error toast shown when leaving a memo whose last save failed. Button text, short."
+  },
+  "memoCopyTextTitle": {
+    "message": "Copy the memo’s text to the clipboard",
+    "description": "Tooltip of the Copy text button."
+  },
+  "memoTextCopied": {
+    "message": "Text copied.",
+    "description": "Toast after Copy text put a memo's text on the clipboard."
+  },
+  "memoUnreadable": {
+    "message": "This memo was saved by a newer version of Tabinet and cannot be shown here.",
+    "description": "Shown in place of a memo's text when its stored body cannot be read by this version."
   },
   "notesEntryCount_one": {
     "message": "$1 note",
@@ -2416,8 +2516,12 @@
     "description": "Stands in for the title of a YouTube video whose title was not known when its notes were taken."
   },
   "searchGroupNotes": {
-    "message": "Notes",
-    "description": "Heading of the search results group listing matching YouTube notes. Shown in small capitals; short."
+    "message": "YouTube notes",
+    "description": "Heading of the search results that are YouTube notes."
+  },
+  "searchGroupMemos": {
+    "message": "Memos",
+    "description": "Heading of the search results that are memos (the sidebar's Memos section)."
   },
   "notesOpenAt": {
     "message": "Open the video at $1",
@@ -2459,9 +2563,17 @@
     "message": "$1 note on “$2” will be removed from this device, with its screenshot. This cannot be undone.",
     "description": "Text of the dialog that asks before every note on a video is deleted. $1 is how many notes, $2 the video's title."
   },
+  "notesDeleteAllBodySynced_one": {
+    "message": "$1 note on “$2” will be removed from this device, with its screenshot, and from your other devices if you use sync. This cannot be undone.",
+    "description": "Body of the dialog that deletes every note on a video, in a build with cloud sync. $1 is the number of notes, $2 the video's title."
+  },
   "notesDeleteAllBody_other": {
     "message": "All $1 notes on “$2” will be removed from this device, with their screenshots. This cannot be undone.",
     "description": "Text of the dialog that asks before every note on a video is deleted. $1 is how many notes, $2 the video's title."
+  },
+  "notesDeleteAllBodySynced_other": {
+    "message": "All $1 notes on “$2” will be removed from this device, with their screenshots, and from your other devices if you use sync. This cannot be undone.",
+    "description": "Body of the dialog that deletes every note on a video, in a build with cloud sync. $1 is the number of notes, $2 the video's title."
   },
   "notesPageHint": {
     "message": "Notes are written in the YouTube notes side panel while the video plays. A note's time opens the video at that moment.",

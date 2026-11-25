@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  memosToLoad,
   notesToLoad,
   changedSessionIds,
   PREWARM_BYTE_BUDGET,
@@ -367,5 +368,24 @@ describe('notesToLoad', () => {
       notesToLoad([summary('new', 5), summary('same', 10), summary('changed', 11)], loaded),
     ).toEqual(['new', 'changed']);
     expect(notesToLoad([], loaded)).toEqual([]);
+  });
+});
+
+describe('memosToLoad', () => {
+  it('reads memos not read yet or read at another updatedAt', () => {
+    const summary = (id: string, updatedAt: number) => ({
+      id,
+      title: id,
+      createdAt: 1,
+      updatedAt,
+      conflict: false,
+    });
+    const loaded = new Map([
+      ['same', 10],
+      ['changed', 10],
+    ]);
+    expect(
+      memosToLoad([summary('new', 5), summary('same', 10), summary('changed', 11)], loaded),
+    ).toEqual(['new', 'changed']);
   });
 });

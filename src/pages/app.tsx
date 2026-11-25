@@ -14,6 +14,8 @@ import { SidebarResizer } from '@/components/sidebar-resizer';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { UnreadableSessionRow } from '@/components/unreadable-session-row';
+import { useMemoIndex } from '@/hooks/use-memo-index';
+import { useMemoSearchEntries } from '@/hooks/use-memo-search-entries';
 import { useNotesIndex } from '@/hooks/use-notes-index';
 import { useNotesSearchEntries } from '@/hooks/use-notes-search-entries';
 import { useOpenWindows } from '@/hooks/use-open-windows';
@@ -22,12 +24,13 @@ import { useRoute } from '@/hooks/use-route';
 import { useSearchCorpus } from '@/hooks/use-search-corpus';
 import { useSessionIndex } from '@/hooks/use-session-index';
 import { useSessionSettings } from '@/hooks/use-session-settings';
+import { useConflictNotice } from '@/hooks/use-sync-notices';
 import { ToastContext, useErrorToast, useSavedToasts } from '@/hooks/use-toasts';
 import { formatRoute, HOME, type Route, routeSessionId } from '@/lib/app-route';
 import { assembleOutcome, assembleTabs } from '@/lib/assemble-tabs';
 import { isCloudSyncEnabled } from '@/lib/cloud-config';
 import { syncNow } from '@/lib/cloud-sync';
-import { downloadExport } from '@/lib/download-and-copy';
+import { copyText, downloadExport } from '@/lib/download-and-copy';
 import { isQuotaError, reportError } from '@/lib/error-message';
 import {
   type CollectProgress,
@@ -41,6 +44,8 @@ import {
 import { t } from '@/lib/i18n';
 import { importedNotice } from '@/lib/import-preview';
 import { isMacPlatform, openShortcutSettings, takeShortcutPrompt } from '@/lib/keyboard-shortcuts';
+import { followedSlot, memoEditorFor, type MemoEditorSlot } from '@/lib/memo-editor-state';
+import { memoRepo } from '@/lib/memo-repo';
 import { openNotesPanel } from '@/lib/open-notes-panel';
 import { needsRestoreConfirm } from '@/lib/restore-messages';
 import { browserHandlesClick } from '@/lib/row-link';
@@ -69,12 +74,13 @@ import type { OpenScope, RestoreTarget } from '@/lib/session-restore';
 import { ACTION_MS, NOTICE_MS } from '@/lib/toast-queue';
 import { readSidebarWidth, writeSidebarWidth } from '@/lib/ui-state';
 import { currentWindowTarget, goToTab, openTabInBackground } from '@/lib/window-actions';
+import { MemoPage } from '@/pages/memo';
 import { NotesPage } from '@/pages/notes';
 import { OpenTabsPage } from '@/pages/open-tabs';
 import { SessionPage } from '@/pages/session';
 import { SettingsPage } from '@/pages/settings';
 import { SnapshotPage } from '@/pages/snapshot';
-import type { Session, SessionSettings } from '@/types';
+import type { Memo, Session, SessionSettings } from '@/types';
 
 const NEW_WINDOWS: RestoreTarget = { kind: 'newWindows' };
 
@@ -106,6 +112,8 @@ export function App() {
     if (isCloudSyncEnabled()) {
       syncNow().catch((err: unknown) => reportError('sync on open failed', err));
     }
+    // A memo page closed with unsaved text left a draft; the worker usually took it already.
+    memoRepo.adoptDrafts().catch((err: unknown) => reportError('memo drafts', err));
   }, []);
 
   // The page header's height, for whatever sticks right under it (the Open tabs selection bar).
@@ -188,7 +196,21 @@ export function App() {
   });
   const { notes: noteVideos, loading: notesLoading, error: notesError } = useNotesIndex();
   const noteEntries = useNotesSearchEntries(noteVideos);
-  const corpus = useMemo(() => [...tabCorpus, ...noteEntries], [tabCorpus, noteEntries]);
+  const { memos, loading: memosLoading, error: memosError } = useMemoIndex();
+  const memoEntries = useMemoSearchEntries(memos);
+  const corpus = useMemo(
+    () => [...tabCorpus, ...noteEntries, ...memoEntries],
+    [tabCorpus, noteEntries, memoEntries],
+  );
+  // A sync conflict kept both texts of a memo: said once per new conflict.
+  useConflictNotice(setNotice);
+
+  // The memo editor follows its route, but keeps its identity (and so its focus and the text typed
+  // meanwhile) when the address moves to the memo it now writes to.
+  const memoSlot = useRef<MemoEditorSlot | null>(null);
+  if (page.view === 'memo') {
+    memoSlot.current = memoEditorFor(memoSlot.current, page.id);
+  }
 
   const { saved, history } = useMemo(() => splitByKind(sessions), [sessions]);
   const recovered = recoveredSnapshot(history);
@@ -413,6 +435,12 @@ export function App() {
       return;
     }
     setError(undefined);
+    if (item.kind === 'memo') {
+      if (item.entry.memoId !== undefined) {
+        go({ view: 'memo', id: item.entry.memoId });
+      }
+      return;
+    }
     if (item.kind === 'note') {
       // A note is shown among its video's notes, where its time links to the video.
       if (item.entry.videoId !== undefined) {
@@ -490,6 +518,42 @@ export function App() {
     }
   }, [loading, selected, notesLoading, selectedNotes, page, settingsOpen, navigate, resetPage]);
 
+  /** A memo deleted here: the view leaves, and a toast offers Undo for `ACTION_MS`. */
+  const memoDeleted = (memo: Memo) => {
+    go(HOME);
+    show(t('memoDeleted'), {
+      ms: ACTION_MS,
+      plain: true,
+      action: {
+        label: t('memoUndo'),
+        title: t('memoUndoTitle'),
+        run: () => {
+          memoRepo.restore(memo).then(
+            (back) => go({ view: 'memo', id: back.id }),
+            (err: unknown) => setError(reportError('memo restore', err)),
+          );
+        },
+      },
+    });
+  };
+
+  /** A memo editor closed while its last save failed: the text is offered to copy. */
+  const memoLeftUnsaved = (text: string) => {
+    show(t('memoSaveFailed'), {
+      ms: ACTION_MS,
+      tone: 'error',
+      action: {
+        label: t('memoCopyText'),
+        title: t('memoCopyTextTitle'),
+        run: () => {
+          void copyText(text).then((result) =>
+            result.ok ? setNotice(t('memoTextCopied')) : setError(result.error),
+          );
+        },
+      },
+    });
+  };
+
   const main = () => {
     if (searching) {
       const found = results.total + sessionMatches.length;
@@ -550,6 +614,25 @@ export function App() {
         />
       );
     }
+    if (page.view === 'memo' && memoSlot.current !== null) {
+      const slot = memoSlot.current;
+      return (
+        <MemoPage
+          key={slot.editorId}
+          editorId={slot.editorId}
+          memoId={slot.memoId}
+          isNew={slot.isNew}
+          onFollow={(id) => {
+            memoSlot.current = followedSlot(slot, id);
+            navigate({ view: 'memo', id }, true);
+          }}
+          onDeleted={memoDeleted}
+          onGone={() => navigate(HOME, true)}
+          onNotice={announce}
+          onLeftUnsaved={memoLeftUnsaved}
+        />
+      );
+    }
     if (page.view === 'notes' && selectedNotes !== undefined) {
       return (
         <NotesPage
@@ -597,6 +680,7 @@ export function App() {
   useErrorToast(error, show);
   useErrorToast(indexError, show);
   useErrorToast(notesError, show);
+  useErrorToast(memosError, show);
   const banners = (
     <>{quotaFull && <QuotaNotice onShowStorage={() => go({ view: 'settings' })} />}</>
   );
@@ -697,6 +781,8 @@ export function App() {
               history={history}
               notes={noteVideos}
               notesLoading={notesLoading}
+              memos={memos}
+              memosLoading={memosLoading}
               windowCount={openWindows.windows.length}
               tabCount={openWindows.windows.reduce((count, win) => count + win.tabs.length, 0)}
               recoveredId={recovered?.id}

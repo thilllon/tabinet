@@ -1020,7 +1020,7 @@
     "description": "Notice toast when the user opens a saved session while another one is still being opened (restored)."
   },
   "appSearchNothingFound": {
-    "message": "開いているタブにも保存したセッションにも見つかりません。",
+    "message": "開いているタブ、保存したセッション、YouTube メモ、自由メモのどれにも見つかりません。",
     "description": "Shown in the search results when nothing matches; a button offering to search automatic snapshots follows it."
   },
   "appSearchHistoryTitle": {
@@ -1404,11 +1404,11 @@
     "description": "Accessible name of the search box at the top of the app page. One word."
   },
   "searchInputTitle": {
-    "message": "開いているタブ、保存したセッション、そのアドレス、メモを検索",
+    "message": "開いているタブ、保存したセッション、そのアドレス、YouTube メモと自由メモを検索",
     "description": "Tooltip of the search box at the top of the app page."
   },
   "searchPlaceholder": {
-    "message": "タブとセッションを検索（/ キー）",
+    "message": "タブ、セッション、メモを検索（/ キー）",
     "description": "Placeholder text inside the empty search box. The \"/\" is the keyboard key that focuses the box; keep it as is. Keep it short enough to fit a narrow box (about 40 characters)."
   },
   "searchClear": {
@@ -2208,12 +2208,112 @@
     "description": "Error toast when a screenshot of the video failed for any other reason."
   },
   "appNavNotes": {
-    "message": "メモ",
-    "description": "Sidebar section heading above the list of YouTube videos with notes. Shown in uppercase. Keep short."
+    "message": "YouTube メモ",
+    "description": "Sidebar section heading over the videos that have YouTube notes. Keep it distinct from the Memos section."
   },
   "appNavNoNotes": {
     "message": "YouTube 動画に書いたメモがここに表示されます。",
     "description": "Shown in the sidebar's Notes section when no YouTube video has notes yet."
+  },
+  "appNavMemos": {
+    "message": "自由メモ",
+    "description": "Sidebar section heading over the free-form memos the person writes on the Tabinet page. Not the YouTube notes: Korean and Japanese call those 메모 / メモ, so memos are 자유 메모 / 自由メモ."
+  },
+  "appNavNoMemos": {
+    "message": "自分で書いた自由メモがここに表示されます。",
+    "description": "Shown in the sidebar's Memos section when there is no memo yet."
+  },
+  "memoNew": {
+    "message": "新しい自由メモ",
+    "description": "Button on the sidebar's Memos heading that opens an empty memo. Button text, short."
+  },
+  "memoNewTitle": {
+    "message": "新しい自由メモを書く",
+    "description": "Tooltip of the New memo button."
+  },
+  "memoUntitled": {
+    "message": "無題のメモ",
+    "description": "The title shown for a memo whose text is empty or blank (a memo's title is its first line)."
+  },
+  "memoLabel": {
+    "message": "メモの本文",
+    "description": "Accessible label of the memo's text box."
+  },
+  "memoPlaceholder": {
+    "message": "何でも書いてください。書いたそばから保存されます。",
+    "description": "Placeholder of an empty memo's text box."
+  },
+  "memoTextTitle": {
+    "message": "書いたそばから保存されます。$1 ですぐに保存します。",
+    "description": "Tooltip of the memo's text box. $1 is the key that saves at once, such as Ctrl+Enter or ⌘+Enter."
+  },
+  "memoUpdatedAt": {
+    "message": "更新: $1",
+    "description": "Under a memo's title and in the sidebar: when it last changed. $1 is a date and time."
+  },
+  "memoExport": {
+    "message": "Markdown で書き出す",
+    "description": "Button on a memo's page that saves the memo as a Markdown file. Button text, short; the same wording as the notes page's export button."
+  },
+  "memoExportTitle": {
+    "message": "このメモを Markdown ファイルとして保存",
+    "description": "Tooltip of the memo's Export Markdown button."
+  },
+  "memoDelete": {
+    "message": "削除",
+    "description": "Button on a memo's page that deletes it (undo is offered in a toast). Button text, short."
+  },
+  "memoDeleteTitle": {
+    "message": "このメモを削除します。数秒間は元に戻せます。",
+    "description": "Tooltip of the memo's Delete button."
+  },
+  "memoDeleted": {
+    "message": "メモを削除しました。",
+    "description": "Toast after a memo was deleted; it carries an Undo button."
+  },
+  "memoUndo": {
+    "message": "元に戻す",
+    "description": "Button in the toast after a memo was deleted. Button text, short."
+  },
+  "memoUndoTitle": {
+    "message": "削除したメモを戻す",
+    "description": "Tooltip of the Undo button in the toast after a memo was deleted."
+  },
+  "memoConflictBadge": {
+    "message": "競合コピー",
+    "description": "Badge on a memo kept as a copy because it was changed in two places at once. Short."
+  },
+  "memoConflictTitle": {
+    "message": "このメモは 2 か所で変更されたため、両方の版を残しました",
+    "description": "Tooltip of the Conflict copy badge."
+  },
+  "memoConflictHint": {
+    "message": "競合のために残したコピーです。必要ならもう一方のメモにまとめてから削除してください。",
+    "description": "One line above a conflict copy's text."
+  },
+  "memoConflictNotice": {
+    "message": "メモが 2 か所で変更されました。両方の版を残しました。",
+    "description": "Toast when a memo conflict made a copy (from sync, or from an edit of a memo changed elsewhere)."
+  },
+  "memoSaveFailed": {
+    "message": "メモを保存できませんでした。",
+    "description": "Error toast when saving a memo failed; the text stays in the box."
+  },
+  "memoCopyText": {
+    "message": "本文をコピー",
+    "description": "Button in the error toast shown when leaving a memo whose last save failed. Button text, short."
+  },
+  "memoCopyTextTitle": {
+    "message": "メモの本文をクリップボードにコピー",
+    "description": "Tooltip of the Copy text button."
+  },
+  "memoTextCopied": {
+    "message": "本文をコピーしました。",
+    "description": "Toast after Copy text put a memo's text on the clipboard."
+  },
+  "memoUnreadable": {
+    "message": "新しいバージョンの Tabinet で保存されたメモのため、ここでは表示できません。",
+    "description": "Shown in place of a memo's text when its stored body cannot be read by this version."
   },
   "notesEntryCount_other": {
     "message": "メモ $1 件",
@@ -2228,8 +2328,12 @@
     "description": "Stands in for the title of a YouTube video whose title was not known when its notes were taken."
   },
   "searchGroupNotes": {
-    "message": "メモ",
-    "description": "Heading of the search results group listing matching YouTube notes. Shown in small capitals; short."
+    "message": "YouTube メモ",
+    "description": "Heading of the search results that are YouTube notes."
+  },
+  "searchGroupMemos": {
+    "message": "自由メモ",
+    "description": "Heading of the search results that are memos (the sidebar's Memos section)."
   },
   "notesOpenAt": {
     "message": "$1 から動画を開く",
@@ -2270,6 +2374,10 @@
   "notesDeleteAllBody_other": {
     "message": "「$2」のメモ $1 件をスクリーンショットと一緒にすべてこの端末から削除します。この操作は元に戻せません。",
     "description": "Text of the dialog that asks before every note on a video is deleted. $1 is how many notes, $2 the video's title."
+  },
+  "notesDeleteAllBodySynced_other": {
+    "message": "「$2」のメモ $1 件をスクリーンショットと一緒にこの端末からすべて削除します。同期を使っている場合はほかの端末からも削除されます。この操作は元に戻せません。",
+    "description": "Body of the dialog that deletes every note on a video, in a build with cloud sync. $1 is the number of notes, $2 the video's title."
   },
   "notesPageHint": {
     "message": "メモは動画を見ながら YouTube メモのサイドパネルで書きます。メモの時間を押すと、その時点から動画が開きます。",

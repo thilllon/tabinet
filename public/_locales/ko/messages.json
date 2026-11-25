@@ -1012,7 +1012,7 @@
     "description": "Notice toast when the user opens a saved session while another one is still being opened (restored)."
   },
   "appSearchNothingFound": {
-    "message": "열린 탭이나 저장된 세션에 일치하는 항목이 없습니다.",
+    "message": "열린 탭, 저장된 세션, YouTube 메모, 자유 메모에 일치하는 항목이 없습니다.",
     "description": "Shown in the search results when nothing matches; a button offering to search automatic snapshots follows it."
   },
   "appSearchHistoryTitle": {
@@ -1396,11 +1396,11 @@
     "description": "Accessible name of the search box at the top of the app page. One word."
   },
   "searchInputTitle": {
-    "message": "열린 탭, 저장된 세션과 그 주소, 메모 검색",
+    "message": "열린 탭, 저장된 세션과 그 주소, YouTube 메모와 자유 메모 검색",
     "description": "Tooltip of the search box at the top of the app page."
   },
   "searchPlaceholder": {
-    "message": "탭 및 세션 검색 (/ 키)",
+    "message": "탭, 세션, 메모 검색 (/ 키)",
     "description": "Placeholder text inside the empty search box. The \"/\" is the keyboard key that focuses the box; keep it as is. Keep it short enough to fit a narrow box (about 40 characters)."
   },
   "searchClear": {
@@ -2200,12 +2200,112 @@
     "description": "Error toast when a screenshot of the video failed for any other reason."
   },
   "appNavNotes": {
-    "message": "메모",
-    "description": "Sidebar section heading above the list of YouTube videos with notes. Shown in uppercase. Keep short."
+    "message": "YouTube 메모",
+    "description": "Sidebar section heading over the videos that have YouTube notes. Keep it distinct from the Memos section."
   },
   "appNavNoNotes": {
     "message": "YouTube 동영상에 남긴 메모가 여기에 표시됩니다.",
     "description": "Shown in the sidebar's Notes section when no YouTube video has notes yet."
+  },
+  "appNavMemos": {
+    "message": "자유 메모",
+    "description": "Sidebar section heading over the free-form memos the person writes on the Tabinet page. Not the YouTube notes: Korean and Japanese call those 메모 / メモ, so memos are 자유 메모 / 自由メモ."
+  },
+  "appNavNoMemos": {
+    "message": "직접 쓴 자유 메모가 여기에 표시됩니다.",
+    "description": "Shown in the sidebar's Memos section when there is no memo yet."
+  },
+  "memoNew": {
+    "message": "새 자유 메모",
+    "description": "Button on the sidebar's Memos heading that opens an empty memo. Button text, short."
+  },
+  "memoNewTitle": {
+    "message": "새 자유 메모 쓰기",
+    "description": "Tooltip of the New memo button."
+  },
+  "memoUntitled": {
+    "message": "제목 없는 메모",
+    "description": "The title shown for a memo whose text is empty or blank (a memo's title is its first line)."
+  },
+  "memoLabel": {
+    "message": "메모 내용",
+    "description": "Accessible label of the memo's text box."
+  },
+  "memoPlaceholder": {
+    "message": "무엇이든 쓰세요. 쓰는 대로 저장됩니다.",
+    "description": "Placeholder of an empty memo's text box."
+  },
+  "memoTextTitle": {
+    "message": "쓰는 대로 저장됩니다. $1 키를 누르면 바로 저장합니다.",
+    "description": "Tooltip of the memo's text box. $1 is the key that saves at once, such as Ctrl+Enter or ⌘+Enter."
+  },
+  "memoUpdatedAt": {
+    "message": "$1 수정",
+    "description": "Under a memo's title and in the sidebar: when it last changed. $1 is a date and time."
+  },
+  "memoExport": {
+    "message": "Markdown으로 내보내기",
+    "description": "Button on a memo's page that saves the memo as a Markdown file. Button text, short; the same wording as the notes page's export button."
+  },
+  "memoExportTitle": {
+    "message": "이 메모를 Markdown 파일로 저장",
+    "description": "Tooltip of the memo's Export Markdown button."
+  },
+  "memoDelete": {
+    "message": "삭제",
+    "description": "Button on a memo's page that deletes it (undo is offered in a toast). Button text, short."
+  },
+  "memoDeleteTitle": {
+    "message": "이 메모를 삭제합니다. 몇 초 동안 되돌릴 수 있습니다.",
+    "description": "Tooltip of the memo's Delete button."
+  },
+  "memoDeleted": {
+    "message": "메모를 삭제했습니다.",
+    "description": "Toast after a memo was deleted; it carries an Undo button."
+  },
+  "memoUndo": {
+    "message": "되돌리기",
+    "description": "Button in the toast after a memo was deleted. Button text, short."
+  },
+  "memoUndoTitle": {
+    "message": "삭제한 메모 되살리기",
+    "description": "Tooltip of the Undo button in the toast after a memo was deleted."
+  },
+  "memoConflictBadge": {
+    "message": "충돌 사본",
+    "description": "Badge on a memo kept as a copy because it was changed in two places at once. Short."
+  },
+  "memoConflictTitle": {
+    "message": "이 메모가 두 곳에서 바뀌어 두 버전을 모두 남겼습니다",
+    "description": "Tooltip of the Conflict copy badge."
+  },
+  "memoConflictHint": {
+    "message": "충돌 때문에 남긴 사본입니다. 필요하면 다른 메모에 합친 뒤 삭제하세요.",
+    "description": "One line above a conflict copy's text."
+  },
+  "memoConflictNotice": {
+    "message": "메모 하나가 두 곳에서 바뀌었습니다. 두 버전을 모두 남겼습니다.",
+    "description": "Toast when a memo conflict made a copy (from sync, or from an edit of a memo changed elsewhere)."
+  },
+  "memoSaveFailed": {
+    "message": "메모를 저장하지 못했습니다.",
+    "description": "Error toast when saving a memo failed; the text stays in the box."
+  },
+  "memoCopyText": {
+    "message": "내용 복사",
+    "description": "Button in the error toast shown when leaving a memo whose last save failed. Button text, short."
+  },
+  "memoCopyTextTitle": {
+    "message": "메모 내용을 클립보드에 복사",
+    "description": "Tooltip of the Copy text button."
+  },
+  "memoTextCopied": {
+    "message": "내용을 복사했습니다.",
+    "description": "Toast after Copy text put a memo's text on the clipboard."
+  },
+  "memoUnreadable": {
+    "message": "최신 버전의 Tabinet이 저장한 메모라 여기서 표시할 수 없습니다.",
+    "description": "Shown in place of a memo's text when its stored body cannot be read by this version."
   },
   "notesEntryCount_other": {
     "message": "메모 $1개",
@@ -2220,8 +2320,12 @@
     "description": "Stands in for the title of a YouTube video whose title was not known when its notes were taken."
   },
   "searchGroupNotes": {
-    "message": "메모",
-    "description": "Heading of the search results group listing matching YouTube notes. Shown in small capitals; short."
+    "message": "YouTube 메모",
+    "description": "Heading of the search results that are YouTube notes."
+  },
+  "searchGroupMemos": {
+    "message": "자유 메모",
+    "description": "Heading of the search results that are memos (the sidebar's Memos section)."
   },
   "notesOpenAt": {
     "message": "$1 위치에서 동영상 열기",
@@ -2262,6 +2366,10 @@
   "notesDeleteAllBody_other": {
     "message": "“$2”의 메모 $1개가 스크린샷과 함께 이 기기에서 모두 삭제됩니다. 되돌릴 수 없습니다.",
     "description": "Text of the dialog that asks before every note on a video is deleted. $1 is how many notes, $2 the video's title."
+  },
+  "notesDeleteAllBodySynced_other": {
+    "message": "“$2”의 메모 $1개가 스크린샷과 함께 이 기기에서 모두 삭제되며, 동기화를 쓰고 있다면 다른 기기에서도 삭제됩니다. 되돌릴 수 없습니다.",
+    "description": "Body of the dialog that deletes every note on a video, in a build with cloud sync. $1 is the number of notes, $2 the video's title."
   },
   "notesPageHint": {
     "message": "메모는 동영상을 보면서 YouTube 메모 사이드 패널에서 작성합니다. 메모의 시간을 누르면 그 시점부터 동영상이 열립니다.",

@@ -20,6 +20,7 @@ import {
   takeHistorySnapshot,
 } from '@/lib/history-snapshots';
 import { applyUiLanguage, t, uiLanguageReady } from '@/lib/i18n';
+import { isMemoDraftKey, memoRepo } from '@/lib/memo-repo';
 import { notesRepo } from '@/lib/notes-repo';
 import { openDashboard } from '@/lib/open-app-page';
 import { openNotesPanel } from '@/lib/open-notes-panel';
@@ -283,6 +284,9 @@ async function onInstalled(details: chrome.runtime.InstalledDetails): Promise<vo
   }
   await sessionRepo.reconcile().catch(report);
   await notesRepo.reconcile().catch(report);
+  await memoRepo.reconcile().catch(report);
+  // A memo editor closed with unsaved text left a draft (spec 12.1).
+  await memoRepo.adoptDrafts().catch(report);
   // Sync v1's keys give way to v2's (spec 8.2); nothing is read while sync is unconfigured.
   await upgradeCloudStorage().catch(report);
   // Chrome drops every alarm on extension update/reload, so the periodic history alarm is
@@ -300,6 +304,9 @@ async function onStartup(): Promise<void> {
   await registerContextMenus().catch(report);
   await sessionRepo.reconcile().catch(report);
   await notesRepo.reconcile().catch(report);
+  await memoRepo.reconcile().catch(report);
+  // A memo editor closed with unsaved text left a draft (spec 12.1).
+  await memoRepo.adoptDrafts().catch(report);
   // Crash recovery first, so the last snapshot of the previous browser session is protected
   // before any new snapshot can push it out of the ring. Caught locally (like reconcile above)
   // so a failed promotion still lets the alarms below be armed.
@@ -362,7 +369,7 @@ function onActionClicked(): void {
 }
 
 /**
- * `storage.onChanged` handler, for two settings the app page writes:
+ * `storage.onChanged` handler, for two settings the app page writes (and memo drafts, adopted):
  *
  * - `sessionSettings` (local; history toggled, interval changed) re-arms or clears the alarms. The
  *   stored value is re-read through `sessionRepo.getSettings()` rather than taken from
@@ -381,6 +388,10 @@ function onStorageChanged(
   areaName: chrome.storage.AreaName,
 ): void {
   handleCloudStorageChange(changes, areaName).then(syncScheduler.trigger).catch(report);
+  if (areaName === 'local' && hasNewMemoDraft(changes)) {
+    // A memo page went away with unsaved text (spec 12.1): adopted at once, fire and forget.
+    memoRepo.adoptDrafts().catch(report);
+  }
   if (areaName === 'sync' && UI_LANGUAGE_KEY in changes) {
     void applyUiLanguage(parseUiLanguage(changes[UI_LANGUAGE_KEY]?.newValue));
     registerContextMenus().catch(report);
@@ -390,6 +401,14 @@ function onStorageChanged(
     return;
   }
   ensureHistoryAlarm().catch(report);
+}
+
+/** Whether a change wrote a memo draft (a new value under `memoDraft:*`, not its removal). */
+export function hasNewMemoDraft(changes: { [key: string]: chrome.storage.StorageChange }): boolean {
+  return Object.entries(changes).some(
+    ([key, change]) =>
+      isMemoDraftKey(key) && change.newValue !== undefined && change.newValue !== null,
+  );
 }
 
 // Timers and the one-run-at-a-time queue of this worker's life; the alarms outlive it.

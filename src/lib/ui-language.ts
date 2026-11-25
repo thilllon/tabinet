@@ -7,6 +7,7 @@ import {
   type LanguageChoice,
   t,
 } from '@/lib/i18n';
+import { flushMemoEditors } from '@/lib/memo-editor-state';
 
 /**
  * The language the extension's own text is in, chosen in Settings: `'auto'` (the default) follows
@@ -90,7 +91,8 @@ export function uiLanguageChangeNeedsReload(
 
 /**
  * Page only: reloads the page (`reload`) whenever the stored choice moves away from the language
- * in use, so a page left open never goes on naming saves and imports in the old one. Returns the
+ * in use, so a page left open never goes on naming saves and imports in the old one. The open memo
+ * editors are saved first (`flushMemoEditors()`), so a reload never loses typed text. Returns the
  * function that stops listening.
  */
 export function followUiLanguageChanges(reload: () => void): () => void {
@@ -99,7 +101,7 @@ export function followUiLanguageChanges(reload: () => void): () => void {
     areaName: chrome.storage.AreaName,
   ) => {
     if (uiLanguageChangeNeedsReload(changes, areaName, appliedUiLanguage())) {
-      reload();
+      void flushMemoEditors().then(reload);
     }
   };
   chrome.storage.onChanged.addListener(listener);

@@ -22,6 +22,8 @@ function searchGroupHeading(source: SearchGroupSource): string {
       return t('searchGroupSavedSessions');
     case 'notes':
       return t('searchGroupNotes');
+    case 'memos':
+      return t('searchGroupMemos');
     case 'history':
       return t('searchGroupHistory');
   }
@@ -29,12 +31,13 @@ function searchGroupHeading(source: SearchGroupSource): string {
 
 /**
  * One activatable row: restore a whole session (tier 1), open/focus one tab (tier 2), or show one
- * YouTube note among its video's notes.
+ * YouTube note among its video's notes, or open one memo.
  */
 export type SearchItem =
   | { kind: 'session'; key: string; summary: SessionSummary }
   | { kind: 'tab'; key: string; entry: SearchEntry }
-  | { kind: 'note'; key: string; entry: SearchEntry };
+  | { kind: 'note'; key: string; entry: SearchEntry }
+  | { kind: 'memo'; key: string; entry: SearchEntry };
 
 export interface SearchGroup {
   source: SearchGroupSource;
@@ -78,6 +81,9 @@ export function sessionNameMatches(
  * tab by its runtime id, which survives the tab moving inside its window (its position does not).
  */
 function entryKey(entry: SearchEntry): string {
+  if (entry.source === 'memos') {
+    return `memos:${entry.memoId ?? ''}`;
+  }
   if (entry.source === 'notes') {
     return `notes:${entry.videoId ?? ''}:${entry.noteId ?? String(entry.tabIndex)}`;
   }
@@ -137,7 +143,9 @@ export function buildSearchGroups(
       bucket.entries.map((entry) =>
         source === 'notes'
           ? { kind: 'note' as const, key: entryKey(entry), entry }
-          : { kind: 'tab' as const, key: entryKey(entry), entry },
+          : source === 'memos'
+            ? { kind: 'memo' as const, key: entryKey(entry), entry }
+            : { kind: 'tab' as const, key: entryKey(entry), entry },
       ),
       bucket.count,
       bucket.hasMore,

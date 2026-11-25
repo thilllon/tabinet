@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { isCloudSyncEnabled } from '@/lib/cloud-config';
 import { t, tp } from '@/lib/i18n';
 
 interface DeleteVideoNotesDialogProps {
@@ -33,7 +34,13 @@ export function DeleteVideoNotesDialog({
       <DialogContent showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>{t('notesDeleteAllTitle')}</DialogTitle>
-          <DialogDescription>{tp('notesDeleteAllBody', count, title)}</DialogDescription>
+          <DialogDescription>
+            {tp(
+              isCloudSyncEnabled() ? 'notesDeleteAllBodySynced' : 'notesDeleteAllBody',
+              count,
+              title,
+            )}
+          </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

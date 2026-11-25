@@ -1076,7 +1076,7 @@
     "description": "Notice toast when the user opens a saved session while another one is still being opened (restored)."
   },
   "appSearchNothingFound": {
-    "message": "Nada en tus pestañas abiertas ni en tus sesiones guardadas.",
+    "message": "Nada en tus pestañas abiertas, sesiones guardadas, notas ni apuntes.",
     "description": "Shown in the search results when nothing matches; a button offering to search automatic snapshots follows it."
   },
   "appSearchHistoryTitle": {
@@ -1508,11 +1508,11 @@
     "description": "Accessible name of the search box at the top of the app page. One word."
   },
   "searchInputTitle": {
-    "message": "Buscar en las pestañas abiertas, las sesiones guardadas, sus direcciones y tus notas",
+    "message": "Buscar en las pestañas abiertas, las sesiones guardadas, sus direcciones, tus notas y tus apuntes",
     "description": "Tooltip of the search box at the top of the app page."
   },
   "searchPlaceholder": {
-    "message": "Buscar pestañas y sesiones (pulsa /)",
+    "message": "Buscar pestañas, sesiones y notas (pulsa /)",
     "description": "Placeholder text inside the empty search box. The \"/\" is the keyboard key that focuses the box; keep it as is. Keep it short enough to fit a narrow box (about 40 characters)."
   },
   "searchClear": {
@@ -2392,12 +2392,112 @@
     "description": "Error toast when a screenshot of the video failed for any other reason."
   },
   "appNavNotes": {
-    "message": "Notas",
-    "description": "Sidebar section heading above the list of YouTube videos with notes. Shown in uppercase. Keep short."
+    "message": "Notas de YouTube",
+    "description": "Sidebar section heading over the videos that have YouTube notes. Keep it distinct from the Memos section."
   },
   "appNavNoNotes": {
     "message": "Aquí aparecen las notas que tomes en vídeos de YouTube.",
     "description": "Shown in the sidebar's Notes section when no YouTube video has notes yet."
+  },
+  "appNavMemos": {
+    "message": "Apuntes",
+    "description": "Sidebar section heading over the free-form memos the person writes on the Tabinet page. Not the YouTube notes: Korean and Japanese call those 메모 / メモ, so memos are 자유 메모 / 自由メモ."
+  },
+  "appNavNoMemos": {
+    "message": "Aquí aparecen los apuntes que escribas.",
+    "description": "Shown in the sidebar's Memos section when there is no memo yet."
+  },
+  "memoNew": {
+    "message": "Nuevo apunte",
+    "description": "Button on the sidebar's Memos heading that opens an empty memo. Button text, short."
+  },
+  "memoNewTitle": {
+    "message": "Escribir un apunte nuevo",
+    "description": "Tooltip of the New memo button."
+  },
+  "memoUntitled": {
+    "message": "Apunte sin título",
+    "description": "The title shown for a memo whose text is empty or blank (a memo's title is its first line)."
+  },
+  "memoLabel": {
+    "message": "Texto del apunte",
+    "description": "Accessible label of the memo's text box."
+  },
+  "memoPlaceholder": {
+    "message": "Escribe lo que quieras. Se guarda mientras escribes.",
+    "description": "Placeholder of an empty memo's text box."
+  },
+  "memoTextTitle": {
+    "message": "Se guarda mientras escribes. $1 guarda ahora.",
+    "description": "Tooltip of the memo's text box. $1 is the key that saves at once, such as Ctrl+Enter or ⌘+Enter."
+  },
+  "memoUpdatedAt": {
+    "message": "Actualizado el $1",
+    "description": "Under a memo's title and in the sidebar: when it last changed. $1 is a date and time."
+  },
+  "memoExport": {
+    "message": "Exportar como Markdown",
+    "description": "Button on a memo's page that saves the memo as a Markdown file. Button text, short; the same wording as the notes page's export button."
+  },
+  "memoExportTitle": {
+    "message": "Guardar este apunte como archivo Markdown",
+    "description": "Tooltip of the memo's Export Markdown button."
+  },
+  "memoDelete": {
+    "message": "Eliminar",
+    "description": "Button on a memo's page that deletes it (undo is offered in a toast). Button text, short."
+  },
+  "memoDeleteTitle": {
+    "message": "Eliminar este apunte. Puedes deshacerlo durante unos segundos.",
+    "description": "Tooltip of the memo's Delete button."
+  },
+  "memoDeleted": {
+    "message": "Apunte eliminado.",
+    "description": "Toast after a memo was deleted; it carries an Undo button."
+  },
+  "memoUndo": {
+    "message": "Deshacer",
+    "description": "Button in the toast after a memo was deleted. Button text, short."
+  },
+  "memoUndoTitle": {
+    "message": "Recuperar el apunte eliminado",
+    "description": "Tooltip of the Undo button in the toast after a memo was deleted."
+  },
+  "memoConflictBadge": {
+    "message": "Copia por conflicto",
+    "description": "Badge on a memo kept as a copy because it was changed in two places at once. Short."
+  },
+  "memoConflictTitle": {
+    "message": "Este apunte se cambió en dos sitios, así que se guardaron las dos versiones",
+    "description": "Tooltip of the Conflict copy badge."
+  },
+  "memoConflictHint": {
+    "message": "Es una copia guardada por un conflicto. Pásala al otro apunte si hace falta y después elimínala.",
+    "description": "One line above a conflict copy's text."
+  },
+  "memoConflictNotice": {
+    "message": "Un apunte se cambió en dos sitios. Se guardaron las dos versiones.",
+    "description": "Toast when a memo conflict made a copy (from sync, or from an edit of a memo changed elsewhere)."
+  },
+  "memoSaveFailed": {
+    "message": "El apunte no se ha guardado.",
+    "description": "Error toast when saving a memo failed; the text stays in the box."
+  },
+  "memoCopyText": {
+    "message": "Copiar texto",
+    "description": "Button in the error toast shown when leaving a memo whose last save failed. Button text, short."
+  },
+  "memoCopyTextTitle": {
+    "message": "Copiar el texto del apunte al portapapeles",
+    "description": "Tooltip of the Copy text button."
+  },
+  "memoTextCopied": {
+    "message": "Texto copiado.",
+    "description": "Toast after Copy text put a memo's text on the clipboard."
+  },
+  "memoUnreadable": {
+    "message": "Este apunte lo guardó una versión más reciente de Tabinet y no se puede mostrar aquí.",
+    "description": "Shown in place of a memo's text when its stored body cannot be read by this version."
   },
   "notesEntryCount_one": {
     "message": "$1 nota",
@@ -2416,8 +2516,12 @@
     "description": "Stands in for the title of a YouTube video whose title was not known when its notes were taken."
   },
   "searchGroupNotes": {
-    "message": "Notas",
-    "description": "Heading of the search results group listing matching YouTube notes. Shown in small capitals; short."
+    "message": "Notas de YouTube",
+    "description": "Heading of the search results that are YouTube notes."
+  },
+  "searchGroupMemos": {
+    "message": "Apuntes",
+    "description": "Heading of the search results that are memos (the sidebar's Memos section)."
   },
   "notesOpenAt": {
     "message": "Abrir el vídeo en $1",
@@ -2459,9 +2563,17 @@
     "message": "Se eliminará $1 nota de «$2» de este dispositivo, con su captura. No se puede deshacer.",
     "description": "Text of the dialog that asks before every note on a video is deleted. $1 is how many notes, $2 the video's title."
   },
+  "notesDeleteAllBodySynced_one": {
+    "message": "Se eliminará $1 nota de «$2» de este dispositivo, con su captura, y de tus otros dispositivos si usas la sincronización. No se puede deshacer.",
+    "description": "Body of the dialog that deletes every note on a video, in a build with cloud sync. $1 is the number of notes, $2 the video's title."
+  },
   "notesDeleteAllBody_other": {
     "message": "Las $1 notas de «$2» se eliminarán de este dispositivo, con sus capturas. No se puede deshacer.",
     "description": "Text of the dialog that asks before every note on a video is deleted. $1 is how many notes, $2 the video's title."
+  },
+  "notesDeleteAllBodySynced_other": {
+    "message": "Las $1 notas de «$2» se eliminarán de este dispositivo, con sus capturas, y de tus otros dispositivos si usas la sincronización. No se puede deshacer.",
+    "description": "Body of the dialog that deletes every note on a video, in a build with cloud sync. $1 is the number of notes, $2 the video's title."
   },
   "notesPageHint": {
     "message": "Las notas se escriben en el panel lateral de notas de YouTube mientras se reproduce el vídeo. La marca de tiempo de una nota abre el vídeo en ese momento.",
