@@ -1,16 +1,19 @@
-import { POLICY } from '../../../src/constants.js';
 import type { AppMiddleware } from '../context.js';
 import { error } from '../responses.js';
 
 // The limit is on the bytes of the decoded text. Decoding drops a byte order mark (3 bytes) and
-// never shrinks anything else, so past this many bytes on the wire a body is over it, whatever it is.
-const MAX_READ_BYTES = POLICY.request.maxBodyBytes + 3;
+// never shrinks anything else, so past limit + 3 bytes on the wire a body is over it, whatever it is.
+const BOM_BYTES = 3;
 
 /**
- * The body, or null as soon as it is longer than `MAX_READ_BYTES`. It goes into one buffer, since
- * a list of the chunks costs far more than their bytes when a client sends one byte at a time.
+ * The body, or null as soon as it is longer than `maxBytes`: reading stops at the first chunk
+ * over it. It goes into one buffer, since a list of the chunks costs far more than their bytes
+ * when a client sends one byte at a time.
  */
-async function readAtMost(body: ReadableStream<Uint8Array> | null): Promise<Uint8Array | null> {
+async function readAtMost(
+  body: ReadableStream<Uint8Array> | null,
+  maxBytes: number,
+): Promise<Uint8Array | null> {
   let bytes = new Uint8Array(0);
   if (body === null) {
     return bytes;
@@ -23,12 +26,12 @@ async function readAtMost(body: ReadableStream<Uint8Array> | null): Promise<Uint
       return bytes.subarray(0, size);
     }
     const end = size + value.byteLength;
-    if (end > MAX_READ_BYTES) {
+    if (end > maxBytes) {
       void discardRest(reader); // not awaited: the 413 does not wait for it
       return null;
     }
     if (end > bytes.length) {
-      const grown = new Uint8Array(Math.min(MAX_READ_BYTES, Math.max(end, bytes.length * 2)));
+      const grown = new Uint8Array(Math.min(maxBytes, Math.max(end, bytes.length * 2)));
       grown.set(bytes.subarray(0, size));
       bytes = grown;
     }
@@ -54,30 +57,32 @@ async function discardRest(reader: ReadableStreamDefaultReader<Uint8Array>): Pro
 
 /**
  * Reads the body as JSON into `c.get('body')` (undefined when it is not JSON, which the handler's
- * parser answers with 400), or answers 413 over `POLICY.request.maxBodyBytes`, never holding
- * more than that: not every host caps a body before it gets here. Not Hono's bodyLimit: that one trusts
+ * parser answers with 400), or answers 413 over `limit` bytes, never holding more than that: not
+ * every host caps a body before it gets here. Not Hono's bodyLimit: that one trusts
  * Content-Length when it is there, and the real byte count has to be checked too.
  */
-export const readJsonBody: AppMiddleware = async (c, next) => {
-  const request = c.req.raw;
-  // Content-Length first, so an honest oversized request is refused without reading it.
-  if (Number(request.headers.get('Content-Length') ?? 0) > POLICY.request.maxBodyBytes) {
-    return error(413, 'payload_too_large');
-  }
-  const bytes = await readAtMost(request.body);
-  if (bytes === null) {
-    return error(413, 'payload_too_large');
-  }
-  const text = new TextDecoder().decode(bytes);
-  if (new TextEncoder().encode(text).length > POLICY.request.maxBodyBytes) {
-    return error(413, 'payload_too_large');
-  }
-  let body: unknown;
-  try {
-    body = JSON.parse(text);
-  } catch {
-    body = undefined;
-  }
-  c.set('body', body);
-  await next();
-};
+export function readJsonBody(limit: number): AppMiddleware {
+  return async (c, next) => {
+    const request = c.req.raw;
+    // Content-Length first, so an honest oversized request is refused without reading it.
+    if (Number(request.headers.get('Content-Length') ?? 0) > limit) {
+      return error(413, 'payload_too_large');
+    }
+    const bytes = await readAtMost(request.body, limit + BOM_BYTES);
+    if (bytes === null) {
+      return error(413, 'payload_too_large');
+    }
+    const text = new TextDecoder().decode(bytes);
+    if (new TextEncoder().encode(text).length > limit) {
+      return error(413, 'payload_too_large');
+    }
+    let body: unknown;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      body = undefined;
+    }
+    c.set('body', body);
+    await next();
+  };
+}

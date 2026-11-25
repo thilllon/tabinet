@@ -19,19 +19,22 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export const POLICY = {
   /** What one cloud sync account may keep on the server. */
   account: {
-    /**
-     * NOT ENFORCED YET: nothing reads this until issue #261 adds the check on the server and the
-     * meter in Settings. It is for everything in the account, screenshots included.
-     */
+    /** Every row of the account counts, screenshots and tombstones included (issue #261). */
     storageBytes: 50 * MIB,
     /** Screenshots of YouTube notes. One more stays on the device that took it. */
     screenshots: 100,
   },
 
-  /** One synced item: a saved session, a video's notes, a screenshot or the settings. */
+  /** One synced item: a saved session, a doc, a screenshot or the settings. */
   record: {
     /** Its size once encrypted, as base64 text. A bigger one stays on the device. */
     maxCiphertextBytes: 1 * MIB,
+    /** A tombstone's ciphertext, and the least any row counts. */
+    maxTombstoneChars: 512,
+    /** Added to every row's count. */
+    overheadBytes: 128,
+    /** The server refuses a stamp further ahead; the client restamps before it gets there. */
+    maxClockAheadMs: DAY_MS,
   },
 
   /** One request to the sync server. */
@@ -39,12 +42,39 @@ export const POLICY = {
     maxRecordsPerPush: 100,
     /** The server refuses a bigger body. Vercel's own default limit is 4.5 MB, so stay below it. */
     maxBodyBytes: 4 * MIB,
-    /** The extension starts another request beyond this. Keep it below `maxBodyBytes`. */
-    pushBatchBytes: 3.5 * MIB,
-    /** Also the page size when a request names none. */
+    /** The body limit of the auth, keys and account routes. */
+    maxSmallBodyBytes: 16 * 1024,
+    /** Was 3.5 MiB: a batch must upload inside a worker's 30 s fetch limit. */
+    pushBatchBytes: 2 * MIB,
+    /** Removed once stages 1 and 2 of v10 have merged: the v2 pull is a stream. */
     maxRecordsPerPull: 500,
+    /** The `current` bodies of one push answer, so the JSON stays under Vercel's 4.5 MB. */
+    maxStaleBytes: 3 * MIB,
     /** The Google access token sent to sign in. Google documents up to 2048 bytes. */
     maxAccessTokenChars: 4096,
+    /** The wait for an answer. In the worker it is the whole bound (Chrome stops a fetch at 30 s). */
+    answerTimeoutMs: 25_000,
+    /** An open page adds the body's length at this rate to the wait, so a slow line can still upload. */
+    pageUploadBytesPerMs: 64,
+    /** An open page's bound on a whole request. */
+    pageTotalTimeoutMs: 120_000,
+    /** The server's bound on one database statement. */
+    databaseTimeoutMs: 15_000,
+    /** The server's bound on Google's tokeninfo answer. */
+    googleTimeoutMs: 10_000,
+  },
+
+  /** `GET /v2/records`, the streamed pull. */
+  pull: {
+    batchBytes: 2 * MIB,
+    batchRecords: 200,
+    streamMs: 120_000,
+    /** A stream that sends nothing this long, while the reader waits, is cut. */
+    readIdleMs: 25_000,
+    /** The reader's own bounds: a line, and a batch. No record-size check, so the server may raise those. */
+    bufferBytes: 8 * MIB,
+    bufferRecords: 1000,
+    maxRequestsPerRun: 20,
   },
 
   /** The sync passphrase. */
@@ -52,13 +82,13 @@ export const POLICY = {
     minLength: 8,
   },
 
-  /** How a passphrase becomes a key (PBKDF2). Narrowing a range locks out keys made outside it. */
+  /** Fixed by envelope version 2. Changing one needs a new envelope version. */
   kdf: {
-    /** For a new key: OWASP's 2023 figure for PBKDF2-HMAC-SHA256. */
+    /** OWASP's 2023 figure for PBKDF2-HMAC-SHA256. */
     iterations: 600_000,
+    /** The four bounds below are removed once stages 1 and 2 of v10 have merged. */
     minIterations: 100_000,
     maxIterations: 10_000_000,
-    /** For a new key. */
     saltBytes: 16,
     minSaltBytes: 16,
     maxSaltBytes: 64,
@@ -78,7 +108,14 @@ export const POLICY = {
     maxWaitMs: 10_000,
     /** The fallback alarm behind the debounce timer, and the first retry: Chrome's alarm minimum. */
     fallbackMs: 30_000,
+    /** An extension call this often during a run keeps the worker alive while a body streams. */
+    keepAliveMs: 20_000,
+    /** Doc versions posted whose answer was not seen, remembered per doc. */
+    sentVersions: 4,
   },
+
+  /** Free-form memos. */
+  memo: { autosaveMs: 1000, titleChars: 120 },
 
   /** A screenshot in YouTube notes. */
   screenshot: {
@@ -96,9 +133,8 @@ export const POLICY = {
      */
     intervalMinutes: { min: 1, default: 5, max: 1440, choices: [5, 10, 30] },
     /**
-     * How many are kept before the oldest is deleted. `max` limits only what can be typed in
-     * Settings: a bigger number already stored, or received by sync, stays. One under `min`
-     * becomes the default.
+     * How many are kept before the oldest is deleted. Stored and synced values are clamped to
+     * min..max (#270).
      */
     keep: { min: 1, default: 20, max: 200 },
     /** The newest "Previous session (recovered)" snapshots, which are kept on top of those. */
@@ -167,7 +203,7 @@ export const STORE_EXTENSION_ID = 'bmbpmnfhfbdjdjpblimidmbohgccmjdg';
 
 /** Where cloud sync talks to and which Google OAuth client signs in to it. */
 export interface CloudSyncConfig {
-  /** The sync server's origin, such as `https://tabinet.example.app`; the routes live under `/v1`. */
+  /** The sync server's origin, such as `https://tabinet.example.app`; the routes live under `/v2`. */
   apiBase: string;
   /**
    * The Google OAuth client id, of type "Chrome extension" (bound to the store item id

@@ -2,5 +2,10 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "regions": ["sin1"],
-  "rewrites": [{ "source": "/v1/:path*", "destination": "/api/vercel.adaptor" }]
+  "installCommand": "pnpm install --frozen-lockfile --filter tabinet-server --ignore-scripts",
+  "functions": { "api/vercel.adaptor.ts": { "maxDuration": 300, "supportsCancellation": true } },
+  "rewrites": [
+    { "source": "/v1/:path*", "destination": "/api/vercel.adaptor" },
+    { "source": "/v2/:path*", "destination": "/api/vercel.adaptor" }
+  ]
 }

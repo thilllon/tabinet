@@ -2,68 +2,79 @@
 
 ## Entry points
 
-| To         | File                     | Started by                                                                         |
-| ---------- | ------------------------ | ---------------------------------------------------------------------------------- |
-| Production | `api/vercel.adaptor.ts`  | Vercel: `vercel.json` rewrites `/v1/*` to it, and it calls the app in `src/app.ts` |
-| Railway    | `src/railway.adaptor.ts` | `PORT=... pnpm --filter tabinet-server start`; see "Deploy to Railway"             |
-| Local      | `src/dev.ts`             | `pnpm --filter tabinet-server dev`: 127.0.0.1:8787, an empty in-memory database    |
-| Migrate    | `scripts/migrate.ts`     | `DATABASE_URL=... pnpm --filter tabinet-server migrate`                            |
+| To           | File                      | Started by                                                                                     |
+| ------------ | ------------------------- | ---------------------------------------------------------------------------------------------- |
+| Production   | `api/vercel.adaptor.ts`   | Vercel: `vercel.json` rewrites `/v1/*` and `/v2/*` to it, and it calls the app in `src/app.ts` |
+| Railway      | `src/railway.adaptor.ts`  | Code only: it refuses to run (see "Deploy to Railway")                                         |
+| Local        | `src/dev.ts`              | `pnpm --filter tabinet-server dev`: 127.0.0.1:8787, an empty in-memory database                |
+| Migrate      | `scripts/migrate.ts`      | `DATABASE_URL=... pnpm --filter tabinet-server migrate` (003 also needs `WIPE_V1=yes`)         |
+| KEK          | `scripts/kek.ts`          | `pnpm --filter tabinet-server kek:new <path>` / `kek:id <path>`                                |
+| Schema check | `scripts/schema-check.ts` | `DATABASE_URL=... pnpm --filter tabinet-server schema:check`                                   |
+| Stream check | `scripts/stream-check.ts` | `pnpm --filter tabinet-server stream-check`, once, at the cutover                              |
 
 The Vercel adaptor has to be in `api/`: that is the only folder Vercel builds functions from with
 the "Other" preset. It is the only Vercel-specific code. For the same reason the Railway adaptor
 must never be in `api/`: Vercel would deploy it. Both serve the one handler from
 `createServer()` in `src/production.ts`. To read the API, start at `src/app.ts`.
 
-`tabinet-server` keeps a signed-in user's saved sessions, YouTube notes (with their screenshots) and settings in step across devices. It
-stores them **end-to-end encrypted**: a device encrypts each record with a key derived from the
-user's passphrase before it is sent, so the server holds `{kind, id, updatedAt, deleted, iv,
-ciphertext}` and never a session name, url, title, note or picture. Sign-in is with Google; the server keeps the
-Google account id (`sub`) and the email, nothing else about the person.
+`tabinet-server` keeps a signed-in user's saved sessions, docs (YouTube notes, memos), screenshots
+and settings in step across devices. It stores them **end-to-end encrypted**: a device encrypts
+each record with its data key (DEK) before it is sent, so the server holds `{kind, id, updatedAt,
+deleted, iv, ciphertext}` and never a session name, url, title, note, memo or picture. The DEK
+travels only wrapped under the passphrase (the key envelope), and the server keeps even that only
+sealed under its own key, the KEK, bound to the Google account. Sign-in is with Google; the server
+keeps the Google account id (`sub`) and the email, nothing else about the person.
 
 The extension calls it at `CLOUD_SYNC.apiBase` in `src/constants.ts`, set to
-`https://tabinet-server.vercel.app` since #178 (sign-in with `chrome.identity.getAuthToken`, then
-the sync engine in `src/lib/cloud-sync.ts`); clearing `apiBase` makes the extension dormant again.
-The functions run in Vercel region `sin1` (Singapore), pinned in `vercel.json`.
+`https://tabinet-server.vercel.app`; clearing `apiBase` makes the extension dormant again. The
+functions run in Vercel region `sin1` (Singapore), pinned in `vercel.json`.
 
 Every limit below is in `POLICY` in the repository's `src/constants.ts`, the file the extension
-reads too, and the only file outside `server/` that the server imports. So it runs from a checkout
-of the whole repository, never from a copy of `server/` alone.
+reads too, and the only file outside `server/` that the server imports (`policy-server.test.ts`
+fails on a server file that restates one). So it runs from a checkout of the whole repository,
+never from a copy of `server/` alone.
 
 ## Layout
 
 A Hono app, kept thin: a route handler calls the store directly. No services, classes or container.
 
-| Path                              | What it is                                                                          |
-| --------------------------------- | ----------------------------------------------------------------------------------- |
-| `api/vercel.adaptor.ts`           | The Vercel function: the five methods it exports, all one handler                   |
-| `src/app.ts`                      | `createApp(deps)`: the whole API, top to bottom                                     |
-| `src/production.ts`               | The real dependencies and `createServer()`, which builds the app on first use       |
-| `src/railway.adaptor.ts`          | The Railway server: `PORT`, graceful shutdown; imported by nothing                  |
-| `src/dev.ts`                      | The local server; never imported by what is deployed                                |
-| `src/env.ts`                      | Environment parsing; an error names the variable, never its value                   |
-| `src/context.ts`                  | `Deps`, and what middleware leaves on the request's context                         |
-| `src/responses.ts`                | The three kinds of answer (JSON, error, no content) with their exact headers        |
-| `src/routes/auth.ts`              | Sign in with Google, log out                                                        |
-| `src/routes/account.ts`           | `me`, delete the account                                                            |
-| `src/routes/keys.ts`              | The key setup, set once                                                             |
-| `src/routes/records.ts`           | List and write records                                                              |
-| `src/middleware/auth.ts`          | The bearer token, checked before any body is read                                   |
-| `src/middleware/body-limit.ts`    | Reads a JSON body of at most 4 MiB, and keeps nothing past that                     |
-| `src/middleware/cors.ts`          | CORS for the origins in `ALLOWED_ORIGINS` only, and every `OPTIONS`                 |
-| `src/middleware/errors.ts`        | Anything thrown becomes a JSON 500                                                  |
-| `src/middleware/unmatched.ts`     | 404, 405 with `Allow`, and no automatic `HEAD`                                      |
-| `src/db/client.ts`                | Neon's HTTP driver (production only)                                                |
-| `src/db/store.ts`                 | `createSqlStore(query)`: every SQL statement, over a one-function `query()` adapter |
-| `src/db/migrations.ts`            | Applies `migrations/NNN_*.sql` once each, recorded in `schema_migrations`           |
-| `src/validation.ts`               | Strict parsing of every body and query (sizes, id pattern, kinds, base64)           |
-| `src/google-auth.ts`              | Google access token verification through Google's tokeninfo endpoint                |
-| `src/tokens.ts`                   | Bearer tokens: 32 random bytes, stored only as their sha256                         |
-| `migrations/001_init.sql`         | `users`, `auth_tokens`, `records` and the `record_seq` sequence                     |
-| `migrations/002_notes_images.sql` | The `notes` and `image` kinds, and `apply_image_record()` for the screenshot cap    |
-| `scripts/migrate.ts`              | `pnpm --filter tabinet-server migrate`                                              |
-| `public/`                         | The only static files Vercel serves (`robots.txt`); never delete it                 |
-| `vercel.json`                     | Preset "Other" (`"framework": null`), the region and the `/v1/*` rewrite            |
-| `src/tests/`                      | vitest; the store and the routes run against PGlite (Postgres in WASM), no network  |
+| Path                               | What it is                                                                                                                 |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `api/vercel.adaptor.ts`            | The Vercel function: the five methods it exports, all one handler                                                          |
+| `src/app.ts`                       | `createApp(deps)`: the whole API, top to bottom, in the order the checks run                                               |
+| `src/production.ts`                | The real dependencies and `createServer()`, which builds the app on first use                                              |
+| `src/env.ts`                       | The production check, then environment parsing; an error names a variable, never a value                                   |
+| `src/kek-id.ts`                    | `PINNED_KEK_ID`: the one KEK id production may run with (empty until the cutover)                                          |
+| `src/envelope.ts`                  | The key envelope: parse, the 97 bytes, seal and open under the KEK, the write verifier                                     |
+| `src/stream.ts`                    | The NDJSON body of a pull, one database batch per read                                                                     |
+| `src/railway.adaptor.ts`           | The Railway server: `PORT`, graceful shutdown; imported by nothing                                                         |
+| `src/dev.ts`                       | The local server, with a random in-memory KEK; never imported by what is deployed                                          |
+| `src/context.ts`                   | `Deps`, and what middleware leaves on the request's context                                                                |
+| `src/responses.ts`                 | JSON, error, no content and NDJSON answers with their exact headers                                                        |
+| `src/types.ts`                     | The wire shapes (`RecordOut`, `WriteResult`, `PullLine`, `ErrorCode`, ...)                                                 |
+| `src/routes/auth.ts`               | Sign in with Google, log out                                                                                               |
+| `src/routes/account.ts`            | `me`, delete the account                                                                                                   |
+| `src/routes/keys.ts`               | Open the envelope, create or replace it                                                                                    |
+| `src/routes/records.ts`            | The pull stream and the push                                                                                               |
+| `src/middleware/cors.ts`           | CORS for the origins in `ALLOWED_ORIGINS` only, and every `OPTIONS`                                                        |
+| `src/middleware/v1-gate.ts`        | `/v1` and `/v1/*`: 410, before anything else is looked at                                                                  |
+| `src/middleware/auth.ts`           | The bearer, checked before any body is read                                                                                |
+| `src/middleware/key-header.ts`     | `Tabinet-Key-Id` against the bearer's account, before the body                                                             |
+| `src/middleware/body-limit.ts`     | `readJsonBody(limit)`: reads a JSON body as a stream, and keeps nothing past the limit                                     |
+| `src/middleware/errors.ts`         | Google unavailable becomes a 503, anything else thrown a JSON 500                                                          |
+| `src/middleware/unmatched.ts`      | 404, 405 with `Allow`, and no automatic `HEAD`                                                                             |
+| `src/db/client.ts`                 | Neon's HTTP driver (production only), with each statement's timeout as its signal                                          |
+| `src/db/store.ts`                  | `createSqlStore(query)`: every SQL statement, over a one-function `query()` adapter                                        |
+| `src/db/migrations.ts`             | Applies `migrations/NNN_*.sql` once each, recorded in `schema_migrations`                                                  |
+| `src/validation.ts`                | Strict parsing of every body, header and query (sizes, ids, canonical base64)                                              |
+| `src/google-auth.ts`               | Google access token verification through Google's tokeninfo endpoint                                                       |
+| `src/tokens.ts`                    | Bearer tokens: 32 random bytes, stored only as their sha256                                                                |
+| `migrations/001_init.sql`, `002_*` | Protocol v1, kept as they ran                                                                                              |
+| `migrations/003_sync_v2.sql`       | Protocol v2: drops every v1 table and creates `accounts`, `account_tokens`, `account_records` and `apply_account_record()` |
+| `scripts/`                         | `migrate`, `kek`, `schema-check`, `stream-check`                                                                           |
+| `public/`                          | The only static files Vercel serves (`robots.txt`); never delete it                                                        |
+| `vercel.json`                      | Preset "Other", the region, the install command, the function's limits, the rewrites                                       |
+| `src/tests/`                       | vitest: PGlite with the real migrations, and a real Postgres when `TEST_DATABASE_URL` is set                               |
 
 Hono's defaults differ from this API in a few places, each overridden and pinned by
 `src/tests/contract.test.ts`: it serves `HEAD` as `GET` (here a 405), decodes the path before
@@ -71,78 +82,106 @@ matching (here the exact pathname), passes only `Error`s to `onError` (here ever
 500), and its `c.json()` and `bodyLimit` answer differently (so `responses.ts` and
 `middleware/body-limit.ts` are used instead).
 
-## API
+## API (protocol v2)
 
-JSON, base path `/v1`. Every route but `POST /v1/auth/google` and `OPTIONS` needs
-`Authorization: Bearer <token>`; a missing, unknown or expired token gets 401
-`{"error":"unauthorized"}`. Any bad input gets 400 `{"error":"bad_request"}`, a body over 4 MiB
-413 `{"error":"payload_too_large"}`. A known path with another method (`HEAD` included) gets 405
-`{"error":"method_not_allowed"}` with `Allow`, any other path (a trailing slash included) 404
-`{"error":"not_found"}`, both whatever the token.
+Base path `/v2`. `/v1` and everything under it answer 410 `{"error":"upgrade_required"}` to every
+method but `OPTIONS`, before a bearer, a body or the database is looked at (a `HEAD` gets the 410
+without a body): no v1 row, key or bearer is accepted or migrated.
 
-Those are the app's answers. On Vercel two cases are answered before the app runs, without JSON,
-`Allow` or CORS: a method the adaptor does not export (`HEAD`, `PATCH`) is Vercel's own empty
-405, and a path the rewrite does not match (a trailing slash) its own plain-text 404. On Railway
-every path and method reaches the app, so those two get the app's answers, and there is no
-`robots.txt` (a 404). A request Node cannot turn into a URL (no `Host`, `OPTIONS *`, a backslash in
-the path) is an empty 400 there.
+The checks run in this order, so an earlier one decides: CORS and `OPTIONS` (always 204), the
+`/v1` gate, the route (404 `not_found`; 405 `method_not_allowed` with `Allow`), the bearer (401
+`unauthorized`, and 401 means nothing else), the `Tabinet-Key-Id` header against the bearer's
+account (400; 409 `key_missing` or `key_mismatch`, so a 409 never reads the body), the body (413
+`payload_too_large`, 400 `bad_request`), Google (403, 503), the database. JSON answers carry
+`Content-Type: application/json; charset=utf-8` and `Cache-Control: no-store`; an error is exactly
+`{"error":"<code>"}`; anything thrown is 500 `internal`. Times are integer milliseconds.
 
-| Route                                      | Answer                                                                                                                                                                    |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /v1/auth/google {accessToken}`       | 200 `{token, expiresAt, email, keySetup}`; the token lasts 90 days                                                                                                        |
-| `POST /v1/auth/logout`                     | 204; the presented token is deleted                                                                                                                                       |
-| `GET /v1/me`                               | 200 `{email, keySetup}`                                                                                                                                                   |
-| `PUT /v1/keys {kdf, salt, check, checkIv}` | 201 the first time, then 409 `{"error":"key_exists"}`                                                                                                                     |
-| `GET /v1/records?since=&limit=&kinds=`     | 200 `{records, next, hasMore}`: records of `kinds` with `seq > since`, ascending, `limit` 1..500 (500); `kinds` is a comma-separated list, `session,settings` when absent |
-| `POST /v1/records {records}`               | 200 `{results: [{kind, id, status: "applied", seq} or {kind, id, status: "stale", current} or {kind, id, status: "rejected", reason: "image_limit"}]}`                    |
-| `DELETE /v1/account`                       | 204; the user, their tokens and their records are deleted                                                                                                                 |
+| Route                                         | Answer                                                                                                                                   |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /v2/auth/google {accessToken}`          | 200 `{token, expiresAt, accountId, email, key}`; 403 `google_refused`, 503 `google_unavailable`                                          |
+| `POST /v2/auth/logout`                        | 204; the presented bearer is deleted                                                                                                     |
+| `GET /v2/me`                                  | 200 `{accountId, email, key, usage}`                                                                                                     |
+| `POST /v2/keys/open {accessToken}`            | 200 `{envelope}`; 403 `google_refused` / `google_account_mismatch`, 409 `key_missing`, 500 `key_unavailable`, 503                        |
+| `PUT /v2/keys {accessToken, envelope, proof}` | 201 on create, 200 on replace: `{key}`; 403 also `proof_invalid`; 409 `key_exists`, `key_missing`, `key_mismatch`, `generation_conflict` |
+| `GET /v2/records?since=<n>` + key header      | 200 NDJSON, below                                                                                                                        |
+| `POST /v2/records {records}` + key header     | 200 `{results, usage}`                                                                                                                   |
+| `DELETE /v2/account {accessToken}`            | 204; the account, its bearers and records are deleted (a new sign-in makes a new `accountId`)                                            |
 
-Limits and rules:
+`key` is `{keyId, generation}` or null, `usage` is `{bytes, screenshots}`. The shapes are in
+`src/types.ts`, declared the same way in the extension's `src/types.ts`.
 
-- Sign-in takes a Google OAuth access token, at most 4096 characters, which the server checks
-  by POSTing it (form body, never a URL or a log) to `https://oauth2.googleapis.com/tokeninfo`
-  with a 10 s timeout. It is accepted only on HTTP 200 when the token was issued to one of
-  `GOOGLE_CLIENT_IDS` (`aud` must be one of them when Google reports it, otherwise `azp`: a token
-  Google issued to another app for the same account is refused), `email_verified` is true,
-  `email` and `sub` are non-empty and `expires_in` is above 0. A 400 or 401 from Google (an
-  invalid or expired token) is 401 `unauthorized`; any other status (429, 408, a 5xx), a network
-  failure or a timeout is 500, never a false 401. An empty `GOOGLE_CLIENT_IDS` is a configuration
-  error and answers 500. The Google
-  token is used for that one check and not stored.
-- `kdf` is `{name: "PBKDF2", hash: "SHA-256", iterations}` with 100000..10000000 iterations;
-  `salt` 16..64 bytes, `check` 1..1024 bytes, `checkIv` 12..32 bytes, all padded base64.
-- A record's `kind` is `session`, `settings`, `notes` (one YouTube video's notes, `id` = the video
-  id) or `image` (one note screenshot), its `id` matches `[A-Za-z0-9_-]{1,64}`,
-  `updatedAt` is a non-negative integer (ms). Every record, a tombstone (`deleted: true`)
-  included, has an `iv` of 12..32 bytes and a non-empty `ciphertext` of at most 1 MiB of base64:
-  the client encrypts the deletion too, with the record's `kind`, `id`, `updatedAt` and `deleted`
-  as AES-GCM additional data, so the server cannot forge a tombstone or move, replay or flip a
-  record under other metadata.
-- At most 100 records and at most 4 MiB of body per request, whichever comes first, so a client
-  splits its batches by size as well as by count; unknown fields are refused. One bad record
-  refuses the whole request. (Vercel itself refuses a body over 4.5 MB before the function runs,
-  with no CORS headers and no JSON, which the 4 MiB limit keeps a client clear of. Railway has no
-  such cap: past 4 MiB the app answers 413 and discards the rest as it arrives, and the Node server
-  closes the connection if the upload is not over 500 ms after the answer. A client still uploading
-  may see that reset instead of the 413.)
-- Last writer wins per `(kind, id)`: a write applies only when its `updatedAt` is greater than the
-  stored one; a tie or an older one comes back `stale` with the stored record, read after the
-  write. Each record is one conditional upsert statement, so concurrent writers cannot lose an
-  update, and every applied write takes a new `seq` from one global sequence. The statement locks
-  the user's row first, so a user's writes commit in `seq` order and paging by `since` never
-  skips one.
-- At most `POLICY.account.screenshots` (100) live `image` records per account. A write
-  that would add one more is answered `rejected` with `reason: "image_limit"` and stores nothing;
-  tombstones and writes to an image that is already live are always accepted. Image writes go
-  through the SQL function `apply_image_record()` (migration 002): it takes the same user row lock
-  and then counts with a fresh snapshot, so two concurrent writers cannot both take the last place.
-- `GET /v1/records` lists only `session` and `settings` records unless the client names more in
-  `kinds`: versions of the extension from before notes refuse a page holding a kind they do not
-  know. A client that starts asking for `notes,image` reads the feed again from 0 once.
-- CORS headers go only to an `Origin` listed in `ALLOWED_ORIGINS`; preflight allows GET, POST, PUT,
-  DELETE with `Authorization` and `Content-Type`. Every answer carries `Vary: Origin` and
-  `Cache-Control: no-store`.
-- Logs carry an error's name only, never a token or a record.
+**Sign-in.** A Google OAuth access token, at most `POLICY.request.maxAccessTokenChars`, checked by
+POSTing it (form body, never a URL or a log) to `https://oauth2.googleapis.com/tokeninfo` within
+`POLICY.request.googleTimeoutMs`. It is accepted only on HTTP 200 with the token issued to one of
+`GOOGLE_CLIENT_IDS` (`aud` when Google reports it, otherwise `azp`), `email_verified` true,
+non-empty `email` and `sub`, and `expires_in` above 0. A 400 or 401 from Google is 403
+`google_refused`; a timeout, a network failure, 408, 429, a 5xx or an answer that is not JSON is
+503 `google_unavailable`. The bearer is 32 random bytes, kept only as its sha256, valid for
+`POLICY.signIn.tokenLifetimeMs`; a sign-in also drops the account's expired bearers. Sign-in never
+answers an envelope and never uses the KEK.
+
+**Keys.** Opening, replacing and deleting the account each need, besides the bearer, a live Google
+token of the same account in the body: a bearer alone opens and deletes nothing, and another
+account's token is 403 `google_account_mismatch`. The envelope is sealed (AES-256-GCM, a fresh IV)
+under the KEK with the associated data `["tabinet-envelope-v2", sub, kekId, keyId, generation]`,
+where `sub` is the one Google verified in that request, never one read from the database; so a
+sealed envelope moved to another row, or a `sub` rewritten in the database, opens nothing. Any
+failure to open, or a row sealed under another KEK, is 500 `key_unavailable`, and nothing is
+rewritten. A create needs no key and no record yet; a replace (a passphrase change) needs the same
+key id, the write proof (the server keeps only its sha256, `write_verifier`) and the generation one
+above the stored one, in one conditional UPDATE, so of two concurrent changes one wins and a Google
+token without the data key cannot replace the envelope. The byte formats (the envelope's 97 bytes,
+the 125-byte sealed text) are in `src/envelope.ts`, with the shared test vectors in the repository's
+`src/tests/key-vectors.json`.
+
+**Push.** The whole request is checked before any write: at most `POLICY.request.maxRecordsPerPush`
+records, no repeated `(kind, id)`, a kind of `session`, `settings`, `image` or `doc`, an id of
+`[A-Za-z0-9_-]{1,64}` (exactly 43 for a doc, `settings` for the settings, which cannot be
+deleted), a 12-byte IV, a canonical base64 ciphertext of at least 17 bytes and at most
+`POLICY.record.maxCiphertextBytes` characters live or `POLICY.record.maxTombstoneChars` deleted,
+and a `baseSeq` on a doc only. Each record is then one `apply_account_record()` call, in order:
+
+- `session`, `settings`, `image`: last writer wins on `updatedAt`. `doc`: compare and swap, only
+  when `baseSeq` is the stored seq (null for no row) and `updatedAt` is newer.
+- A stamp more than `POLICY.record.maxClockAheadMs` ahead of the server's clock is `rejected`
+  `clock_ahead` before any SQL.
+- A row counts `max(ciphertext, POLICY.record.maxTombstoneChars) + POLICY.record.overheadBytes`
+  against `POLICY.account.storageBytes`; live screenshots count against
+  `POLICY.account.screenshots`. A live write past either is `rejected` (`storage_limit`,
+  `image_limit`); a shrinking write and a tombstone over an existing row always apply; a tombstone
+  for a row the server lacks is written while it fits and answered `absent` (nothing stored) when
+  it does not. So the cap is a hard bound.
+- `stale` carries the stored row, read in a statement of its own (`current: null` for a doc with
+  no row); past `POLICY.request.maxStaleBytes` of them, the rest are `withheld: true`, so the
+  answer stays under Vercel's 4.5 MB.
+- An account deleted or a key changed in the middle answers 401 or 409; earlier records of that
+  request stay written, as after any lost answer. `usage` is read after the last write.
+
+The account row is locked first, so an account's writes commit in `seq` order and the caps and the
+compare and swap are exact under concurrency (`src/tests/postgres.test.ts`, on a real Postgres).
+
+**Pull.** `since` is 1 to 16 digits (0 when absent); every other parameter is ignored (Vercel's
+rewrite adds `path`). `Content-Type: application/x-ndjson; charset=utf-8`, `Cache-Control:
+no-store, no-transform`, one JSON line each: `start` (`keyId`, `since`, `through` = the account's
+last seq when the answer began, `usage`), then batches of `record` lines each closed by a
+`checkpoint` (`cursor`, `count`), then `end` (`cursor`, `complete`). A batch is at most
+`POLICY.pull.batchRecords` rows and `POLICY.pull.batchBytes` of what they count, always at least one
+row. Nothing is queued ahead: one batch is read from the database each time the reader asks for
+more, so an account of 50 MiB streams past Vercel's limit without being held in memory. After
+`POLICY.pull.streamMs` the stream ends `complete: false` at the last checkpoint. A database error,
+a timeout, an account deleted or a key changed mid-stream closes it **without** an end line, which
+the client treats as a failed run; every checkpoint is a safe place to resume from.
+
+CORS headers go only to an `Origin` listed in `ALLOWED_ORIGINS`, on errors too; a preflight allows
+`GET, POST, PUT, DELETE` with `Authorization, Content-Type, Tabinet-Key-Id`, max age 600. Every
+answer carries `Vary: Origin`. Bodies are read as a stream and reading stops at the first chunk
+over the limit, whatever `Content-Length` says: `POLICY.request.maxSmallBodyBytes` on the auth, keys
+and account routes, `POLICY.request.maxBodyBytes` on records (below Vercel's own 4.5 MB). Logs
+carry an error's name only, never a token, a proof, an envelope, a ciphertext or a connection string.
+
+On Vercel two cases are answered before the app runs, without JSON or CORS: a method the adaptor
+does not export (`HEAD`, `PATCH`) is Vercel's own empty 405, and a trailing slash its plain 404. No
+released extension sends either.
 
 ## Develop
 
@@ -153,62 +192,109 @@ pnpm server:test                      # vitest, against PGlite
 pnpm --filter tabinet-server dev      # http://127.0.0.1:8787, stop with Ctrl+C
 ```
 
-`dev` cannot touch production: it always uses an empty in-memory PGlite with the real migrations,
-never reads a `.env` file or `DATABASE_URL`, and listens on 127.0.0.1 only. It has no way around
-sign-in either: without `GOOGLE_CLIENT_IDS` in the shell every sign-in is a 401, and with it tokens
-are checked with Google as in production. `PORT` and `ALLOWED_ORIGINS` are read from the shell too.
+`TEST_DATABASE_URL=postgres://...@localhost/...` adds the concurrency tests on a real Postgres (CI runs
+them against a `postgres:17` service); they refuse any host but localhost and work in a schema of
+their own.
+
+`dev` cannot touch production: it always uses an empty in-memory PGlite with the real migrations and
+a random in-memory KEK, never reads a `.env` file, `DATABASE_URL` or `TABINET_KEK`, never runs the
+production check, and listens on 127.0.0.1 only. It has no way around sign-in either: without
+`GOOGLE_CLIENT_IDS` in the shell every sign-in is refused, and with it tokens are checked with Google
+as in production. `PORT` and `ALLOWED_ORIGINS` are read from the shell too.
+
+## Environment and the production check
+
+| Variable            | Production                  | Preview                | Development |
+| ------------------- | --------------------------- | ---------------------- | ----------- |
+| `DATABASE_URL`      | yes                         | yes, the same database | as needed   |
+| `GOOGLE_CLIENT_IDS` | the one store client        | the same               | as needed   |
+| `ALLOWED_ORIGINS`   | the store origin            | the same               | as needed   |
+| `TABINET_KEK`       | one base64 KEK, type secret | **never**              | **never**   |
+| `VERCEL_ENV`        | `production`, set by Vercel | `preview`              | absent      |
+
+Before anything else, on every start and with no "only on Vercel" branch, `readEnv()` requires
+`VERCEL_ENV=production`, a non-empty `PINNED_KEK_ID` in `src/kek-id.ts`, and `TABINET_KEK` being
+canonical base64 of 32 bytes whose id is that pin. Otherwise it throws before a database client, a
+Google verifier or the app exists, and `createServer()` answers every request (`OPTIONS` and `/v1`
+too) 500 `{"error":"internal"}` with CORS, with no query at all. So a preview, a local run, the
+Railway adaptor, a production deployment with another KEK, and every build before the cutover pins
+an id all refuse to run.
+
+Only `GOOGLE_CLIENT_IDS` of the store build belongs in production. Do not add a development OAuth
+client there.
+
+What the preview check does not cover, accepted: a preview holds `DATABASE_URL`, so code pushed to
+any branch (or a bad dependency in it) could delete, withhold or roll back rows. It cannot open an
+envelope, having no KEK. Dependency updates are therefore merged by hand, never automatically.
+
+## The KEK
+
+The KEK is created on the owner's machine, never in the repository, and backed up offline:
+
+```bash
+pnpm --filter tabinet-server kek:new /absolute/path/outside/the/repository/production.kek
+pnpm --filter tabinet-server kek:id /absolute/path/outside/the/repository/production.kek
+```
+
+`kek:new` writes base64 of 32 random bytes (no newline, mode 0600, never over an existing file) and
+prints only the id; `kek:id` prints the id of a file. Both refuse a relative path and any path
+inside the repository. Then add the file's content to Vercel as `TABINET_KEK`, type secret, in
+Production only, put the printed id in `PINNED_KEK_ID` and deploy.
+
+**Rotation and loss** are the same procedure, with a short gap: write a new KEK, replace
+`TABINET_KEK` and `PINNED_KEK_ID` together, deploy, then change the passphrase on a device that is
+ready (its `PUT /v2/keys` needs no opening and reseals under the new KEK). Until then a new device's
+unlock gets `key_unavailable`. Delete the old production deployments afterwards: each keeps the KEK
+it was built with. There is no keyring and no reseal script.
+
+## Migrations
+
+Plain SQL in `migrations/NNN_name.sql`, applied once each by `pnpm --filter tabinet-server migrate`
+in its own transaction. Never edit a migration that has run on production; add the next number.
+
+`003_sync_v2.sql` is destructive on purpose: it drops every v1 table and function (so every
+statement of every deployment built before v2 fails instead of reading or writing) and creates the
+v2 tables under new names. On a database that holds a v1 account it raises and changes nothing
+unless the run says `WIPE_V1=yes`, which `migrate` passes to the migration as the transaction-local
+setting `tabinet.wipe_v1`:
+
+```bash
+DATABASE_URL='postgres://...' pnpm --filter tabinet-server schema:check
+WIPE_V1=yes DATABASE_URL='postgres://...' pnpm --filter tabinet-server migrate
+DATABASE_URL='postgres://...' pnpm --filter tabinet-server schema:check
+```
+
+`schema:check` runs SELECTs only and prints the applied migrations, the public tables and their row
+counts, never a row or the connection string. No migration runs on a build or a start.
 
 ## Deploy to Vercel
 
-1. **Create the Vercel project.** In Vercel, "Add New... > Project", import this repository and set
-   **Root Directory** to `server`. Framework preset "Other"; no build command. `"framework": null`
-   in `vercel.json` pins that preset and has to stay: without the key a project's first deployment
-   detects Hono from the dependency even when "Other" was chosen, builds `src/app.ts` instead of
-   `api/`, and fails. The function runs on the Node.js runtime. Vercel compiles `api/vercel.adaptor.ts` with the `typescript` it finds in `server/`,
-   which needs the compiler API that TypeScript 7 no longer ships, so `server/` pins TypeScript 6.
-   In the Root Directory settings keep **Include source files outside of the Root Directory** on:
-   the function bundles `../src/constants.ts`. After a commit that changes only `POLICY`, check
-   that the server was deployed. Vercel's docs say a change outside the workspace packages deploys
-   every project, but nobody has tested it with this repository (the server does not depend on the
-   root package). If such a commit is skipped, turn **Skip deployment** off.
+1. **The Vercel project.** Root Directory `server`, preset "Other". `"framework": null` in
+   `vercel.json` pins that preset and has to stay: without it a project's first deployment detects
+   Hono, builds `src/app.ts` instead of `api/`, and fails. Vercel compiles
+   `api/vercel.adaptor.ts` with the `typescript` it finds in `server/`, which needs the compiler API
+   that TypeScript 7 no longer ships, so `server/` pins TypeScript 6. Keep **Include source files
+   outside of the Root Directory** on: the function bundles `../src/constants.ts`. `installCommand`
+   installs the server's dependency closure only, with no install scripts. The function may run
+   for 300 s (`maxDuration`, above `POLICY.pull.streamMs`) and is told when a client goes away
+   (`supportsCancellation`).
+2. **Postgres.** Neon from the Vercel Marketplace, connected to the project (`DATABASE_URL`).
+3. **Variables**, as in the table above. Redeploy after changing them.
+4. **Tables**, with the direct connection string, as in "Migrations".
+5. **The Google OAuth client.** "Chrome extension", item ID `bmbpmnfhfbdjdjpblimidmbohgccmjdg`,
+   scopes `openid` and `email` only; its id is `GOOGLE_CLIENT_IDS`.
+6. **The KEK**, as in "The KEK".
 
-2. **Add Postgres.** In the project's **Storage** tab, add **Neon** from the Vercel Marketplace and
-   connect it to the project. This sets `DATABASE_URL` for every environment.
-3. **Set the environment variables** (Settings > Environment Variables):
-   - `DATABASE_URL`: set by step 2 (the pooled connection string).
-   - `GOOGLE_CLIENT_IDS`: the OAuth client id from step 5, comma-separated if there are several.
-   - `ALLOWED_ORIGINS`: `chrome-extension://bmbpmnfhfbdjdjpblimidmbohgccmjdg` (comma-separated; add
-     the id of an unpacked development build if you test with one).
-
-   Redeploy after changing them.
-
-4. **Create the tables.** From the repository root, with the same connection string:
-
-   ```bash
-   DATABASE_URL='postgres://...' pnpm --filter tabinet-server migrate
-   ```
-
-   It applies every file in `migrations/` that has not run yet, so run it again after adding one.
-
-5. **Create the Google OAuth client.** In Google Cloud Console, "APIs & Services > Credentials >
-   Create credentials > OAuth client ID":
-   - Application type: **Chrome extension**, item ID `bmbpmnfhfbdjdjpblimidmbohgccmjdg` (the store
-     build). The extension signs in with `chrome.identity.getAuthToken` and sends the access token.
-   - The OAuth consent screen asks for the scopes `openid` and `email` only.
-
-   Put its client id in `GOOGLE_CLIENT_IDS` (step 3).
-
-   This client works only for that item id. An unpacked build (`pnpm dev`, a local `dist/`) has
-   another extension id, so `getAuthToken` refuses the client there. To test sign-in locally, load
-   a build whose manifest carries the store item's public `key`, or create a second "Chrome
-   extension" client for the unpacked id and add it to `GOOGLE_CLIENT_IDS` (comma-separated).
-
-Check it: `curl https://<project>.vercel.app/v1/me` answers 401 `{"error":"unauthorized"}`.
+Check it: `curl https://<project>.vercel.app/v2/me` answers 401 `{"error":"unauthorized"}` (a 500
+means the production check refused, or the database is not migrated) and `/v1/me` 410.
 
 ## Deploy to Railway
 
-The same app on a long-running Node server. These settings follow Railway's and Railpack's
-documentation and have not been tried on Railway itself.
+Code only, never deployed, never given the KEK, and not a failover: the same app on a long-running
+Node server, which refuses to run because the production check fails there (there is no
+`VERCEL_ENV=production`), so every request is a 500. Enabling it is a deliberate code change. The
+settings below follow Railway's and Railpack's documentation and have not been tried on Railway
+itself.
 
 | Setting (service)  | Value                                                                                                              |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------ |
@@ -244,8 +330,8 @@ documentation and have not been tried on Railway itself.
   takes the repository root for what it is, a Vite app, and deploys `dist/` behind Caddy with no
   Node and no server: hence `RAILPACK_START_CMD`.
 - `tsx` is a production dependency because it is what runs the TypeScript. There is no build.
-- Create the tables by hand, as in step 4 above.
+- Create the tables by hand, as in "Migrations".
 - The extension calls `CLOUD_SYNC.apiBase` only. Moving production here means changing it and
   saying so in `PRIVACY_POLICY.md`.
 
-Check it: `curl https://<service>.up.railway.app/v1/me` answers 401 `{"error":"unauthorized"}`.
+Today every request there answers 500 `{"error":"internal"}`: the production check refuses.
