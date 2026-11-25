@@ -27,7 +27,7 @@ interface MemoPageProps {
   memoId: string;
   /** Opened from New memo: nothing is stored until the first text. */
   isNew: boolean;
-  /** The editor now writes to another memo (its first save, or a copy). */
+  /** The editor wrote to this memo (its address follows: the first save, or a copy). */
   onFollow(id: string): void;
   /** The memo was deleted here; the app leaves and offers Undo. */
   onDeleted(memo: Memo): void;
@@ -90,9 +90,8 @@ export function MemoPage({
         : null;
 
   const onSaved = (done: MemoSaveDone) => {
-    if (done.memo.id !== memoId) {
-      onFollow(done.memo.id);
-    }
+    // Also the first save of a new memo: its address becomes the memo's.
+    onFollow(done.memo.id);
     if (done.outcome === 'copied' || done.outcome === 'redirected') {
       show(t('memoConflictNotice'), { ms: NOTICE_MS, plain: true, key: 'memo-conflict' });
     }

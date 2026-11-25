@@ -623,6 +623,9 @@ export function App() {
           memoId={slot.memoId}
           isNew={slot.isNew}
           onFollow={(id) => {
+            if (memoSlot.current?.routeId === id) {
+              return;
+            }
             memoSlot.current = followedSlot(slot, id);
             navigate({ view: 'memo', id }, true);
           }}

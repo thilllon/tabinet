@@ -12,6 +12,7 @@ import type { Worker } from '@playwright/test';
 import {
   type GroupSnapshot,
   type NoteEntry,
+  type Memo,
   NOTES_SCHEMA_VERSION,
   type NotesIndex,
   type NotesSummary,
@@ -569,5 +570,69 @@ export async function seedNotes(worker: Worker, videos: VideoNotes[]): Promise<v
       await area.set({ notesIndex: payload.index });
     },
     { videos, index, slides },
+  );
+}
+
+/** Two fictional memos for the screenshots: a checklist and a plain note. Nothing here is real. */
+const MEMO_SEEDS: { id: string; lines: string[]; ago: number }[] = [
+  {
+    id: 'fixture-memo-release',
+    lines: [
+      'Release checklist',
+      '',
+      '- Update the changelog',
+      '- Run the test suite',
+      '- Tag the build',
+    ],
+    ago: 25 * MINUTE,
+  },
+  {
+    id: 'fixture-memo-reading',
+    lines: ['Reading list for the weekend', '', 'Service workers, storage quotas, tab groups.'],
+    ago: 3 * HOUR,
+  },
+];
+
+/** The fixture memos, built against now. `text` translates each line (written by the person). */
+export function buildMemoFixtures(text: (english: string) => string = (s) => s): Memo[] {
+  const now = Date.now();
+  return MEMO_SEEDS.map((seed) => ({
+    schemaVersion: 1 as const,
+    id: seed.id,
+    text: seed.lines.map((line) => (line === '' ? '' : text(line))).join('\n'),
+    createdAt: now - seed.ago - HOUR,
+    updatedAt: now - seed.ago,
+  }));
+}
+
+/** Replaces the profile's memos with `memos`, bodies and index, as `memoRepo` would leave them. */
+export async function seedMemos(worker: Worker, memos: Memo[]): Promise<void> {
+  const index = {
+    schemaVersion: 1 as const,
+    memos: memos
+      .map((memo) => ({
+        id: memo.id,
+        title: memo.text.split('\n').find((line) => line.trim() !== '') ?? '',
+        createdAt: memo.createdAt,
+        updatedAt: memo.updatedAt,
+        conflict: memo.conflictOf !== undefined,
+      }))
+      .sort((a, b) => b.updatedAt - a.updatedAt),
+  };
+  await worker.evaluate(
+    async (payload: { memos: Memo[]; index: typeof index }) => {
+      const old = Object.keys(await chrome.storage.local.get(null)).filter((key) =>
+        key.startsWith('memo'),
+      );
+      if (old.length > 0) {
+        await chrome.storage.local.remove(old);
+      }
+      const entries: Record<string, unknown> = { memoIndex: payload.index };
+      for (const memo of payload.memos) {
+        entries[`memo:${memo.id}`] = memo;
+      }
+      await chrome.storage.local.set(entries);
+    },
+    { memos, index },
   );
 }

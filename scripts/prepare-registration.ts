@@ -42,8 +42,10 @@ import type { Session } from '../src/types';
 import { type ExtensionSession, launchExtension } from './e2e/browser';
 import {
   buildDashboardFixtures,
+  buildMemoFixtures,
   buildNotesFixtures,
   NOTES_FIXTURE_VIDEO_ID,
+  seedMemos,
   seedNotes,
   seedSessions,
 } from './e2e/fixtures';
@@ -100,6 +102,13 @@ const CONTROL_TIMEOUT = 8000;
  */
 const FIXTURE_TEXT: Record<Exclude<ListingLocale, 'en'>, Record<string, string>> = {
   es: {
+    'Release checklist': 'Lista para el lanzamiento',
+    '- Update the changelog': '- Actualizar el registro de cambios',
+    '- Run the test suite': '- Pasar las pruebas',
+    '- Tag the build': '- Etiquetar la versión',
+    'Reading list for the weekend': 'Lecturas para el fin de semana',
+    'Service workers, storage quotas, tab groups.':
+      'Service workers, cuotas de almacenamiento, grupos de pestañas.',
     'Work - Monday morning': 'Trabajo - lunes por la mañana',
     'Research - everything open': 'Investigación - todo lo abierto',
     'Snapshot - 40 minutes ago': 'Instantánea - hace 40 minutos',
@@ -123,6 +132,12 @@ const FIXTURE_TEXT: Record<Exclude<ListingLocale, 'en'>, Record<string, string>>
     'Pick one scale and stick to it.': 'Elegir una escala y no salirse de ella.',
   },
   ko: {
+    'Release checklist': '출시 점검 목록',
+    '- Update the changelog': '- 변경 기록 정리',
+    '- Run the test suite': '- 테스트 실행',
+    '- Tag the build': '- 빌드에 태그 달기',
+    'Reading list for the weekend': '주말에 읽을 것',
+    'Service workers, storage quotas, tab groups.': '서비스 워커, 저장 공간 할당량, 탭 그룹.',
     'Work - Monday morning': '업무 - 월요일 아침',
     'Research - everything open': '리서치 - 열려 있던 전부',
     'Snapshot - 40 minutes ago': '스냅샷 - 40분 전',
@@ -145,6 +160,13 @@ const FIXTURE_TEXT: Record<Exclude<ListingLocale, 'en'>, Record<string, string>>
     'Pick one scale and stick to it.': '크기 단계는 하나만 정해서 계속 쓰기.',
   },
   ja: {
+    'Release checklist': 'リリース前のチェックリスト',
+    '- Update the changelog': '- 変更履歴を更新',
+    '- Run the test suite': '- テストを実行',
+    '- Tag the build': '- ビルドにタグを付ける',
+    'Reading list for the weekend': '週末に読むもの',
+    'Service workers, storage quotas, tab groups.':
+      'Service Worker、ストレージの上限、タブグループ。',
     'Work - Monday morning': '仕事 - 月曜の朝',
     'Research - everything open': '調査 - 開いていたもの全部',
     'Snapshot - 40 minutes ago': 'スナップショット - 40 分前',
@@ -495,6 +517,7 @@ class Preparation {
     await seedSessions(worker, fixtures);
     const notes = buildNotesFixtures(fixtureText(target.locale));
     await seedNotes(worker, notes);
+    await seedMemos(worker, buildMemoFixtures(fixtureText(target.locale)));
 
     const dashboardUrl = `chrome-extension://${this.extensionId}/app.html`;
     const page = await this.context.newPage();

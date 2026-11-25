@@ -478,6 +478,7 @@ pnpm exec tsx scripts/e2e/smoke.ts   # Real-Chrome sessions smoke test (run `pnp
 pnpm e2e:assemble                    # e2e build (in node_modules/.cache) + real-Chrome assemble-tabs checks
 pnpm e2e:sort                        # Real-Chrome sort checks against dist/ (run `pnpm build` first; headed)
 pnpm e2e:selection                   # Real-Chrome checks of the Open tabs selection (run `pnpm build` first; headed)
+pnpm e2e:memo-drafts                 # Real-Chrome memo checks: drafts on close/reload/navigate, search, Undo (run `pnpm build` first; headless)
 pnpm exec tsx scripts/zip.ts        # Package the current dist/ into release/Tabinet-<version>.zip
 
 pnpm site:dev                        # The project website on a local dev server (http://localhost:4321/tabinet/)
@@ -798,6 +799,10 @@ Playwright itself is a devDependency, used by this harness and by `scripts/prepa
 ### Real-Chrome selection check (committed)
 
 `pnpm build && pnpm e2e:selection` runs `scripts/e2e/selection.ts` against `dist/`: six tabs on two sites (the fixture server under `127.0.0.1` and `localhost`), then eight checks on the Open tabs view - ticking a box swaps the heading for the bar **without moving the list** (the tree's y is compared), shift-click takes the range, Copy really fills the clipboard, Clear brings the heading back, "Select all tabs not like this / like this", Close asks first and closes exactly the ticked tabs, Save & close stores a session of exactly those tabs and closes them, and a click on the row itself still activates the tab. Results are read through `chrome.tabs` / `chrome.storage` in the service worker. Headed on this Mac (`HEADLESS=0`); `SELECTION_SHOTS=<dir>` writes page screenshots. It overwrites the system clipboard with the test links.
+
+### Real-Chrome memo check (committed)
+
+`pnpm build && pnpm e2e:memo-drafts` runs `scripts/e2e/memo-drafts.ts` against `dist/`, headless: a new memo is stored only once it has text and its address moves to its id; search finds it by its text and Enter opens it; Delete removes it and the toast's Undo brings it back; then closing, reloading and navigating away within the autosave interval, at 10 characters and at 300 KB, `MEMO_RUNS` times each (30 by default), keeps the text every time (the synchronous `pagehide` draft, adopted by the worker); and a language change synced while typing saves the text before the page reloads. Results are read through `chrome.storage.local` in the service worker.
 
 ### Real-Chrome QA (manual, beyond what the smoke test covers)
 
