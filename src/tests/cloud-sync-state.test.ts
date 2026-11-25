@@ -157,6 +157,8 @@ describe('what counts as work', () => {
     };
     expect(hasPendingWork(blocked)).toBe(false);
     expect(hasPendingWork({ ...blocked, pullIncomplete: true })).toBe(true);
+    // A feed to read again (a picture gone here, 10.5) is work: the soon alarm stays.
+    expect(hasPendingWork({ ...blocked, rereadFeed: true })).toBe(true);
   });
 
   it('grows only with a new pending entry or stamp', () => {

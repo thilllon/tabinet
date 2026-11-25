@@ -431,6 +431,7 @@ export function hasPendingWork(meta: CloudSyncMeta): boolean {
     (meta.settingsDirty && !isHeld(meta, 'settings:settings', meta.settingsUpdatedAt)) ||
     meta.pendingSettings !== undefined ||
     meta.pullIncomplete === true ||
+    meta.rereadFeed === true ||
     pendingRefs(meta).length > 0
   );
 }

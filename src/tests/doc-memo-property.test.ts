@@ -280,6 +280,36 @@ describe('YouTube notes, one doc per entry (spec 11.3)', () => {
     expect(await on(b, () => notesRepo.getImage(imageId!))).toBe(IMAGE);
   });
 
+  it('a note and its screenshot from one batch are stored in one write (10.6)', async () => {
+    const a = device();
+    const b = device();
+    await on(a, () => notesRepo.addEntry(video, { at: 1, text: 'x', image: IMAGE }));
+    await sync(a);
+    // B's worker is killed at the first write that stores the screenshot.
+    const realSet = b.chrome.storage.local.set.bind(b.chrome.storage.local);
+    let killed = false;
+    b.chrome.storage.local.set = (async (items: Record<string, unknown>) => {
+      const picture = Object.keys(items).some(
+        (k) => k.startsWith('noteImage:') && items[k] !== null,
+      );
+      if (!killed && picture) {
+        killed = true;
+        throw new Error('worker killed');
+      }
+      return realSet(items);
+    }) as typeof b.chrome.storage.local.set;
+    await sync(b);
+    expect(killed).toBe(true);
+    // Never a note whose screenshot is missing: both or neither.
+    const cut = await on(b, () => notesRepo.get(V));
+    expect(cut).toBeUndefined();
+    tick();
+    await sync(b);
+    const notes = await on(b, () => notesRepo.get(V));
+    const imageId = notes?.entries[0]?.imageId;
+    expect(await on(b, () => notesRepo.getImage(imageId!))).toBe(IMAGE);
+  });
+
   it('two devices adding notes to one video lose nothing', async () => {
     const a = device();
     const b = device();
@@ -363,5 +393,38 @@ describe('YouTube notes, one doc per entry (spec 11.3)', () => {
     await sync(a);
     expect(await on(a, () => notesRepo.get(V))).toBeUndefined();
     expect(await on(a, () => notesRepo.listSummaries())).toEqual([]);
+  });
+});
+
+describe('held records (spec 8.3)', () => {
+  it('a held record whose retry is cut between its apply and its unblock is not lost', async () => {
+    const a = device();
+    const b = device();
+    await save(a, 'hello', [null]);
+    await sync(a);
+    // B is an older build that does not know memos: the memo is held with its raw copy.
+    await on(b, () =>
+      syncNow({ fetch: server.fetch, apiBase: 'https://sync.test', inWorker: false, stores: [] }),
+    );
+    expect(Object.keys(metaOf(b).blocked)).toEqual([`memo:${M}`]);
+    // B updates; its first retry is killed at the write that applies the memo.
+    const realSet = b.chrome.storage.local.set.bind(b.chrome.storage.local);
+    let killed = false;
+    b.chrome.storage.local.set = (async (items: Record<string, unknown>) => {
+      if (!killed && Object.keys(items).some((k) => k.startsWith('memo:') && items[k] !== null)) {
+        killed = true;
+        throw new Error('worker killed');
+      }
+      return realSet(items);
+    }) as typeof b.chrome.storage.local.set;
+    tick();
+    await sync(b);
+    expect(killed).toBe(true);
+    tick();
+    await sync(b);
+    tick();
+    await sync(b);
+    expect(await texts(b)).toEqual(['hello']);
+    expect(metaOf(b).blocked).toEqual({});
   });
 });

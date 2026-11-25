@@ -454,7 +454,12 @@ export const sessionRepo = {
           sessions: withKnown({ ...meta.sessions, dirty, deleted }, id, remoteAt),
         };
         const blocked = { ...meta.blocked };
-        delete blocked[`session:${id}`];
+        const held = blocked[`session:${id}`];
+        if (held !== undefined) {
+          // The mark and its raw copy go in the same write as the body (8.3).
+          entries[held.raw] = null;
+          delete blocked[`session:${id}`];
+        }
         meta = { ...meta, blocked };
       };
       for (const change of changes) {

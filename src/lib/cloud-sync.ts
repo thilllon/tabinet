@@ -32,6 +32,7 @@ import { CloudDecryptError, decryptRecord, encryptRecord } from '@/lib/cloud-cry
 import {
   type AnyDocStore,
   applyDocBatch,
+  type DocTx,
   checkDoc,
   type DecodedDoc,
   docRef,
@@ -404,16 +405,20 @@ type Decoded =
   | { type: 'image'; record: RecordOut; dataUrl: string | null }
   | { type: 'doc'; record: RecordOut; store: AnyDocStore; data: { id: string } }
   | { type: 'held'; record: RecordOut; ref: string; reason: 'newer' | 'unknownType' }
-  | { type: 'unreadable'; record: RecordOut };
+  | { type: 'unreadable'; record: RecordOut; undecryptable?: true };
 
-/** Decrypts and checks one record; anything that fails is `unreadable`, never applied. */
+/**
+ * Decrypts and checks one record; anything that fails is `unreadable`, never applied. Only an
+ * AES failure is `undecryptable`: a record that decrypts was written by a device holding the key,
+ * so content this build cannot check (a newer schema) is never re-based over (8.3).
+ */
 async function decode(run: RunState, record: RecordOut): Promise<Decoded> {
   const { kind, id, updatedAt, deleted } = record;
   let content: unknown;
   try {
     content = await decryptRecord(run.context.key.dek, { kind, id, updatedAt, deleted }, record);
   } catch {
-    return { type: 'unreadable', record };
+    return { type: 'unreadable', record, undecryptable: true };
   }
   if (deleted && kind !== 'doc' && !isTombstonePayload(content)) {
     return { type: 'unreadable', record };
@@ -458,6 +463,8 @@ async function decode(run: RunState, record: RecordOut): Promise<Decoded> {
 // Applying (10.6)
 // ---------------------------------------------------------------------------
 
+type AnyDocTx = DocTx<{ id: string }, { id: string }>;
+
 /** The store that holds screenshots, if any. */
 function imageStore(run: RunState): AnyDocStore | undefined {
   return run.stores.find((store) => store.collection.imageOf !== undefined);
@@ -466,13 +473,13 @@ function imageStore(run: RunState): AnyDocStore | undefined {
 /**
  * Applies a batch store by store, each in one write: sessions, then each doc store with its
  * screenshots, then the settings, then the held and unreadable marks. Records of one batch are
- * resolved in order over one state. Whether a doc stays pending after it (for a stale answer).
+ * resolved in order over one state. Returns the refs it held (blocked) again.
  */
 async function applyBatch(
   run: RunState,
   decoded: readonly Decoded[],
   serverWinsTies: boolean,
-): Promise<void> {
+): Promise<Set<string>> {
   const belongs = belongsTo(run);
   const sessions = decoded.filter((item) => item.type === 'session');
   if (sessions.length > 0) {
@@ -494,25 +501,26 @@ async function applyBatch(
   }
   const now = Date.now();
   const heldLocal: { ref: string; record: RecordOut }[] = [];
+  const images = decoded.filter((item) => item.type === 'image');
+  const screenshots = imageStore(run);
+  if (images.length > 0 && screenshots === undefined) {
+    heldLocal.push(
+      ...images.map((item) => ({ ref: `image:${item.record.id}`, record: item.record })),
+    );
+  }
   for (const store of run.stores) {
     const docs: DecodedDoc[] = decoded
       .filter((item) => item.type === 'doc' && item.store === store)
       .map((item) => (item.type === 'doc' ? { record: item.record, data: item.data } : null))
       .filter((item): item is DecodedDoc => item !== null);
-    const result = await applyDocBatch(store, docs, run.context.key.dek, now, belongs);
+    // The screenshots go in the same write as their store's docs, after them (10.6).
+    const after =
+      store === screenshots && images.length > 0
+        ? (tx: AnyDocTx) => applyImagesIn(run, tx, images, serverWinsTies, now)
+        : undefined;
+    const result = await applyDocBatch(store, docs, run.context.key.dek, now, belongs, after);
     run.pulled += result.applied;
     heldLocal.push(...result.held);
-  }
-  const images = decoded.filter((item) => item.type === 'image');
-  if (images.length > 0) {
-    const store = imageStore(run);
-    if (store === undefined) {
-      heldLocal.push(
-        ...images.map((item) => ({ ref: `image:${item.record.id}`, record: item.record })),
-      );
-    } else {
-      run.pulled += await applyImages(run, store, images, serverWinsTies);
-    }
   }
   const settings = decoded.filter((item) => item.type === 'settings').at(-1);
   if (settings !== undefined) {
@@ -539,6 +547,7 @@ async function applyBatch(
     run.problems.push(new ExplainedError('Items need a newer version', 'errorCloudNewerData'));
   }
   await markHeldAndUnreadable(run, held, unreadable, readable);
+  return new Set(held.map((item) => item.ref));
 }
 
 /** The blocked and unreadable marks of a batch, with every raw copy, in one write (8.3). */
@@ -591,77 +600,74 @@ async function markHeldAndUnreadable(
 }
 
 /**
- * Screenshots (10.5), in the screenshot store's transaction: immutable, the newer stamp wins; a
+ * Screenshots (10.5), inside the screenshot store's transaction after its docs: immutable, the newer stamp wins; a
  * tombstone never removes a picture a readable local item references (it is marked to send
  * again instead); with no copy here a live picture must be newer than every floor.
  */
-async function applyImages(
+async function applyImagesIn(
   run: RunState,
-  store: AnyDocStore,
+  tx: AnyDocTx,
   images: readonly { record: RecordOut; dataUrl: string | null }[],
   serverWinsTies: boolean,
+  now: number,
 ): Promise<number> {
-  const belongs = belongsTo(run);
-  const now = Date.now();
-  return store.transact(async (tx) => {
-    if (!belongs(tx.meta)) {
-      throw new StaleMetaError();
+  if (!belongsTo(run)(tx.meta)) {
+    throw new StaleMetaError();
+  }
+  const meta = tx.meta;
+  let applied = 0;
+  for (const { record, dataUrl } of images) {
+    const id = record.id;
+    const at = record.updatedAt;
+    const local = (await tx.readImage?.(id)) ?? null;
+    if (local === 'unreadable') {
+      continue;
     }
-    const meta = tx.meta;
-    let applied = 0;
-    for (const { record, dataUrl } of images) {
-      const id = record.id;
-      const at = record.updatedAt;
-      const local = (await tx.readImage?.(id)) ?? null;
-      if (local === 'unreadable') {
-        continue;
-      }
-      const dirty = meta.images.dirty[id];
-      const deleted = meta.images.deleted[id];
-      const pending = Math.max(dirty ?? 0, deleted ?? 0);
-      const wins = at > pending || (serverWinsTies && at === pending);
-      const known = meta.images.known[id];
-      meta.images.known = withKnownImage(meta.images, id, at).known;
-      delete meta.unreadable[`image:${id}`];
-      if (dataUrl === null) {
-        if (await tx.imageReferenced?.(id)) {
-          if (local !== null) {
-            meta.images.dirty[id] = Math.max(now, at + 1);
-            delete meta.images.deleted[id];
-            meta.changedAt = Math.max(now, (meta.changedAt ?? 0) + 1);
-          }
-          continue;
-        }
-        if (!wins) {
-          continue;
-        }
-        delete meta.images.dirty[id];
-        delete meta.images.deleted[id];
-        delete meta.images.owner[id];
+    const dirty = meta.images.dirty[id];
+    const deleted = meta.images.deleted[id];
+    const pending = Math.max(dirty ?? 0, deleted ?? 0);
+    const wins = at > pending || (serverWinsTies && at === pending);
+    const known = meta.images.known[id];
+    meta.images.known = withKnownImage(meta.images, id, at).known;
+    delete meta.unreadable[`image:${id}`];
+    if (dataUrl === null) {
+      if (await tx.imageReferenced?.(id)) {
         if (local !== null) {
-          tx.removeImage?.(id);
-          applied += 1;
+          meta.images.dirty[id] = Math.max(now, at + 1);
+          delete meta.images.deleted[id];
+          meta.changedAt = Math.max(now, (meta.changedAt ?? 0) + 1);
         }
         continue;
       }
-      if (local === null) {
-        const floor = Math.max(deleted ?? 0, known ?? 0);
-        if (at <= floor && (deleted !== undefined || known !== undefined)) {
-          continue;
-        }
-        tx.putImage?.(id, dataUrl);
-        delete meta.images.deleted[id];
-        delete meta.images.owner[id];
+      if (!wins) {
+        continue;
+      }
+      delete meta.images.dirty[id];
+      delete meta.images.deleted[id];
+      delete meta.images.owner[id];
+      if (local !== null) {
+        tx.removeImage?.(id);
         applied += 1;
+      }
+      continue;
+    }
+    if (local === null) {
+      const floor = Math.max(deleted ?? 0, known ?? 0);
+      if (at <= floor && (deleted !== undefined || known !== undefined)) {
         continue;
       }
-      if (wins) {
-        delete meta.images.dirty[id];
-        delete meta.images.deleted[id];
-      }
+      tx.putImage?.(id, dataUrl);
+      delete meta.images.deleted[id];
+      delete meta.images.owner[id];
+      applied += 1;
+      continue;
     }
-    return applied;
-  });
+    if (wins) {
+      delete meta.images.dirty[id];
+      delete meta.images.deleted[id];
+    }
+  }
+  return applied;
 }
 
 /** Last writer wins for the settings record; the writes follow (`writeReceivedSettings()`). */
@@ -725,8 +731,10 @@ async function resumeSettingsApply(run: RunState): Promise<void> {
 
 /**
  * At the start of a run (8.3): every held ref this build can now apply (a body that reads now, a
- * type or version it knows now) is applied from its raw copy through the normal rule, and its
- * raw copy and mark go.
+ * type or version it knows now) is applied from its raw copy through the normal rule, and only
+ * once that is stored do its raw copy and mark go, in one write. A run cut in between applies it
+ * again next time, which the replay floors make harmless; the other order would lose the record,
+ * since the cursor is already past it.
  */
 async function retryBlocked(run: RunState): Promise<void> {
   const meta = await readMeta(run);
@@ -736,11 +744,11 @@ async function retryBlocked(run: RunState): Promise<void> {
   }
   const stored = await chrome.storage.local.get(entries.map(([, blocked]) => blocked.raw));
   const decoded: Decoded[] = [];
-  const done: string[] = [];
+  const done = new Map<string, number>();
   for (const [ref, blocked] of entries) {
     const raw: unknown = stored[blocked.raw];
     if (!isRecord(raw)) {
-      done.push(ref);
+      done.set(ref, blocked.at);
       continue;
     }
     const item = await decode(run, raw as unknown as RecordOut);
@@ -751,28 +759,33 @@ async function retryBlocked(run: RunState): Promise<void> {
       continue;
     }
     decoded.push(item);
-    done.push(ref);
+    done.set(ref, blocked.at);
   }
-  if (done.length > 0) {
-    await withSessionsLock(async () => {
-      const current = await readSyncMetaFor(run.context);
-      if (current === undefined) {
-        throw new StaleRunError();
+  const heldAgain = decoded.length > 0 ? await applyBatch(run, decoded, false) : new Set<string>();
+  if (done.size === 0) {
+    return;
+  }
+  await withSessionsLock(async () => {
+    const current = await readSyncMetaFor(run.context);
+    if (current === undefined) {
+      throw new StaleRunError();
+    }
+    const blocked = { ...current.blocked };
+    const cleanup: Record<string, unknown> = {};
+    for (const [ref, at] of done) {
+      const entry = blocked[ref];
+      // Held again by the apply, or replaced by a newer record: the mark stays.
+      if (entry === undefined || heldAgain.has(ref) || entry.at !== at) {
+        continue;
       }
-      const blocked = { ...current.blocked };
-      const cleanup: Record<string, unknown> = {};
-      for (const ref of done) {
-        if (blocked[ref] !== undefined) {
-          cleanup[blocked[ref].raw] = null;
-          delete blocked[ref];
-        }
-      }
-      await setThenClean({ ...cleanup, [CLOUD_SYNC_META_KEY]: { ...current, blocked } });
-    });
-  }
-  if (decoded.length > 0) {
-    await applyBatch(run, decoded, false);
-  }
+      cleanup[entry.raw] = null;
+      delete blocked[ref];
+    }
+    if (Object.keys(cleanup).length === 0) {
+      return;
+    }
+    await setThenClean({ ...cleanup, [CLOUD_SYNC_META_KEY]: { ...current, blocked } });
+  });
 }
 
 async function localReadsNow(run: RunState, ref: string): Promise<boolean> {
@@ -1333,23 +1346,54 @@ async function settle(
     },
     results.some((result) => result.status === 'applied' || result.status === 'absent'),
   );
+  let rereadNoted = (await readMeta(run)).rereadFeed === true;
   for (const { item, current } of stale) {
     if (current.kind !== item.record.kind || current.id !== item.record.id) {
       continue;
     }
     const decoded = await decode(run, current);
     if (decoded.type === 'unreadable') {
-      await rebase(run, item, current);
-      retry.push(item.ref);
+      if (decoded.undecryptable === true) {
+        await rebase(run, item, current);
+        retry.push(item.ref);
+      } else {
+        await keepUnderUnreadable(run, item, current);
+      }
       continue;
     }
     await applyBatch(run, [decoded], true);
-    const meta = await readMeta(run);
+    let meta = await readMeta(run);
+    if (meta.rereadFeed === true && !rereadNoted) {
+      // A winning note needs a picture gone here (10.5): during a push that moves `changedAt`,
+      // so the next run reads the feed again soon rather than at the periodic check.
+      rereadNoted = true;
+      await updateMeta(run, (found) => ({
+        ...found,
+        changedAt: Math.max(Date.now(), (found.changedAt ?? 0) + 1),
+      }));
+      meta = await readMeta(run);
+    }
     if (item.record.kind === 'doc' && meta.docs[item.ref]?.pending != null) {
       retry.push(item.ref);
     }
   }
   return retry;
+}
+
+/**
+ * A stale answer that decrypts but this build cannot read (invariant 13): never pushed over. The
+ * pending change stays as it is, unstamped, and the stored row is marked unreadable.
+ */
+async function keepUnderUnreadable(
+  run: RunState,
+  item: OutItem,
+  current: RecordOut,
+): Promise<void> {
+  run.problems.push(new CloudDecryptError(`The stored ${item.ref} could not be read`));
+  await updateMeta(run, (meta) => ({
+    ...meta,
+    unreadable: { ...meta.unreadable, [`${current.kind}:${current.id}`]: current.updatedAt },
+  }));
 }
 
 /**

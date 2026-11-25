@@ -428,7 +428,8 @@ export interface DocBatchResult {
 /**
  * Applies `records` (all of `store`'s type, in feed order) in one transaction: `resolveDoc()` per
  * record over one working state, so a copy made by one is visible to the next; content taken,
- * copies made, kept versions restamped; screenshots follow their notes (10.5).
+ * copies made, kept versions restamped; screenshots follow their notes (10.5). `after` runs in the
+ * same transaction once the docs are applied (the engine's screenshot records, 10.6).
  */
 export async function applyDocBatch(
   store: AnyDocStore,
@@ -436,10 +437,11 @@ export async function applyDocBatch(
   dek: string,
   now: number,
   belongs?: MetaGuard,
+  after?: (tx: DocTx<{ id: string }, { id: string }>) => Promise<number>,
 ): Promise<DocBatchResult> {
   const { collection } = store;
   const result: DocBatchResult = { applied: 0, held: [], retry: [] };
-  if (records.length === 0) {
+  if (records.length === 0 && after === undefined) {
     return result;
   }
   return store.transact(async (tx) => {
@@ -503,6 +505,9 @@ export async function applyDocBatch(
         record.updatedAt,
         now,
       );
+    }
+    if (after !== undefined) {
+      result.applied += await after(tx);
     }
     return result;
   });

@@ -278,6 +278,20 @@ describe('a hostile server', () => {
     expect(metaOf(a).lastError).toBeDefined();
   });
 
+  it('a readable row of a newer schema is not pushed over on a stale answer', async () => {
+    const a = device();
+    await put(a, session('s1', 'mine'));
+    const stamp = (await get(a, 's1'))!.updatedAt;
+    // A newer extension version wrote s1 later, in a session schema this build does not know.
+    const meta = { kind: 'session', id: 's1', updatedAt: stamp + 50, deleted: false } as const;
+    const newer = { ...session('s1', 'newer'), schemaVersion: 2, updatedAt: stamp + 50 };
+    server.inject({ ...meta, ...(await encryptRecord(key.dek, meta, newer)) });
+    await sync(a);
+    const row = server.record('session', 's1')!;
+    // Spec 8.3: only an AES failure re-bases; invariant 13: never pushed over.
+    expect(row.updatedAt).toBe(stamp + 50);
+  });
+
   it('a junk row is replaced through the stale answer by the pending version', async () => {
     const a = device();
     await put(a, session('s1', 'mine'));
