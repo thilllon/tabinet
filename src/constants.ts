@@ -46,8 +46,6 @@ export const POLICY = {
     maxSmallBodyBytes: 16 * 1024,
     /** Was 3.5 MiB: a batch must upload inside a worker's 30 s fetch limit. */
     pushBatchBytes: 2 * MIB,
-    /** Removed once stages 1 and 2 of v10 have merged: the v2 pull is a stream. */
-    maxRecordsPerPull: 500,
     /** The `current` bodies of one push answer, so the JSON stays under Vercel's 4.5 MB. */
     maxStaleBytes: 3 * MIB,
     /** The Google access token sent to sign in. Google documents up to 2048 bytes. */
@@ -86,12 +84,7 @@ export const POLICY = {
   kdf: {
     /** OWASP's 2023 figure for PBKDF2-HMAC-SHA256. */
     iterations: 600_000,
-    /** The four bounds below are removed once stages 1 and 2 of v10 have merged. */
-    minIterations: 100_000,
-    maxIterations: 10_000_000,
     saltBytes: 16,
-    minSaltBytes: 16,
-    maxSaltBytes: 64,
   },
 
   signIn: {

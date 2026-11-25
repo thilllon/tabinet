@@ -28,7 +28,6 @@ it('POLICY holds these numbers', () => {
       maxBodyBytes: 4_194_304,
       maxSmallBodyBytes: 16_384,
       pushBatchBytes: 2_097_152,
-      maxRecordsPerPull: 500,
       maxStaleBytes: 3_145_728,
       maxAccessTokenChars: 4096,
       answerTimeoutMs: 25_000,
@@ -49,11 +48,7 @@ it('POLICY holds these numbers', () => {
     passphrase: { minLength: 8 },
     kdf: {
       iterations: 600_000,
-      minIterations: 100_000,
-      maxIterations: 10_000_000,
       saltBytes: 16,
-      minSaltBytes: 16,
-      maxSaltBytes: 64,
     },
     signIn: { tokenLifetimeMs: 7_776_000_000 },
     sync: {
