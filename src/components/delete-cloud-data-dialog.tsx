@@ -19,8 +19,9 @@ interface DeleteCloudDataDialogProps {
 }
 
 /**
- * Asks before "Delete cloud data": the account and everything on the sync server go, the
- * sessions on this device stay, and the copy says both.
+ * Asks before "Delete cloud data": Chrome confirms the Google account, then the account and
+ * everything on the sync server go; what is on this device stays. It does not close while the
+ * deletion runs.
  */
 export function DeleteCloudDataDialog({
   open,
@@ -29,17 +30,27 @@ export function DeleteCloudDataDialog({
   onConfirm,
 }: DeleteCloudDataDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(next) => (busy ? undefined : onOpenChange(next))}>
       <DialogContent showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>{t('settingsAccountDeleteTitle')}</DialogTitle>
           <DialogDescription>{t('settingsAccountDeleteBody')}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={busy}
+            title={t('commonCancel')}
+          >
             {t('commonCancel')}
           </Button>
-          <Button variant="destructive" onClick={onConfirm} disabled={busy}>
+          <Button
+            variant="destructive"
+            onClick={onConfirm}
+            disabled={busy}
+            title={t('settingsAccountDeleteTooltip')}
+          >
             {t('settingsAccountDelete')}
           </Button>
         </DialogFooter>

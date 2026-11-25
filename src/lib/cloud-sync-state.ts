@@ -1,147 +1,80 @@
 /**
- * Cloud sync's local bookkeeping (GitHub issue #170): `cloudSyncMeta` in `chrome.storage.local`,
- * which says what this device still has to send (the dirty sets), where in the server's change
- * feed it is (`cursor`) and how the last run went. It is the only module that writes that key.
+ * Cloud sync v2's local bookkeeping (spec 8.1): `cloudSyncMetaV2` in `chrome.storage.local`, which
+ * says what this device still has to send, what the server sent or accepted, where in the feed
+ * it is (`cursor`), what is held for a cap or blocked as unreadable here, and how the last run
+ * went. Every write of it is a read-modify-write inside the sessions lock
+ * (`withSessionsLock()`), and every local change writes it in the same `set` as the change
+ * (invariant 12): `stageSessionChanges()` returns the entry the session repository adds to its
+ * own `set`.
  *
- * Every write here is a read-modify-write and runs inside the sessions lock (`withLock()` in
- * `src/lib/session-repo.ts`), so a session write marking itself dirty and a sync clearing an entry
- * never race. `sessionRepo` calls `trackSessionChanges()` from inside its own lock; the sync engine
- * (`src/lib/cloud-sync.ts`) wraps its calls in `withLock()`. This module imports nothing from the
- * session repository, so the repository can import it.
- *
- * Nothing is tracked unless cloud sync is configured (`isCloudSyncEnabled()`) and a first sync
- * started the bookkeeping (`startSyncMeta()`). Once started it outlives the account being ready:
- * an expired token, a 401 or a sign-out keep it, and changes made meanwhile are still recorded, so
- * signing in again with the same key resumes it and sends them (a deletion included). Another key
- * starts it afresh. It is bound to the key alone, never to the email the server reports: the
- * server is not trusted, and a different spelling of the email must not wipe the marks that stop
- * it from rolling data back (`settingsUpdatedAt`, `knownVersions`, the pending deletions). The
- * key is random per account (`createKeySetup()`), so the same key means the same account's data.
- * While unconfigured no function here reads storage.
+ * The bookkeeping belongs to one `(accountId, keyId)`: another pair starts it afresh (and drops
+ * every `cloudRaw:*`). It outlives a sign-out, an expiry and a 401: changes are still recorded,
+ * so signing in again with the same key sends them. While unconfigured nothing here reads
+ * storage.
  */
-import { CLOUD_ACCOUNT_KEY, CLOUD_SYNC_KEY, isCloudAccount } from '@/lib/cloud-auth';
+import { POLICY } from '@/constants';
 import { isCloudSyncEnabled } from '@/lib/cloud-config';
-import { isRecord } from '@/lib/import-guards';
-import { fnv1a32 } from '@/lib/session-hash';
-import type { CloudAccount, SessionId } from '@/types';
+import {
+  CLOUD_ACCOUNT_KEY,
+  CLOUD_KEY_KEY,
+  CLOUD_OWNER_KEY,
+  CLOUD_RAW_PREFIX,
+  CLOUD_SYNC_META_KEY,
+  cloudStoredFrom,
+  setThenClean,
+  withSessionsLock,
+} from '@/lib/cloud-storage';
+import type {
+  Blocked,
+  CloudAccountV2,
+  CloudKeyV2,
+  CloudSyncMeta,
+  DocTrack,
+  Held,
+  ImageTrack,
+  RecordTrack,
+  Usage,
+  Version,
+} from '@/types';
 
-/** `chrome.storage.local` key of the bookkeeping. */
-export const CLOUD_SYNC_META_KEY = 'cloudSyncMeta';
+export { CLOUD_SYNC_META_KEY } from '@/lib/cloud-storage';
+export type { CloudSyncMeta } from '@/types';
 
-export interface CloudSyncMeta {
-  /**
-   * The account email when the bookkeeping started, for information only: the server supplies it,
-   * so it never decides whether the bookkeeping is kept (`belongsTo()`).
-   */
-  owner: string;
-  /** Fingerprint of the sync key it was started with; another key starts it again. */
-  keyId: string;
-  /** The server's change feed position: the last `seq` this device has read. */
-  cursor: number;
-  /** When the last sync that reached the end finished (ms); a failed one does not move it. */
-  lastSyncAt: number | null;
-  /** When the last run started (ms), written as it starts. */
-  lastAttemptAt?: number;
-  /**
-   * When this device last changed something to send. Only the change trackers move it, never a
-   * run's own bookkeeping, and only its moving asks for a sync: that is why a sync cannot set off
-   * the next one.
-   */
-  changedAt?: number;
-  /**
-   * Runs in a row that did not reach the end, counted as each starts (a worker that dies mid-run
-   * cannot count afterwards); absent after one that did.
-   */
-  failures?: number;
-  /** With `failures`: no automatic run before this time (ms). */
-  retryAt?: number;
-  /**
-   * Records from the server this device skipped as unreadable, `kind:id` to their version. The
-   * cursor is past them, so no later run mentions them again: they stay here until a readable
-   * version arrives or this device's own replaces it.
-   */
-  unreadable?: Record<string, number>;
-  /** How many items the last finished run left here as too large for the server. */
-  tooLarge?: number;
-  /** Why the last sync did not fully succeed, in the UI language of that moment. */
-  lastError?: string;
-  /** Saved sessions changed here and not yet accepted by the server: id to `updatedAt`. */
-  dirtySessions: Record<SessionId, number>;
-  /** Saved sessions deleted here and not yet accepted by the server: id to deletion time. */
-  deletedSessions: Record<SessionId, number>;
-  /**
-   * The newest `updatedAt` this device has applied, deleted or had accepted for each saved
-   * session id, kept for good (also once the session and its pending tombstone are gone). A record
-   * from the server at or below it is old, so a replay of a deleted session's last live record
-   * cannot bring it back.
-   */
-  knownVersions: Record<SessionId, number>;
-  /** When the settings last changed on this device (0: not since sync started). */
-  settingsUpdatedAt: number;
-  /** Whether the settings differ from what was last exchanged with the server. */
-  settingsDirty: boolean;
-  /** Fingerprint of the settings last exchanged with the server, when there was an exchange. */
-  settingsHash?: string;
-  /** The `updatedAt` of those settings. */
-  settingsSyncedAt?: number;
-  /**
-   * Settings received from the server and not yet fully written here (the page reloading on a new
-   * language, or the worker stopping, can cut the writes short). While present, a local settings
-   * change is not taken for an edit of this device's own; the next sync finishes writing them.
-   */
-  pendingSettings?: Record<string, unknown>;
-  /**
-   * YouTube notes (`kind: 'notes'`, one record per video). Absent until the first sync of a version
-   * that syncs notes, which marks every video's notes dirty and reads the feed again from the start.
-   */
-  notes?: RecordTrack;
-  /** Note screenshots (`kind: 'image'`, one record per picture); started together with `notes`. */
-  images?: RecordTrack;
-  /**
-   * Screenshots the server refused over its per-account cap, id to the stamp they were sent with.
-   * They stay on this device and are offered again once a screenshot is deleted (here or on another
-   * device), which makes room.
-   */
-  heldImages?: Record<string, number>;
-  /** Whether Settings has said that screenshots are held back, since the set last became non-empty. */
-  heldImagesNoticed?: boolean;
-  /**
-   * The next pull reads the feed again from the start: notes that won here reference a screenshot
-   * this device had already removed (its deletion lost), and the server still holds the picture.
-   */
-  rereadFeed?: boolean;
-}
-
-/**
- * What one kind of record still has to send and what it has seen, by id: the same three maps the
- * sessions have (`dirtySessions`, `deletedSessions`, `knownVersions`).
- */
-export interface RecordTrack {
-  /** Changed here and not yet accepted by the server: id to the version (`updatedAt`) it has. */
-  dirty: Record<string, number>;
-  /** Deleted here and not yet accepted by the server: id to deletion time. */
-  deleted: Record<string, number>;
-  /** The newest version this device applied, deleted or had accepted, kept for good. */
-  known: Record<string, number>;
-}
-
-/** Which tracked kind a note-side change is about. */
-export type NoteRecordKind = 'notes' | 'images';
-
-export function emptyTrack(): RecordTrack {
-  return { dirty: {}, deleted: {}, known: {} };
-}
-
-/** What a sync runs with: the live account and the raw key, as stored on this device. */
+/** What a sync runs with: the live, confirmed account and the data key of that account. */
 export interface SyncContext {
-  account: CloudAccount;
-  rawKey: string;
-  keyId: string;
+  account: CloudAccountV2;
+  key: CloudKeyV2;
 }
 
-/** A short fingerprint of the raw key, so the bookkeeping notices a key change. Pure. */
-export function keyFingerprint(rawKey: string): string {
-  return fnv1a32(rawKey);
+/** The context in a `storage.local.get` result, or `null` when not ready (spec 10.2). Pure. */
+export function contextFrom(stored: Record<string, unknown>, now: number): SyncContext | null {
+  const { account, key } = cloudStoredFrom(stored);
+  if (account === null || account.expiresAt <= now || !account.uploadConfirmed) {
+    return null;
+  }
+  if (key === null || key.accountId !== account.accountId) {
+    return null;
+  }
+  return { account, key };
+}
+
+/** The sync context when configured and ready, else `null`. No read while unconfigured. */
+export async function loadSyncContext(now: number = Date.now()): Promise<SyncContext | null> {
+  if (!isCloudSyncEnabled()) {
+    return null;
+  }
+  return contextFrom(
+    await chrome.storage.local.get([CLOUD_ACCOUNT_KEY, CLOUD_KEY_KEY, CLOUD_OWNER_KEY]),
+    now,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Parsing
+// ---------------------------------------------------------------------------
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function isCount(value: unknown): value is number {
@@ -149,15 +82,16 @@ function isCount(value: unknown): value is number {
 }
 
 function isStampMap(value: unknown): value is Record<string, number> {
-  return isRecord(value) && !Array.isArray(value) && Object.values(value).every(isCount);
+  return isObject(value) && Object.values(value).every(isCount);
 }
 
-function parseTrack(value: unknown): RecordTrack | undefined | null {
-  if (value === undefined) {
-    return undefined;
-  }
+function isVersion(value: unknown): value is Version {
+  return isObject(value) && isCount(value.at) && typeof value.deleted === 'boolean';
+}
+
+function parseTrack(value: unknown): RecordTrack | null {
   if (
-    !isRecord(value) ||
+    !isObject(value) ||
     !isStampMap(value.dirty) ||
     !isStampMap(value.deleted) ||
     !isStampMap(value.known)
@@ -167,413 +101,343 @@ function parseTrack(value: unknown): RecordTrack | undefined | null {
   return { dirty: { ...value.dirty }, deleted: { ...value.deleted }, known: { ...value.known } };
 }
 
+function parseDocTrack(value: unknown): DocTrack | null {
+  if (
+    !isObject(value) ||
+    typeof value.recordId !== 'string' ||
+    !(value.seq === null || isCount(value.seq)) ||
+    !(value.known === null || isVersion(value.known)) ||
+    !(value.pending === null || isVersion(value.pending)) ||
+    !Array.isArray(value.sent) ||
+    !value.sent.every(
+      (sent) => isObject(sent) && isCount(sent.at) && typeof sent.hash === 'string',
+    ) ||
+    !(value.parent === undefined || typeof value.parent === 'string') ||
+    !(value.autoCopy === undefined || value.autoCopy === true)
+  ) {
+    return null;
+  }
+  const track: DocTrack = {
+    recordId: value.recordId,
+    seq: value.seq,
+    known: value.known === null ? null : { ...value.known },
+    pending: value.pending === null ? null : { ...value.pending },
+    sent: value.sent.map((sent: { at: number; hash: string }) => ({
+      at: sent.at,
+      hash: sent.hash,
+    })),
+  };
+  if (value.parent !== undefined) {
+    track.parent = value.parent;
+  }
+  if (value.autoCopy === true) {
+    track.autoCopy = true;
+  }
+  return track;
+}
+
+function parseMap<T>(value: unknown, parse: (item: unknown) => T | null): Record<string, T> | null {
+  if (!isObject(value)) {
+    return null;
+  }
+  const out: Record<string, T> = {};
+  for (const [key, item] of Object.entries(value)) {
+    const parsed = parse(item);
+    if (parsed === null) {
+      return null;
+    }
+    out[key] = parsed;
+  }
+  return out;
+}
+
+const parseHeld = (value: unknown): Held | null =>
+  isObject(value) &&
+  isCount(value.stamp) &&
+  (value.reason === 'image_limit' || value.reason === 'storage_limit') &&
+  isCount(value.usage)
+    ? { stamp: value.stamp, reason: value.reason, usage: value.usage }
+    : null;
+
+const parseBlocked = (value: unknown): Blocked | null =>
+  isObject(value) &&
+  isCount(value.at) &&
+  (value.reason === 'localUnreadable' ||
+    value.reason === 'newer' ||
+    value.reason === 'unknownType') &&
+  typeof value.raw === 'string'
+    ? { at: value.at, reason: value.reason, raw: value.raw }
+    : null;
+
+const OPTIONAL_COUNTS = [
+  'settingsSyncedAt',
+  'pushBatchBytes',
+  'tooLarge',
+  'lastAttemptAt',
+  'changedAt',
+  'failures',
+  'retryAt',
+] as const;
+
 /** The stored bookkeeping, or `undefined` when there is none or it is damaged. Pure. */
 export function parseSyncMeta(value: unknown): CloudSyncMeta | undefined {
   if (
-    !isRecord(value) ||
-    typeof value.owner !== 'string' ||
+    !isObject(value) ||
+    value.schemaVersion !== 2 ||
+    typeof value.accountId !== 'string' ||
     typeof value.keyId !== 'string' ||
     !isCount(value.cursor) ||
-    !(value.lastSyncAt === null || isCount(value.lastSyncAt)) ||
-    !(value.lastError === undefined || typeof value.lastError === 'string') ||
-    !(value.lastAttemptAt === undefined || isCount(value.lastAttemptAt)) ||
-    !(value.changedAt === undefined || isCount(value.changedAt)) ||
-    !(value.failures === undefined || isCount(value.failures)) ||
-    !(value.retryAt === undefined || isCount(value.retryAt)) ||
-    !(value.unreadable === undefined || isStampMap(value.unreadable)) ||
-    !(value.tooLarge === undefined || isCount(value.tooLarge)) ||
-    !isStampMap(value.dirtySessions) ||
-    !isStampMap(value.deletedSessions) ||
-    !(value.knownVersions === undefined || isStampMap(value.knownVersions)) ||
     !isCount(value.settingsUpdatedAt) ||
     typeof value.settingsDirty !== 'boolean' ||
+    !isCount(value.conflicts) ||
+    !isCount(value.conflictsNoticed) ||
+    !(value.lastSyncAt === null || isCount(value.lastSyncAt)) ||
+    !Array.isArray(value.started) ||
+    !value.started.every((item) => typeof item === 'string') ||
+    !isStampMap(value.unreadable) ||
     !(value.settingsHash === undefined || typeof value.settingsHash === 'string') ||
-    !(value.settingsSyncedAt === undefined || isCount(value.settingsSyncedAt)) ||
-    !(value.pendingSettings === undefined || isRecord(value.pendingSettings)) ||
-    !(value.heldImages === undefined || isStampMap(value.heldImages)) ||
-    !(value.heldImagesNoticed === undefined || typeof value.heldImagesNoticed === 'boolean') ||
-    !(value.rereadFeed === undefined || typeof value.rereadFeed === 'boolean')
+    !(value.pendingSettings === undefined || isObject(value.pendingSettings)) ||
+    !(value.lastError === undefined || typeof value.lastError === 'string') ||
+    !(
+      value.usage === undefined ||
+      (isObject(value.usage) && isCount(value.usage.bytes) && isCount(value.usage.screenshots))
+    ) ||
+    !OPTIONAL_COUNTS.every((key) => value[key] === undefined || isCount(value[key]))
   ) {
     return undefined;
   }
-  const notes = parseTrack(value.notes);
-  const images = parseTrack(value.images);
-  if (notes === null || images === null) {
+  const sessions = parseTrack(value.sessions);
+  const imageTrack = parseTrack(value.images);
+  const owner = isObject(value.images) ? value.images.owner : undefined;
+  const docs = parseMap(value.docs, parseDocTrack);
+  const held = parseMap(value.held, parseHeld);
+  const blocked = parseMap(value.blocked, parseBlocked);
+  if (
+    sessions === null ||
+    imageTrack === null ||
+    !isObject(owner) ||
+    !Object.values(owner).every((ref) => typeof ref === 'string') ||
+    docs === null ||
+    held === null ||
+    blocked === null
+  ) {
     return undefined;
   }
   const meta: CloudSyncMeta = {
-    owner: value.owner,
+    schemaVersion: 2,
+    accountId: value.accountId,
     keyId: value.keyId,
     cursor: value.cursor,
-    lastSyncAt: value.lastSyncAt,
-    dirtySessions: { ...value.dirtySessions },
-    deletedSessions: { ...value.deletedSessions },
-    knownVersions: { ...value.knownVersions },
+    sessions,
+    images: { ...imageTrack, owner: { ...(owner as Record<string, string>) } },
+    docs,
+    started: [...value.started],
     settingsUpdatedAt: value.settingsUpdatedAt,
     settingsDirty: value.settingsDirty,
+    held,
+    blocked,
+    unreadable: { ...value.unreadable },
+    conflicts: value.conflicts,
+    conflictsNoticed: value.conflictsNoticed,
+    lastSyncAt: value.lastSyncAt,
   };
-  if (value.lastError !== undefined) {
-    meta.lastError = value.lastError;
-  }
-  if (value.lastAttemptAt !== undefined) {
-    meta.lastAttemptAt = value.lastAttemptAt;
-  }
-  if (value.changedAt !== undefined) {
-    meta.changedAt = value.changedAt;
-  }
-  if (value.failures !== undefined) {
-    meta.failures = value.failures;
-  }
-  if (value.retryAt !== undefined) {
-    meta.retryAt = value.retryAt;
-  }
-  if (value.unreadable !== undefined) {
-    meta.unreadable = { ...value.unreadable };
-  }
-  if (value.tooLarge !== undefined) {
-    meta.tooLarge = value.tooLarge;
+  for (const key of OPTIONAL_COUNTS) {
+    const count = value[key];
+    if (isCount(count)) {
+      meta[key] = count;
+    }
   }
   if (value.settingsHash !== undefined) {
     meta.settingsHash = value.settingsHash;
   }
-  if (value.settingsSyncedAt !== undefined) {
-    meta.settingsSyncedAt = value.settingsSyncedAt;
-  }
   if (value.pendingSettings !== undefined) {
     meta.pendingSettings = { ...value.pendingSettings };
   }
-  // Notes and screenshots are tracked together or not at all.
-  if (notes !== undefined && images !== undefined) {
-    meta.notes = notes;
-    meta.images = images;
-  }
-  if (value.heldImages !== undefined) {
-    meta.heldImages = { ...value.heldImages };
-  }
-  if (value.heldImagesNoticed !== undefined) {
-    meta.heldImagesNoticed = value.heldImagesNoticed;
+  if (value.heldNoticed === true) {
+    meta.heldNoticed = true;
   }
   if (value.rereadFeed === true) {
     meta.rereadFeed = true;
   }
+  if (value.pullIncomplete === true) {
+    meta.pullIncomplete = true;
+  }
+  if (value.lastError !== undefined) {
+    meta.lastError = value.lastError;
+  }
+  if (isObject(value.usage)) {
+    meta.usage = {
+      bytes: value.usage.bytes as number,
+      screenshots: value.usage.screenshots as number,
+    };
+  }
   return meta;
 }
 
-/** The context in `stored` (a `storage.local.get` result), or `null` when not ready. Pure. */
-function contextFrom(stored: Record<string, unknown>, now: number): SyncContext | null {
-  const account: unknown = stored[CLOUD_ACCOUNT_KEY];
-  const rawKey: unknown = stored[CLOUD_SYNC_KEY];
-  if (!isCloudAccount(account) || account.expiresAt <= now) {
-    return null;
-  }
-  if (typeof rawKey !== 'string' || rawKey === '') {
-    return null;
-  }
-  return { account, rawKey, keyId: keyFingerprint(rawKey) };
-}
+// ---------------------------------------------------------------------------
+// Reading and writing (inside the sessions lock when written back)
+// ---------------------------------------------------------------------------
 
-/**
- * Whether `meta` was started for this key. The key alone decides: the account email comes from the
- * untrusted server, which could otherwise reset the anti-rollback marks by naming another. Pure.
- */
-export function belongsTo(meta: CloudSyncMeta, context: SyncContext): boolean {
-  return meta.keyId === context.keyId;
-}
-
-/**
- * The sync context when cloud sync is configured and this device is ready (a live account and its
- * key), else `null`. No storage read at all while unconfigured.
- */
-export async function loadSyncContext(now: number = Date.now()): Promise<SyncContext | null> {
-  if (!isCloudSyncEnabled()) {
-    return null;
-  }
-  const stored = await chrome.storage.local.get([CLOUD_ACCOUNT_KEY, CLOUD_SYNC_KEY]);
-  return contextFrom(stored, now);
-}
-
-/** The stored bookkeeping as it is. Inside the sessions lock when the result is written back. */
 export async function readSyncMeta(): Promise<CloudSyncMeta | undefined> {
   const stored = await chrome.storage.local.get(CLOUD_SYNC_META_KEY);
   return parseSyncMeta(stored[CLOUD_SYNC_META_KEY]);
 }
 
-/** Inside the sessions lock only. */
-export async function writeSyncMeta(meta: CloudSyncMeta): Promise<void> {
-  await chrome.storage.local.set({ [CLOUD_SYNC_META_KEY]: meta });
+export function belongsTo(meta: CloudSyncMeta, context: SyncContext): boolean {
+  return meta.accountId === context.account.accountId && meta.keyId === context.key.keyId;
 }
 
-/**
- * The bookkeeping for `context` when it belongs to it, else `undefined`: tracking only runs for
- * the account and key the first sync started it for. Inside the sessions lock when written back.
- */
 export async function readSyncMetaFor(context: SyncContext): Promise<CloudSyncMeta | undefined> {
   const meta = await readSyncMeta();
   return meta !== undefined && belongsTo(meta, context) ? meta : undefined;
 }
 
-/**
- * Fresh bookkeeping for the first sync of `context`: the feed read from the start, every saved
- * session (`savedSessions`, id to `updatedAt`) and the settings marked dirty, so this device's data
- * is offered to the server before anything else. The settings carry `updatedAt` 0, "not changed
- * since sync started": a device joining an account takes the settings already there. Pure.
- */
-export function freshSyncMeta(
-  context: SyncContext,
-  savedSessions: Readonly<Record<SessionId, number>>,
-): CloudSyncMeta {
+export async function writeSyncMeta(meta: CloudSyncMeta): Promise<void> {
+  await chrome.storage.local.set({ [CLOUD_SYNC_META_KEY]: meta });
+}
+
+export function emptyTrack(): RecordTrack {
+  return { dirty: {}, deleted: {}, known: {} };
+}
+
+/** Fresh bookkeeping for `context`: nothing tracked yet, settings dirty at 0 (8.1, 10.2). Pure. */
+export function freshSyncMeta(context: SyncContext): CloudSyncMeta {
   return {
-    owner: context.account.email,
-    keyId: context.keyId,
+    schemaVersion: 2,
+    accountId: context.account.accountId,
+    keyId: context.key.keyId,
     cursor: 0,
-    lastSyncAt: null,
-    dirtySessions: { ...savedSessions },
-    deletedSessions: {},
-    knownVersions: {},
+    sessions: emptyTrack(),
+    images: { ...emptyTrack(), owner: {} },
+    docs: {},
+    started: [],
     settingsUpdatedAt: 0,
     settingsDirty: true,
+    held: {},
+    blocked: {},
+    unreadable: {},
+    conflicts: 0,
+    conflictsNoticed: 0,
+    lastSyncAt: null,
   };
 }
 
-/** `meta` with `updatedAt` remembered for `id`, never lowering what is there. Pure. */
-export function withKnownVersion(
-  meta: CloudSyncMeta,
-  id: SessionId,
-  updatedAt: number,
-): CloudSyncMeta {
-  const known = meta.knownVersions[id];
-  if (known !== undefined && known >= updatedAt) {
-    return meta;
-  }
-  return { ...meta, knownVersions: { ...meta.knownVersions, [id]: updatedAt } };
+/** Every `cloudRaw:*` key in storage. */
+export async function listRawKeys(): Promise<string[]> {
+  const local = chrome.storage.local as chrome.storage.LocalStorageArea & {
+    getKeys?: () => Promise<string[]>;
+  };
+  const keys =
+    typeof local.getKeys === 'function'
+      ? await local.getKeys()
+      : Object.keys(await local.get(null));
+  return keys.filter((key) => key.startsWith(CLOUD_RAW_PREFIX));
 }
 
-/** `meta` with a change of this device's own recorded as made `now`, always moving forward. Pure. */
+/**
+ * The bookkeeping of `context`, started afresh when there is none or it belongs to another pair
+ * (every `cloudRaw:*` is dropped then, in the same `set`). Inside the sessions lock.
+ */
+export async function ensureSyncMeta(context: SyncContext): Promise<CloudSyncMeta> {
+  const existing = await readSyncMetaFor(context);
+  if (existing !== undefined) {
+    return existing;
+  }
+  const meta = freshSyncMeta(context);
+  const entries: Record<string, unknown> = { [CLOUD_SYNC_META_KEY]: meta };
+  for (const key of await listRawKeys()) {
+    entries[key] = null;
+  }
+  await setThenClean(entries);
+  return meta;
+}
+
+/** After a confirmed deletion: the bookkeeping of `accountId` and every raw copy go. */
+export async function dropSyncMetaFor(accountId: string): Promise<void> {
+  await withSessionsLock(async () => {
+    const meta = await readSyncMeta();
+    const entries: Record<string, unknown> = {};
+    if (meta === undefined || meta.accountId === accountId) {
+      entries[CLOUD_SYNC_META_KEY] = null;
+    }
+    for (const key of await listRawKeys()) {
+      entries[key] = null;
+    }
+    await setThenClean(entries);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Pure helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * A stamp as it may enter the bookkeeping (8.2): a safe integer of at least 1, else 1; one more
+ * than `maxClockAheadMs` ahead of `now` becomes `now`. Pure.
+ */
+export function stampOf(value: unknown, now: number): number {
+  const floored = typeof value === 'number' ? Math.floor(value) : Number.NaN;
+  const stamp = Number.isSafeInteger(floored) && floored >= 1 ? floored : 1;
+  return stamp > now + POLICY.record.maxClockAheadMs ? now : stamp;
+}
+
+/** `meta` with a change of this device's own recorded at `now`, always moving forward. Pure. */
 export function withLocalChange(meta: CloudSyncMeta, now: number): CloudSyncMeta {
   return { ...meta, changedAt: Math.max(now, (meta.changedAt ?? 0) + 1) };
 }
 
-/** Whether a `storage.onChanged` change of `cloudSyncMeta` is a change of this device's own. Pure. */
+/** Whether a `storage.onChanged` change of the bookkeeping is a change of this device's own. Pure. */
 export function localChangeMade(oldValue: unknown, newValue: unknown): boolean {
   const changedAt = parseSyncMeta(newValue)?.changedAt;
   return changedAt !== undefined && changedAt !== parseSyncMeta(oldValue)?.changedAt;
 }
 
-/**
- * `meta` after records were read from the server: `read` maps `kind:id` to the version that could
- * not be read, or to `null` for one that could. Pure.
- */
-export function withReadResults(
-  meta: CloudSyncMeta,
-  read: ReadonlyMap<string, number | null>,
-): CloudSyncMeta {
-  const unreadable = { ...meta.unreadable };
-  for (const [key, version] of read) {
-    if (version === null) {
-      delete unreadable[key];
-    } else {
-      unreadable[key] = version;
-    }
-  }
-  const next: CloudSyncMeta = { ...meta, unreadable };
-  if (Object.keys(unreadable).length === 0) {
-    delete next.unreadable;
-  }
-  return next;
+/** Whether `ref` is held at `stamp` (an edit, a new stamp, releases it by itself). Pure. */
+export function isHeld(meta: CloudSyncMeta, ref: string, stamp: number): boolean {
+  return meta.held[ref]?.stamp === stamp;
 }
 
-/** Whether something waits to be sent, or received settings wait to be written. Pure. */
+/** The refs with something to send, held and blocked ones left out. Pure. */
+export function pendingRefs(meta: CloudSyncMeta): string[] {
+  const refs: string[] = [];
+  const add = (ref: string, stamp: number) => {
+    if (!isHeld(meta, ref, stamp) && meta.blocked[ref] === undefined) {
+      refs.push(ref);
+    }
+  };
+  for (const [id, stamp] of Object.entries(meta.sessions.dirty)) {
+    add(`session:${id}`, stamp);
+  }
+  for (const [id, stamp] of Object.entries(meta.sessions.deleted)) {
+    add(`session:${id}`, stamp);
+  }
+  for (const [id, stamp] of Object.entries(meta.images.dirty)) {
+    add(`image:${id}`, stamp);
+  }
+  for (const [id, stamp] of Object.entries(meta.images.deleted)) {
+    add(`image:${id}`, stamp);
+  }
+  for (const [ref, track] of Object.entries(meta.docs)) {
+    if (track.pending !== null) {
+      add(ref, track.pending.at);
+    }
+  }
+  return refs;
+}
+
+/** Whether something waits to be sent or written (10.2). Pure. */
 export function hasPendingWork(meta: CloudSyncMeta): boolean {
   return (
-    meta.settingsDirty ||
+    (meta.settingsDirty && !isHeld(meta, 'settings:settings', meta.settingsUpdatedAt)) ||
     meta.pendingSettings !== undefined ||
-    [
-      meta.dirtySessions,
-      meta.deletedSessions,
-      meta.notes?.dirty,
-      meta.notes?.deleted,
-      meta.images?.dirty,
-      meta.images?.deleted,
-    ].some((entries) => entries !== undefined && Object.keys(entries).length > 0)
+    meta.pullIncomplete === true ||
+    pendingRefs(meta).length > 0
   );
 }
 
-/** Saved-session writes for the dirty sets: what changed (with its new `updatedAt`) or was deleted. */
-export interface SessionChanges {
-  changed?: readonly (readonly [SessionId, number])[];
-  /** Each deleted session with the `updatedAt` it had, so its tombstone is newer than it. */
-  deleted?: readonly (readonly [SessionId, number])[];
-}
-
 /**
- * `meta` with `changes` recorded: a change replaces a pending tombstone, a deletion replaces a
- * pending change. A tombstone is stamped `now`, or just after the session's own `updatedAt` when
- * that is later (a copy made on a device whose clock runs ahead), and remembered in
- * `knownVersions`. Pure.
- */
-export function withSessionChanges(
-  meta: CloudSyncMeta,
-  changes: SessionChanges,
-  now: number,
-): CloudSyncMeta {
-  const dirtySessions = { ...meta.dirtySessions };
-  const deletedSessions = { ...meta.deletedSessions };
-  const knownVersions = { ...meta.knownVersions };
-  for (const [id, updatedAt] of changes.changed ?? []) {
-    dirtySessions[id] = updatedAt;
-    delete deletedSessions[id];
-  }
-  for (const [id, updatedAt] of changes.deleted ?? []) {
-    const deletedAt = Math.max(now, updatedAt + 1);
-    deletedSessions[id] = deletedAt;
-    knownVersions[id] = Math.max(knownVersions[id] ?? 0, deletedAt);
-    delete dirtySessions[id];
-  }
-  return { ...meta, dirtySessions, deletedSessions, knownVersions };
-}
-
-/**
- * Records saved-session writes in the dirty sets. Called by `sessionRepo` from inside its lock,
- * after the write. A no-op (no storage read) while cloud sync is unconfigured, and a no-op before
- * the first sync started the bookkeeping (it marks every saved session dirty anyway). It records
- * also while the device is not ready (an expired token, signed out): the bookkeeping is resumed
- * when the same account and key sign in again, and what changed meanwhile must be sent then.
- */
-export async function trackSessionChanges(
-  changes: SessionChanges,
-  now: number = Date.now(),
-): Promise<void> {
-  if (!isCloudSyncEnabled()) {
-    return;
-  }
-  if ((changes.changed?.length ?? 0) === 0 && (changes.deleted?.length ?? 0) === 0) {
-    return;
-  }
-  const meta = await readSyncMeta();
-  if (meta === undefined) {
-    return;
-  }
-  await writeSyncMeta(withLocalChange(withSessionChanges(meta, changes, now), now));
-}
-
-/** Note-side writes for the dirty sets (`notesRepo`, src/lib/notes-repo.ts). */
-export interface NoteChanges {
-  /** Videos whose notes were written, each with the notes' new `updatedAt`. */
-  notesChanged?: readonly (readonly [string, number])[];
-  /** Videos whose notes were deleted, each with the `updatedAt` they had. */
-  notesDeleted?: readonly (readonly [string, number])[];
-  /** Screenshots stored, or stored again by an Undo. */
-  imagesStored?: readonly string[];
-  /** Screenshots deleted. */
-  imagesDeleted?: readonly string[];
-}
-
-function hasNoteChanges(changes: NoteChanges): boolean {
-  return [
-    changes.notesChanged,
-    changes.notesDeleted,
-    changes.imagesStored,
-    changes.imagesDeleted,
-  ].some((list) => (list?.length ?? 0) > 0);
-}
-
-/** The newest version `track` has of `id`, pending or known, or 0. Pure. */
-export function trackVersion(track: RecordTrack, id: string): number {
-  return Math.max(track.dirty[id] ?? 0, track.deleted[id] ?? 0, track.known[id] ?? 0);
-}
-
-/** `meta` with `held` as its held-back screenshots; an empty set forgets that it was mentioned. Pure. */
-export function withHeldImages(meta: CloudSyncMeta, held: Record<string, number>): CloudSyncMeta {
-  const next: CloudSyncMeta = { ...meta };
-  if (Object.keys(held).length === 0) {
-    delete next.heldImages;
-    delete next.heldImagesNoticed;
-  } else {
-    next.heldImages = held;
-  }
-  return next;
-}
-
-/**
- * `meta` with note-side `changes` recorded, `meta` itself while notes are not tracked yet. Notes
- * work as sessions do (`withSessionChanges()`): a change carries the notes' `updatedAt`, a
- * deletion is stamped `now` or just after it. A screenshot has no `updatedAt` of its own (its
- * picture never changes), so its version is the moment it was stored or deleted, always past any
- * version of it this device has seen: an Undo after a deletion that was already sent is newer than
- * that tombstone. Pure.
- */
-export function withNoteChanges(
-  meta: CloudSyncMeta,
-  changes: NoteChanges,
-  now: number,
-): CloudSyncMeta {
-  if (meta.notes === undefined || meta.images === undefined) {
-    return meta;
-  }
-  const notes: RecordTrack = {
-    dirty: { ...meta.notes.dirty },
-    deleted: { ...meta.notes.deleted },
-    known: { ...meta.notes.known },
-  };
-  const images: RecordTrack = {
-    dirty: { ...meta.images.dirty },
-    deleted: { ...meta.images.deleted },
-    known: { ...meta.images.known },
-  };
-  const held = { ...meta.heldImages };
-  for (const [id, updatedAt] of changes.notesChanged ?? []) {
-    notes.dirty[id] = updatedAt;
-    delete notes.deleted[id];
-  }
-  for (const [id, updatedAt] of changes.notesDeleted ?? []) {
-    const deletedAt = Math.max(now, updatedAt + 1);
-    notes.deleted[id] = deletedAt;
-    notes.known[id] = Math.max(notes.known[id] ?? 0, deletedAt);
-    delete notes.dirty[id];
-  }
-  for (const id of changes.imagesStored ?? []) {
-    images.dirty[id] = Math.max(now, trackVersion(images, id) + 1);
-    delete images.deleted[id];
-    delete held[id];
-  }
-  for (const id of changes.imagesDeleted ?? []) {
-    const deletedAt = Math.max(now, trackVersion(images, id) + 1);
-    images.deleted[id] = deletedAt;
-    images.known[id] = deletedAt;
-    delete images.dirty[id];
-    delete held[id];
-  }
-  return withHeldImages({ ...meta, notes, images }, held);
-}
-
-/**
- * Records note-side writes in the dirty sets. `notesRepo` calls it from inside its own lock with
- * the sessions lock taken too (always in that order: notes, then sessions, never the other way
- * round). A no-op while cloud sync is unconfigured, and before a sync of this version started
- * tracking notes (that start marks every note and screenshot dirty anyway).
- */
-export async function trackNoteChanges(
-  changes: NoteChanges,
-  now: number = Date.now(),
-): Promise<void> {
-  if (!isCloudSyncEnabled() || !hasNoteChanges(changes)) {
-    return;
-  }
-  const meta = await readSyncMeta();
-  if (meta === undefined) {
-    return;
-  }
-  const next = withNoteChanges(meta, changes, now);
-  if (next !== meta) {
-    await writeSyncMeta(withLocalChange(next, now));
-  }
-}
-
-/**
- * Whether the bookkeeping gained something to send between two readings of it: an id that was
- * not pending before (or is pending with a newer stamp), or settings that became dirty. The end
- * of a run uses it to see whether work appeared after the push had read what to send.
- * Clearing entries, moving the cursor and recording a result do not count. Pure.
+ * Whether the bookkeeping gained something to send between two readings: a pending entry that
+ * is new or has a new stamp. Clearing entries, the cursor and results do not count. Pure.
  */
 export function syncWorkGrew(oldValue: unknown, newValue: unknown): boolean {
   const next = parseSyncMeta(newValue);
@@ -583,42 +447,151 @@ export function syncWorkGrew(oldValue: unknown, newValue: unknown): boolean {
   const previous = parseSyncMeta(oldValue);
   const grew = (before: Record<string, number> | undefined, after: Record<string, number>) =>
     Object.entries(after).some(([id, stamp]) => before?.[id] !== stamp);
+  const docsGrew = Object.entries(next.docs).some(
+    ([ref, track]) =>
+      track.pending !== null && previous?.docs[ref]?.pending?.at !== track.pending.at,
+  );
   return (
-    grew(previous?.dirtySessions, next.dirtySessions) ||
-    grew(previous?.deletedSessions, next.deletedSessions) ||
-    grew(previous?.notes?.dirty, next.notes?.dirty ?? {}) ||
-    grew(previous?.notes?.deleted, next.notes?.deleted ?? {}) ||
-    grew(previous?.images?.dirty, next.images?.dirty ?? {}) ||
-    grew(previous?.images?.deleted, next.images?.deleted ?? {}) ||
+    grew(previous?.sessions.dirty, next.sessions.dirty) ||
+    grew(previous?.sessions.deleted, next.sessions.deleted) ||
+    grew(previous?.images.dirty, next.images.dirty) ||
+    grew(previous?.images.deleted, next.images.deleted) ||
+    docsGrew ||
     (next.settingsDirty &&
       (previous?.settingsDirty !== true || previous.settingsUpdatedAt !== next.settingsUpdatedAt))
   );
 }
+
+/** Saved-session writes for the bookkeeping. */
+export interface SessionChanges {
+  changed?: readonly (readonly [string, number])[];
+  /** Each deleted session with the `updatedAt` it had, so its tombstone is newer than it. */
+  deleted?: readonly (readonly [string, number])[];
+}
+
+/**
+ * `meta` with saved-session `changes` recorded: a change replaces a pending deletion and the
+ * other way round. A deletion is stamped `now`, or just after the session's own stamp when that
+ * is later; `known` is left alone (10.4). Every stamp is validated (`stampOf()`). Pure.
+ */
+export function withSessionChanges(
+  meta: CloudSyncMeta,
+  changes: SessionChanges,
+  now: number,
+): CloudSyncMeta {
+  const sessions: RecordTrack = {
+    dirty: { ...meta.sessions.dirty },
+    deleted: { ...meta.sessions.deleted },
+    known: meta.sessions.known,
+  };
+  for (const [id, updatedAt] of changes.changed ?? []) {
+    sessions.dirty[id] = stampOf(updatedAt, now);
+    delete sessions.deleted[id];
+  }
+  for (const [id, updatedAt] of changes.deleted ?? []) {
+    sessions.deleted[id] = Math.max(now, stampOf(updatedAt, now) + 1);
+    delete sessions.dirty[id];
+  }
+  return { ...meta, sessions };
+}
+
+/**
+ * The bookkeeping entry a saved-session write adds to its own `set`, or nothing: unconfigured,
+ * no bookkeeping yet, or no tracking started for sessions. Inside the sessions lock.
+ */
+export async function stageSessionChanges(
+  changes: SessionChanges,
+  now: number = Date.now(),
+): Promise<Record<string, unknown>> {
+  if (!isCloudSyncEnabled()) {
+    return {};
+  }
+  if ((changes.changed?.length ?? 0) === 0 && (changes.deleted?.length ?? 0) === 0) {
+    return {};
+  }
+  const meta = await readSyncMeta();
+  if (meta === undefined || !meta.started.includes('session')) {
+    return {};
+  }
+  return { [CLOUD_SYNC_META_KEY]: withLocalChange(withSessionChanges(meta, changes, now), now) };
+}
+
+/** `track` with `stamp` remembered as known for `id`, never lowering it. Pure. */
+export function withKnown(track: RecordTrack, id: string, stamp: number): RecordTrack {
+  const known = track.known[id];
+  return known !== undefined && known >= stamp
+    ? track
+    : { ...track, known: { ...track.known, [id]: stamp } };
+}
+
+/** `images` with the same `known` rule. Pure. */
+export function withKnownImage(images: ImageTrack, id: string, stamp: number): ImageTrack {
+  const known = images.known[id];
+  return known !== undefined && known >= stamp
+    ? images
+    : { ...images, known: { ...images.known, [id]: stamp } };
+}
+
+// ---------------------------------------------------------------------------
+// Status and notices (for Settings and stage 3)
+// ---------------------------------------------------------------------------
 
 /** What Settings > Account shows about syncing. */
 export interface SyncStatus {
   lastSyncAt: number | null;
   lastAttemptAt: number | null;
   changedAt: number | null;
-  /** Something waits to be sent. */
   pending: boolean;
-  /** The last run failed, or never reached its end, and will be tried again. */
   failing: boolean;
-  /** Records from the server that this device could not read and skipped. */
   unreadable: number;
-  /** Items too large for the server, left on this device. */
   tooLarge: number;
   lastError: string | undefined;
-  /** Screenshots the server refused over its cap, kept on this device only. */
-  heldImages: number;
-  /** Whether Settings already said so (it does once, as a toast). */
-  heldImagesNoticed: boolean;
+  /** Valid held refs, both reasons. */
+  held: number;
+  heldByReason: { storage: number; screenshots: number };
+  heldNoticed: boolean;
+  usage: Usage | null;
+  conflicts: number;
+  /** The last pull ended with more to read. */
+  pullIncomplete: boolean;
 }
 
-/** The last run's time and error for Settings; nothing before this account's first sync. */
+/** The valid held refs by reason: a held entry counts only while its stamp is the pending one. */
+export function heldByReason(meta: CloudSyncMeta): { storage: number; screenshots: number } {
+  const counts = { storage: 0, screenshots: 0 };
+  for (const [ref, held] of Object.entries(meta.held)) {
+    if (pendingStampOf(meta, ref) === held.stamp) {
+      if (held.reason === 'storage_limit') {
+        counts.storage += 1;
+      } else {
+        counts.screenshots += 1;
+      }
+    }
+  }
+  return counts;
+}
+
+/** The stamp `ref` waits to send with, if any. Pure. */
+export function pendingStampOf(meta: CloudSyncMeta, ref: string): number | undefined {
+  const at = ref.indexOf(':');
+  const kind = ref.slice(0, at);
+  const id = ref.slice(at + 1);
+  if (kind === 'session') {
+    return meta.sessions.dirty[id] ?? meta.sessions.deleted[id];
+  }
+  if (kind === 'image') {
+    return meta.images.dirty[id] ?? meta.images.deleted[id];
+  }
+  if (kind === 'settings') {
+    return meta.settingsDirty ? meta.settingsUpdatedAt : undefined;
+  }
+  return meta.docs[ref]?.pending?.at;
+}
+
 export async function loadSyncStatus(): Promise<SyncStatus> {
   const context = await loadSyncContext();
   const meta = context === null ? undefined : await readSyncMetaFor(context);
+  const held = meta === undefined ? { storage: 0, screenshots: 0 } : heldByReason(meta);
   return {
     lastSyncAt: meta?.lastSyncAt ?? null,
     lastAttemptAt: meta?.lastAttemptAt ?? null,
@@ -628,7 +601,47 @@ export async function loadSyncStatus(): Promise<SyncStatus> {
     unreadable: Object.keys(meta?.unreadable ?? {}).length,
     tooLarge: meta?.tooLarge ?? 0,
     lastError: meta?.lastError,
-    heldImages: Object.keys(meta?.heldImages ?? {}).length,
-    heldImagesNoticed: meta?.heldImagesNoticed === true,
+    held: held.storage + held.screenshots,
+    heldByReason: held,
+    heldNoticed: meta?.heldNoticed === true,
+    usage: meta?.usage ?? null,
+    conflicts: meta?.conflicts ?? 0,
+    pullIncomplete: meta?.pullIncomplete === true,
   };
+}
+
+/** For stage 3's notices: held refs by reason, and the conflict counts. */
+export async function readSyncNotices(): Promise<{
+  heldByReason: { storage: number; screenshots: number };
+  heldNoticed: boolean;
+  conflicts: number;
+  conflictsNoticed: number;
+}> {
+  const meta = await readSyncMeta();
+  return {
+    heldByReason: meta === undefined ? { storage: 0, screenshots: 0 } : heldByReason(meta),
+    heldNoticed: meta?.heldNoticed === true,
+    conflicts: meta?.conflicts ?? 0,
+    conflictsNoticed: meta?.conflictsNoticed ?? 0,
+  };
+}
+
+/** Settings said that items are held; again only once the held set next becomes non-empty. */
+export async function markHeldNoticed(): Promise<void> {
+  await withSessionsLock(async () => {
+    const meta = await readSyncMeta();
+    if (meta !== undefined && meta.heldNoticed !== true) {
+      await writeSyncMeta({ ...meta, heldNoticed: true });
+    }
+  });
+}
+
+/** `conflictsNoticed = max(conflictsNoticed, count)`. */
+export async function markConflictsNoticed(count: number): Promise<void> {
+  await withSessionsLock(async () => {
+    const meta = await readSyncMeta();
+    if (meta !== undefined && count > meta.conflictsNoticed) {
+      await writeSyncMeta({ ...meta, conflictsNoticed: Math.min(count, meta.conflicts) });
+    }
+  });
 }

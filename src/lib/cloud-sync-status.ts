@@ -33,8 +33,12 @@ export const NO_SYNC_FACTS: SyncFacts = {
   unreadable: 0,
   tooLarge: 0,
   lastError: undefined,
-  heldImages: 0,
-  heldImagesNoticed: false,
+  held: 0,
+  heldByReason: { storage: 0, screenshots: 0 },
+  heldNoticed: false,
+  usage: null,
+  conflicts: 0,
+  pullIncomplete: false,
   running: false,
   soonAt: null,
   checkAt: null,
@@ -133,7 +137,7 @@ export function syncPhase(facts: SyncFacts, now: number): SyncPhase {
   if (facts.unreadable > 0) {
     return { kind: 'unreadable', count: facts.unreadable };
   }
-  if (facts.lastError !== undefined) {
+  if (facts.lastError !== undefined || facts.pullIncomplete) {
     return { kind: 'partial', at: nextRunAt(facts) };
   }
   if (facts.pending) {
@@ -142,8 +146,8 @@ export function syncPhase(facts: SyncFacts, now: number): SyncPhase {
   if (facts.lastSyncAt === null) {
     return { kind: 'notSynced' };
   }
-  return facts.heldImages > 0
-    ? { kind: 'held', count: facts.heldImages, at: facts.lastSyncAt }
+  return facts.held > 0
+    ? { kind: 'held', count: facts.held, at: facts.lastSyncAt }
     : { kind: 'upToDate', at: facts.lastSyncAt };
 }
 
@@ -206,7 +210,7 @@ export function syncPhaseVariants(facts: SyncFacts): string[] {
       { kind: 'partial', at },
       { kind: 'waiting', at },
       { kind: 'upToDate', at },
-      ...count(facts.heldImages).map((n) => ({ kind: 'held', count: n, at }) as const),
+      ...count(facts.held).map((n) => ({ kind: 'held', count: n, at }) as const),
     ]),
   ];
   return [...new Set(phases.map(syncPhaseText))];
@@ -251,7 +255,9 @@ export function nextReadAt(facts: SyncFacts, now: number): number | null {
 
 /** Whether two readings would show the same, so an unchanged one renders nothing. Pure. */
 export function sameFacts(a: SyncFacts, b: SyncFacts): boolean {
-  return (Object.keys(a) as (keyof SyncFacts)[]).every((key) => a[key] === b[key]);
+  return (Object.keys(a) as (keyof SyncFacts)[]).every(
+    (key) => a[key] === b[key] || JSON.stringify(a[key]) === JSON.stringify(b[key]),
+  );
 }
 
 /** Whether a sync holds the lock. A page waiting in `whenSyncEnds()` holds it shared, and is not one. */

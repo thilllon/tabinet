@@ -1,390 +1,505 @@
 /**
- * The cloud sync account on this device: Google sign-in through `chrome.identity`, the stored
- * account (`cloudAccount`) and sync key (`cloudSyncKey`) in `chrome.storage.local`, the sync
- * passphrase, and the state Settings shows. Page only: sign-in needs a click, and nothing here is
- * loaded by the service worker. Neither key is session data, so they are written here rather
- * than through `sessionRepo`; signing out or deleting the cloud data never touches a session.
+ * The cloud sync account on this device (spec section 9): Google sign-in through
+ * `chrome.identity`, the account question, the sync passphrase (create, unlock, change, which is
+ * also the reset of a forgotten one), sign-out and deletion, and the pure state Settings shows.
+ * Page only: every key operation starts from a click.
+ *
+ * Every key operation validates its form first, then asks Chrome for a Google access token from
+ * that click, does the slow work (PBKDF2) and the request, and drops the token from Chrome's cache
+ * in `finally`. The token lives in that function only. Every store after an await is a
+ * compare-and-write against the bearer the operation started with (`writeIfAccount()`), so a
+ * sign-out or another account meanwhile makes its late result write nothing. A closed or refused
+ * consent window is `{ outcome: 'cancelled' }`, never a throw. Only sign-out, a confirmed deletion
+ * and a confirmed replacement remove a data key (invariant 9).
  */
 import { GOOGLE_OAUTH_SCOPES, POLICY } from '@/constants';
 import {
-  type CloudApiOptions,
-  type CloudSignInResult,
-  CloudUnauthorizedError,
   authGoogle,
+  type CloudApiOptions,
+  CloudHttpError,
+  CloudUnauthorizedError,
   deleteAccount,
   logout,
   me,
-  putKeys,
+  type MeAnswer,
+  openKey,
+  putKey,
 } from '@/lib/cloud-api';
-import { createKeySetup, keyMatchesSetup, unlockKeySetup } from '@/lib/cloud-crypto';
+import { createKey, rewrapKey, unwrapKey } from '@/lib/cloud-crypto';
+import {
+  CLOUD_ACCOUNT_KEY,
+  CLOUD_KEY_KEY,
+  CLOUD_OWNER_KEY,
+  readCloudStored,
+  removeAccountIfToken,
+  writeIfAccount,
+} from '@/lib/cloud-storage';
+import { dropSyncMetaFor } from '@/lib/cloud-sync-state';
 import { ExplainedError } from '@/lib/error-message';
-import { isRecord } from '@/lib/import-guards';
-import type { CloudAccount, CloudKeySetup } from '@/types';
+import type { AccountInput, AccountState, CloudAccountV2, CloudKeyV2, CloudOwnerV2 } from '@/types';
 
-/** `chrome.storage.local` key of the signed-in account. */
-export const CLOUD_ACCOUNT_KEY = 'cloudAccount';
-/** `chrome.storage.local` key of the raw sync key (base64). Never sent anywhere. */
-export const CLOUD_SYNC_KEY = 'cloudSyncKey';
+export type Cancelled = { outcome: 'cancelled' };
 
-/** What Settings > Account shows. */
-export type AccountState =
-  | 'unconfigured'
-  | 'signedOut'
-  | 'needsPassphrase'
-  | 'needsUnlock'
-  | 'ready';
+// ---------------------------------------------------------------------------
+// Pure
+// ---------------------------------------------------------------------------
 
-export function isCloudAccount(value: unknown): value is CloudAccount {
-  return (
-    isRecord(value) &&
-    typeof value.token === 'string' &&
-    value.token !== '' &&
-    typeof value.expiresAt === 'number' &&
-    typeof value.email === 'string'
-  );
-}
-
-/**
- * Whether Settings shows the Sync row and the buttons of a signed-in device: ready, or the server
- * not asked yet (or out of reach) with a live account and a key here, which is what the engine
- * syncs with. Without this the row would be missing exactly when sync is failing. Pure.
- */
-export function showsSyncRow(
-  state: AccountState | 'unknown',
-  account: CloudAccount | null,
-  hasLocalKey: boolean,
-  now: number,
-): boolean {
-  if (state === 'ready') {
-    return true;
-  }
-  return state === 'unknown' && hasLocalKey && account !== null && account.expiresAt > now;
-}
-
-/**
- * The state for what is known: whether sync is configured, the stored account, whether this device
- * holds a key for the server's setup, and that setup (`undefined` while it is not known yet).
- * 'ready' needs both halves: a setup on the server and its key here, so a key is never trusted
- * before the server's setup is known (`keepSyncKeyFor()` drops one that does not open it). Pure.
- */
-export function accountState(input: {
-  configured: boolean;
-  account: CloudAccount | null;
-  hasLocalKey: boolean;
-  keySetup: CloudKeySetup | null | undefined;
-  now: number;
-}): AccountState | 'unknown' {
+/** What Settings > Account shows (9.1). Pure. */
+export function accountState(input: AccountInput): AccountState {
   if (!input.configured) {
     return 'unconfigured';
   }
-  if (input.account === null || input.account.expiresAt <= input.now) {
-    return 'signedOut';
+  if (!input.loaded) {
+    return 'loading';
   }
-  if (input.keySetup === undefined) {
+  const { account, key, server } = input;
+  if (account === null || account.expiresAt <= input.now) {
+    return key === null ? 'signedOut' : 'expired';
+  }
+  if (!account.uploadConfirmed) {
+    return 'confirmAccount';
+  }
+  if (key !== null && key.accountId === account.accountId) {
+    if (server !== undefined && (server === null || server.keyId !== key.keyId)) {
+      return 'keyMismatch';
+    }
+    return 'ready';
+  }
+  if (server === undefined) {
     return 'unknown';
   }
-  if (input.keySetup === null) {
-    return 'needsPassphrase';
-  }
-  return input.hasLocalKey ? 'ready' : 'needsUnlock';
+  return server === null ? 'needsCreate' : 'needsUnlock';
 }
 
-/** Why a new passphrase is refused, or `null` when it is fine. Pure. */
+/** Why a new passphrase is refused, after NFC, or `null`. Pure. */
 export function newPassphraseProblem(
   passphrase: string,
   repeated: string,
-): 'tooShort' | 'mismatch' | null {
-  if ([...passphrase].length < POLICY.passphrase.minLength) {
-    return 'tooShort';
+): 'empty' | 'short' | 'mismatch' | null {
+  const nfc = passphrase.normalize('NFC');
+  if (nfc === '') {
+    return 'empty';
   }
-  return passphrase === repeated ? null : 'mismatch';
+  if ([...nfc].length < POLICY.passphrase.minLength) {
+    return 'short';
+  }
+  return nfc === repeated.normalize('NFC') ? null : 'mismatch';
+}
+
+/**
+ * Whether the upload to a just signed-in account is confirmed without asking: no owner, the
+ * owner's account, or a legacy owner (no account id) with the same email, ignoring case. Pure.
+ */
+export function uploadConfirmedFor(
+  owner: CloudOwnerV2 | null,
+  accountId: string,
+  email: string,
+): boolean {
+  if (owner === null || owner.accountId === accountId) {
+    return true;
+  }
+  return owner.accountId === null && owner.email.toLowerCase() === email.toLowerCase();
 }
 
 /**
  * Whether a `chrome.identity.getAuthToken` failure is the person closing or turning down Chrome's
- * consent window, which is not an error to report. Chrome rejects with "The user did not approve
- * access." for both; anything else (no network, sign-in turned off in Chrome, a bad client id) is
- * a real failure and is explained as one, so only that wording and an explicit cancel count.
+ * consent window ("The user did not approve access."), which is not an error to report.
  */
 export function isSignInCancelled(err: unknown): boolean {
   const message = err instanceof Error ? err.message.toLowerCase() : '';
   return message.includes('did not approve') || /\bcancel(l?ed)?\b/.test(message);
 }
 
-/**
- * Takes the access token out of Chrome's token cache once the server has had it (or refused it).
- * The server needs it once, to learn who signed in, so neither Chrome nor this extension holds a
- * Google token afterwards, and a token Google has since revoked is never offered again (the next
- * sign-in gets a fresh one, without a prompt while the grant stands). Best effort.
- */
-async function dropCachedGoogleToken(token: string): Promise<void> {
+// ---------------------------------------------------------------------------
+// Google
+// ---------------------------------------------------------------------------
+
+/** A Google access token from this click, or `null` when the window was closed or refused. */
+async function googleToken(): Promise<string | null> {
+  let token: string | undefined;
+  try {
+    const answer = await chrome.identity.getAuthToken({
+      interactive: true,
+      scopes: [...GOOGLE_OAUTH_SCOPES],
+    });
+    token = answer.token;
+  } catch (err: unknown) {
+    if (isSignInCancelled(err)) {
+      return null;
+    }
+    const reason = err instanceof Error ? err.name : 'unknown';
+    throw new ExplainedError(`getAuthToken failed (${reason})`, 'errorCloudSignInFailed');
+  }
+  if (token === undefined || token === '') {
+    throw new ExplainedError('getAuthToken answered without a token', 'errorCloudSignInFailed');
+  }
+  return token;
+}
+
+async function dropGoogleToken(token: string): Promise<void> {
   try {
     await chrome.identity.removeCachedAuthToken({ token });
-  } catch (err: unknown) {
-    console.warn('[tabinet] could not drop the Google token from the cache', err);
+  } catch {
+    console.warn('[tabinet] could not drop the Google token from the cache');
   }
 }
 
 /**
- * On sign-out and deletion Chrome is also told to forget this extension's Google grant
- * (`clearAllCachedAuthTokens`), so the next sign-in asks again and another account can be picked.
- * There is no single token to remove at that point (it was dropped right after signing in), which
- * is why the whole cache is cleared rather than `removeCachedAuthToken`. Behind a `typeof` guard
- * because `chrome.identity` exists only with the `identity` permission; best effort, like logout.
+ * Forgets this extension's Google grant and Chrome's account choice for it, so the next request
+ * asks again and another account can be picked. Behind a `typeof` guard (`identity` exists only
+ * with the permission); best effort.
  */
-async function forgetGoogleGrant(): Promise<void> {
+export async function forgetGoogleGrant(): Promise<void> {
   if (typeof chrome.identity?.clearAllCachedAuthTokens !== 'function') {
     return;
   }
   try {
     await chrome.identity.clearAllCachedAuthTokens();
-  } catch (err: unknown) {
-    console.warn('[tabinet] could not clear the Google token cache', err);
+  } catch {
+    console.warn('[tabinet] could not clear the Google token cache');
   }
 }
 
-// ---------------------------------------------------------------------------
-// Stored account and key
-// ---------------------------------------------------------------------------
-
-export async function loadCloudAccount(): Promise<CloudAccount | null> {
-  const stored = await chrome.storage.local.get(CLOUD_ACCOUNT_KEY);
-  const value: unknown = stored[CLOUD_ACCOUNT_KEY];
-  return isCloudAccount(value) ? value : null;
-}
-
-export async function loadSyncKey(): Promise<string | null> {
-  const stored = await chrome.storage.local.get(CLOUD_SYNC_KEY);
-  const value: unknown = stored[CLOUD_SYNC_KEY];
-  return typeof value === 'string' && value !== '' ? value : null;
-}
-
-/**
- * Forgets the account and the key on this device. Local sessions are untouched. With `token`,
- * only while that account is the stored one: a late 401 must not sign a newer sign-in out.
- */
-export async function forgetCloudAccount(token?: string): Promise<void> {
-  if (token !== undefined && (await loadCloudAccount())?.token !== token) {
-    return;
+/** Runs `work` with a Google token from this click, dropping the token whatever happens. */
+async function withGoogle<T>(work: (accessToken: string) => Promise<T>): Promise<T | Cancelled> {
+  const accessToken = await googleToken();
+  if (accessToken === null) {
+    return { outcome: 'cancelled' };
   }
-  await chrome.storage.local.remove([CLOUD_ACCOUNT_KEY, CLOUD_SYNC_KEY]);
-}
-
-/**
- * The stored account while its token is still good. An expired one is forgotten, together with
- * the key, so no key outlives the account it was entered for.
- */
-export async function loadLiveCloudAccount(now: number): Promise<CloudAccount | null> {
-  const account = await loadCloudAccount();
-  if (account !== null && account.expiresAt <= now) {
-    await forgetCloudAccount();
-    return null;
-  }
-  return account;
-}
-
-/**
- * Keeps the key on this device only when it opens `setup`, the account's setup on the server:
- * with no setup there, or one made with another passphrase (another account, or a passphrase
- * created again after the cloud data was deleted), the key is removed. Whether a key is kept.
- * Only the key that was checked is removed, never one written meanwhile, and with `token` (whose
- * setup it is) nothing once another account is the stored one.
- */
-export async function keepSyncKeyFor(
-  setup: CloudKeySetup | null,
-  token?: string,
-): Promise<boolean> {
-  const rawKey = await loadSyncKey();
-  if (rawKey === null) {
-    return false;
-  }
-  if (setup !== null && (await keyMatchesSetup(rawKey, setup))) {
-    return true;
-  }
-  // The check takes a while: the account and the key as they are now, in one read.
-  const now = await chrome.storage.local.get([CLOUD_ACCOUNT_KEY, CLOUD_SYNC_KEY]);
-  const account: unknown = now[CLOUD_ACCOUNT_KEY];
-  const switched = token !== undefined && (!isCloudAccount(account) || account.token !== token);
-  if (switched || now[CLOUD_SYNC_KEY] !== rawKey) {
-    return now[CLOUD_SYNC_KEY] !== undefined;
-  }
-  await chrome.storage.local.remove(CLOUD_SYNC_KEY);
-  return false;
-}
-
-/**
- * Stores the key for the account whose `token` it was made under, unless that account was
- * signed out (or replaced) meanwhile, in another tab say; then nothing is stored and the
- * request reads as signed out.
- */
-async function storeSyncKeyFor(token: string, rawKey: string): Promise<void> {
-  const current = await loadCloudAccount();
-  if (current === null || current.token !== token) {
-    throw new CloudUnauthorizedError();
-  }
-  await chrome.storage.local.set({ [CLOUD_SYNC_KEY]: rawKey });
-}
-
-async function requireAccount(): Promise<CloudAccount> {
-  const account = await loadCloudAccount();
-  if (account === null) {
-    throw new CloudUnauthorizedError();
-  }
-  return account;
-}
-
-/**
- * Runs a request for the stored account; a 401 forgets the account (the token is no longer
- * good) and is then thrown on, so the page says so and shows "Sign in" again.
- */
-export async function withCloudAccount<T>(run: (account: CloudAccount) => Promise<T>): Promise<T> {
-  const account = await requireAccount();
   try {
-    return await run(account);
-  } catch (err: unknown) {
-    if (err instanceof CloudUnauthorizedError) {
-      await forgetCloudAccount(account.token);
-    }
-    throw err;
-  }
-}
-
-/**
- * Asks the server for `account`'s passphrase setup and keeps the key only if it opens it. With that
- * account's own token, not whatever is stored by then: one account's setup is never taken for
- * another's. A 401 forgets that account only.
- */
-export async function checkKeySetup(
-  account: CloudAccount,
-  options: CloudApiOptions = {},
-): Promise<{ keySetup: CloudKeySetup | null; keyKept: boolean }> {
-  try {
-    const { keySetup } = await me(account.token, options);
-    return { keySetup, keyKept: await keepSyncKeyFor(keySetup, account.token) };
-  } catch (err: unknown) {
-    if (err instanceof CloudUnauthorizedError) {
-      await forgetCloudAccount(account.token);
-    }
-    throw err;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Sign-in, sign-out, delete
-// ---------------------------------------------------------------------------
-
-export type SignInOutcome =
-  | { outcome: 'signedIn'; account: CloudAccount; keySetup: CloudKeySetup | null }
-  | { outcome: 'cancelled' };
-
-/**
- * Signs in with Google, straight from a click: Chrome's own account and consent window
- * (`chrome.identity.getAuthToken`, with the client id from the manifest's `oauth2`), the access
- * token traded once for the server's token, and the account stored. The Google token is never
- * stored and is dropped from Chrome's cache right after the exchange, whatever its outcome. A
- * closed or refused consent window is `'cancelled'`, not an error.
- */
-export async function signIn(options: CloudApiOptions = {}): Promise<SignInOutcome> {
-  let googleToken: string | undefined;
-  try {
-    // Promise form (Chrome 105+, below the minimum of 123): resolves to `{ token, grantedScopes }`.
-    const answer = await chrome.identity.getAuthToken({
-      interactive: true,
-      scopes: [...GOOGLE_OAUTH_SCOPES],
-    });
-    googleToken = answer.token;
-  } catch (err: unknown) {
-    if (isSignInCancelled(err)) {
-      return { outcome: 'cancelled' };
-    }
-    const reason = err instanceof Error ? err.message : String(err);
-    throw new ExplainedError(`getAuthToken failed (${reason})`, 'errorCloudSignInFailed');
-  }
-  if (googleToken === undefined || googleToken === '') {
-    throw new ExplainedError('getAuthToken answered without a token', 'errorCloudSignInFailed');
-  }
-  let result: CloudSignInResult;
-  try {
-    result = await authGoogle(googleToken, options);
+    return await work(accessToken);
   } finally {
-    await dropCachedGoogleToken(googleToken);
+    await dropGoogleToken(accessToken);
   }
-  const account: CloudAccount = {
-    token: result.token,
-    expiresAt: result.expiresAt,
-    email: result.email,
-  };
-  // A key left from an earlier sign-in (another account, or this one before its passphrase was
-  // made again) must not carry over: it stays only when it opens this account's setup.
-  await keepSyncKeyFor(result.keySetup);
-  await chrome.storage.local.set({ [CLOUD_ACCOUNT_KEY]: account });
-  return { outcome: 'signedIn', account, keySetup: result.keySetup };
 }
 
-/** Signs out: the server forgets the token when it can, this device forgets account and key. */
-export async function signOut(options: CloudApiOptions = {}): Promise<void> {
-  const account = await loadCloudAccount();
+// ---------------------------------------------------------------------------
+// Stored state
+// ---------------------------------------------------------------------------
+
+export async function loadCloudState(): Promise<{
+  account: CloudAccountV2 | null;
+  key: CloudKeyV2 | null;
+  owner: CloudOwnerV2 | null;
+}> {
+  return readCloudStored();
+}
+
+async function liveAccount(): Promise<CloudAccountV2> {
+  const { account } = await readCloudStored();
+  if (account === null || account.expiresAt <= Date.now()) {
+    throw new CloudUnauthorizedError('local');
+  }
+  return account;
+}
+
+/**
+ * What a failed request means for the stored state: a 401 removes that bearer's account (only
+ * while it is still the stored one), a `google_account_mismatch` clears Chrome's choice. Nothing
+ * else is written, and a data key is never removed here. The error is thrown on.
+ */
+async function reactTo(err: unknown, token: string): Promise<never> {
+  if (err instanceof CloudUnauthorizedError) {
+    await removeAccountIfToken(token);
+  } else if (err instanceof CloudHttpError && err.code === 'google_account_mismatch') {
+    await forgetGoogleGrant();
+  }
+  throw err;
+}
+
+/** Runs `request` for `account`, reacting to what its failure means (`reactTo()`). */
+async function guarded<T>(account: CloudAccountV2, request: () => Promise<T>): Promise<T> {
+  try {
+    return await request();
+  } catch (err: unknown) {
+    return reactTo(err, account.token);
+  }
+}
+
+/** Removes the account when it has expired, compare-and-remove (9.2, expiry). */
+export async function forgetExpiredAccount(now: number = Date.now()): Promise<void> {
+  const { account } = await readCloudStored();
+  if (account !== null && account.expiresAt <= now) {
+    await removeAccountIfToken(account.token);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Actions (9.2)
+// ---------------------------------------------------------------------------
+
+/** Signs in: the account is written with whether its upload is confirmed. Nothing else is. */
+export async function signIn(
+  options: CloudApiOptions = {},
+): Promise<{ outcome: 'signedIn'; server: MeAnswer['key'] } | Cancelled> {
+  const result = await withGoogle(async (accessToken) => {
+    const answer = await authGoogle(accessToken, options);
+    const { owner } = await readCloudStored();
+    const account: CloudAccountV2 = {
+      accountId: answer.accountId,
+      token: answer.token,
+      expiresAt: answer.expiresAt,
+      email: answer.email,
+      uploadConfirmed: uploadConfirmedFor(owner, answer.accountId, answer.email),
+    };
+    const { account: before } = await readCloudStored();
+    await writeIfAccount(before?.token ?? null, () => ({ [CLOUD_ACCOUNT_KEY]: account }));
+    return answer.key;
+  });
+  if (isCancelled(result)) {
+    return result;
+  }
+  return { outcome: 'signedIn', server: result };
+}
+
+function isCancelled(value: unknown): value is Cancelled {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (value as { outcome?: unknown }).outcome === 'cancelled'
+  );
+}
+
+/** "Add to this account": the upload is confirmed. Nothing is uploaded before Create or Unlock. */
+export async function confirmAccount(): Promise<void> {
+  const account = await liveAccount();
+  await writeIfAccount(account.token, (stored) =>
+    stored.account === null
+      ? null
+      : { [CLOUD_ACCOUNT_KEY]: { ...stored.account, uploadConfirmed: true } },
+  );
+}
+
+/** "No, keep it here": the sign-in is cancelled. Key, owner and bookkeeping are kept. */
+export async function cancelAccountSwitch(options: CloudApiOptions = {}): Promise<void> {
+  const { account } = await readCloudStored();
   if (account !== null) {
     try {
       await logout(account.token, options);
-    } catch (err: unknown) {
-      // Best effort: the token expires on its own, and signing out here must not wait on it.
-      console.warn('[tabinet] sign-out not confirmed by the server', err);
+    } catch {
+      console.warn('[tabinet] logout not confirmed by the server');
     }
+    await removeAccountIfToken(account.token);
   }
-  await forgetCloudAccount();
   await forgetGoogleGrant();
 }
-
-/** Deletes the account and everything on the server, then signs out on this device. */
-export async function deleteCloudData(options: CloudApiOptions = {}): Promise<void> {
-  await withCloudAccount((account) => deleteAccount(account.token, options));
-  await forgetCloudAccount();
-  await forgetGoogleGrant();
-}
-
-// ---------------------------------------------------------------------------
-// The sync passphrase
-// ---------------------------------------------------------------------------
-
-export type SetUpPassphraseOutcome =
-  | { outcome: 'ready'; setup: CloudKeySetup }
-  | { outcome: 'exists' };
 
 /**
- * Sets up a new passphrase: the key setup goes to the server and the key is kept here (`'ready'`,
- * with the setup now on the server). `'exists'` when another device set one up first; nothing is
- * kept then, and the person enters that one. Signed out meanwhile, the key is not kept either.
+ * Creates the sync passphrase: a new data key, its envelope at generation 1, the PUT, and only
+ * after the 201 the key and the owner in one write. 409 `key_exists`, or an answer lost when the
+ * server then has a key, is `'exists'`: the person enters that passphrase.
  */
-export async function setUpPassphrase(
+export async function createPassphrase(
   passphrase: string,
-  options: CloudApiOptions & { iterations?: number } = {},
-): Promise<SetUpPassphraseOutcome> {
-  const { setup, rawKey } = await createKeySetup(passphrase, options.iterations);
-  const { result, token } = await withCloudAccount(async (account) => ({
-    result: await putKeys(account.token, setup, options),
-    token: account.token,
-  }));
-  if (result === 'exists') {
-    return { outcome: 'exists' };
-  }
-  await storeSyncKeyFor(token, rawKey);
-  return { outcome: 'ready', setup };
+  options: CloudApiOptions = {},
+): Promise<{ outcome: 'created' } | { outcome: 'exists' } | Cancelled> {
+  const result = await withGoogle(async (accessToken) => {
+    const account = await liveAccount();
+    const { dek, keyId, envelope, proof } = await createKey(passphrase);
+    try {
+      await guarded(account, () => putKey(account.token, accessToken, envelope, proof, options));
+    } catch (err: unknown) {
+      if (err instanceof CloudHttpError && err.code === 'key_exists') {
+        return 'exists' as const;
+      }
+      if (!(err instanceof CloudHttpError)) {
+        // The answer was lost: the server may have the key now. Never stored without the 201.
+        const answer = await guarded(account, () => me(account.token, options)).catch(() => null);
+        if (answer?.key != null) {
+          return 'exists' as const;
+        }
+      }
+      throw err;
+    }
+    const key: CloudKeyV2 = { accountId: account.accountId, keyId, generation: 1, dek };
+    const owner: CloudOwnerV2 = { accountId: account.accountId, email: account.email };
+    const written = await writeIfAccount(account.token, () => ({
+      [CLOUD_KEY_KEY]: key,
+      [CLOUD_OWNER_KEY]: owner,
+    }));
+    if (!written) {
+      throw new CloudUnauthorizedError('local');
+    }
+    return 'created' as const;
+  });
+  return isCancelled(result) ? result : { outcome: result };
 }
 
 /**
- * Tries `passphrase` against the server's setup and keeps the key when it is right, unless the
- * account was signed out (or replaced) while the key was derived.
+ * Unlocks with the passphrase: me, then the envelope after a Google check, both checked
+ * (same keyId, a generation at least me's), unwrapped and its keyId checked. A wrong passphrase
+ * writes nothing. The right one stores key and owner in one write, replacing an old key.
  */
 export async function unlockWithPassphrase(
-  setup: CloudKeySetup,
   passphrase: string,
-): Promise<boolean> {
-  const { token } = await requireAccount();
-  const rawKey = await unlockKeySetup(setup, passphrase);
-  if (rawKey === null) {
-    return false;
+  options: CloudApiOptions = {},
+): Promise<{ outcome: 'unlocked' } | { outcome: 'wrongPassphrase' } | Cancelled> {
+  const result = await withGoogle(async (accessToken) => {
+    const account = await liveAccount();
+    const answer = await guarded(account, () => me(account.token, options));
+    const envelope = await guarded(account, () => openKey(account.token, accessToken, options));
+    if (
+      answer.key === null ||
+      envelope.keyId !== answer.key.keyId ||
+      envelope.generation < answer.key.generation
+    ) {
+      throw new ExplainedError(
+        'The envelope does not match the account key',
+        'errorCloudKeyChanged',
+      );
+    }
+    const dek = await unwrapKey(envelope, passphrase);
+    if (dek === null) {
+      return 'wrongPassphrase' as const;
+    }
+    const key: CloudKeyV2 = {
+      accountId: account.accountId,
+      keyId: envelope.keyId,
+      generation: Math.max(envelope.generation, answer.key.generation),
+      dek,
+    };
+    const owner: CloudOwnerV2 = { accountId: account.accountId, email: account.email };
+    const written = await writeIfAccount(account.token, () => ({
+      [CLOUD_KEY_KEY]: key,
+      [CLOUD_OWNER_KEY]: owner,
+    }));
+    if (!written) {
+      throw new CloudUnauthorizedError('local');
+    }
+    return 'unlocked' as const;
+  });
+  return isCancelled(result) ? result : { outcome: result };
+}
+
+/**
+ * Changes the passphrase from a ready device, which is also the reset of a forgotten one: the
+ * same data key under a new envelope at me's generation + 1, with the write proof. The stored
+ * generation becomes the confirmed one the PUT returned (not a maximum), which ends a rollback
+ * warning. The old passphrase is never asked.
+ */
+export async function changePassphrase(
+  passphrase: string,
+  options: CloudApiOptions = {},
+): Promise<{ outcome: 'changed'; generation: number } | { outcome: 'conflict' } | Cancelled> {
+  const result = await withGoogle(async (accessToken) => {
+    const account = await liveAccount();
+    const { key } = await readCloudStored();
+    if (key === null || key.accountId !== account.accountId) {
+      throw new ExplainedError('No data key of this account here', 'errorCloudKeyChanged');
+    }
+    const answer = await guarded(account, () => me(account.token, options));
+    if (answer.key === null || answer.key.keyId !== key.keyId) {
+      throw new ExplainedError('The account has another key', 'errorCloudKeyChanged');
+    }
+    const generation = answer.key.generation + 1;
+    const { envelope, proof } = await rewrapKey(key.dek, passphrase, generation);
+    let confirmed: number;
+    try {
+      const put = await guarded(account, () =>
+        putKey(account.token, accessToken, envelope, proof, options),
+      );
+      confirmed = put.key.generation;
+    } catch (err: unknown) {
+      if (err instanceof CloudHttpError && err.code === 'generation_conflict') {
+        return { outcome: 'conflict' } as const;
+      }
+      throw err;
+    }
+    await writeIfAccount(account.token, (stored) =>
+      stored.key === null || stored.key.keyId !== key.keyId
+        ? null
+        : { [CLOUD_KEY_KEY]: { ...stored.key, generation: confirmed } },
+    );
+    return { outcome: 'changed', generation: confirmed } as const;
+  });
+  return result;
+}
+
+/**
+ * Signs out: the server forgets the bearer when it can; the account goes, and the key when it is
+ * this account's (always when the account is no longer live). Owner, bookkeeping and held items
+ * stay.
+ */
+export async function signOut(options: CloudApiOptions = {}): Promise<void> {
+  const { account } = await readCloudStored();
+  if (account !== null) {
+    try {
+      await logout(account.token, options);
+    } catch {
+      console.warn('[tabinet] sign-out not confirmed by the server');
+    }
   }
-  await storeSyncKeyFor(token, rawKey);
-  return true;
+  await writeIfAccount(account?.token ?? null, (stored) => {
+    const entries: Record<string, unknown> = { [CLOUD_ACCOUNT_KEY]: null };
+    const live = stored.account !== null && stored.account.expiresAt > Date.now();
+    if (stored.key !== null && (!live || stored.key.accountId === stored.account?.accountId)) {
+      entries[CLOUD_KEY_KEY] = null;
+    }
+    return entries;
+  });
+  await forgetGoogleGrant();
+}
+
+/**
+ * Deletes the account and everything on the server, after a Google check. Only after the 204:
+ * the account goes; when the key or the owner is this account's, the key goes, the owner becomes
+ * `{ accountId: null, email }` and the bookkeeping and every raw copy are dropped.
+ */
+export async function deleteCloudData(
+  options: CloudApiOptions = {},
+): Promise<{ outcome: 'deleted' } | Cancelled> {
+  const result = await withGoogle(async (accessToken) => {
+    const account = await liveAccount();
+    await guarded(account, () => deleteAccount(account.token, accessToken, options));
+    let dropMeta = false;
+    await writeIfAccount(account.token, (stored) => {
+      const entries: Record<string, unknown> = { [CLOUD_ACCOUNT_KEY]: null };
+      const keyMine = stored.key?.accountId === account.accountId;
+      const ownerMine = stored.owner?.accountId === account.accountId;
+      if (keyMine || ownerMine) {
+        dropMeta = true;
+        if (keyMine) {
+          entries[CLOUD_KEY_KEY] = null;
+        }
+        const owner: CloudOwnerV2 = { accountId: null, email: account.email };
+        entries[CLOUD_OWNER_KEY] = owner;
+      }
+      return entries;
+    });
+    if (dropMeta) {
+      await dropSyncMetaFor(account.accountId);
+    }
+    return 'deleted' as const;
+  });
+  await forgetGoogleGrant();
+  return isCancelled(result) ? result : { outcome: result };
+}
+
+/**
+ * Reads me for the stored account: a higher generation raises the stored one (not a reason to
+ * sync), a lower one is reported as a rollback and changes nothing. A 401 removes that bearer.
+ */
+export async function refreshMe(
+  account: CloudAccountV2,
+  options: CloudApiOptions = {},
+): Promise<{ answer: MeAnswer; rollback: boolean }> {
+  const answer = await guarded(account, () => me(account.token, options));
+  let rollback = false;
+  const server = answer.key;
+  if (server !== null) {
+    await writeIfAccount(account.token, (stored) => {
+      const key = stored.key;
+      if (key === null || key.accountId !== account.accountId || key.keyId !== server.keyId) {
+        return null;
+      }
+      if (server.generation < key.generation) {
+        rollback = true;
+        return null;
+      }
+      return server.generation > key.generation
+        ? { [CLOUD_KEY_KEY]: { ...key, generation: server.generation } }
+        : null;
+    });
+  }
+  return { answer, rollback };
 }

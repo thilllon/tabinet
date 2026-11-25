@@ -1,101 +1,134 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import {
-  type AccountState,
-  accountState,
-  checkKeySetup,
-  CLOUD_ACCOUNT_KEY,
-  CLOUD_SYNC_KEY,
-  loadLiveCloudAccount,
-  loadSyncKey,
-  showsSyncRow,
-} from '@/lib/cloud-auth';
+import { accountState, forgetExpiredAccount, loadCloudState, refreshMe } from '@/lib/cloud-auth';
 import { isCloudSyncEnabled } from '@/lib/cloud-config';
+import {
+  CLOUD_ACCOUNT_KEY,
+  CLOUD_KEY_KEY,
+  CLOUD_OWNER_KEY,
+  upgradeCloudStorage,
+} from '@/lib/cloud-storage';
 import { reportError } from '@/lib/error-message';
-import type { CloudAccount, CloudKeySetup } from '@/types';
+import { t } from '@/lib/i18n';
+import type {
+  AccountState,
+  CloudAccountV2,
+  CloudKeyV2,
+  CloudOwnerV2,
+  Usage,
+  WireKey,
+} from '@/types';
 
 export interface CloudAccountView {
-  /** `'unknown'` while the stored account is read or the server is asked about the passphrase. */
-  state: AccountState | 'unknown';
-  account: CloudAccount | null;
-  /** The server's passphrase setup, once known (needed to unlock). */
-  keySetup: CloudKeySetup | null | undefined;
-  /** Whether the Sync row shows (`showsSyncRow()`): also before the server answered, or while it cannot. */
-  syncRow: boolean;
-  /** Why the server could not be asked, in the UI language; cleared by `refresh()`. */
+  state: AccountState;
+  account: CloudAccountV2 | null;
+  owner: CloudOwnerV2 | null;
+  key: CloudKeyV2 | null;
+  /** The key the server last reported for this account; `undefined` while unknown. */
+  server: WireKey | undefined;
+  usage: Usage | null;
+  /** Why the server could not be asked (or a rollback), in the UI language; cleared by `refresh()`. */
   error: string | undefined;
-  /** Reads everything again (after sign-in, a passphrase, sign-out, or a failure). */
+  /** Reads everything again (after an action, or Try again). */
   refresh(): void;
-  /**
-   * Records the setup the server just answered with for the account holding `token`, without
-   * waiting for the next read to ask it again.
-   */
-  setKeySetup(setup: CloudKeySetup | null | undefined, token: string | undefined): void;
 }
 
+/** The rollback warning is shown once per page. */
+let rollbackShown = false;
+
+interface Read {
+  loaded: boolean;
+  account: CloudAccountV2 | null;
+  owner: CloudOwnerV2 | null;
+  key: CloudKeyV2 | null;
+  /** The token the server answer belongs to: never shown for another account. */
+  serverOf: string | undefined;
+  server: WireKey | undefined;
+  usage: Usage | null;
+  error: string | undefined;
+}
+
+const UNREAD: Read = {
+  loaded: false,
+  account: null,
+  owner: null,
+  key: null,
+  serverOf: undefined,
+  server: undefined,
+  usage: null,
+  error: undefined,
+};
+
 /**
- * The cloud sync account as Settings shows it. Reads the stored account (forgetting an expired
- * one) and key, asks the server for the account's passphrase setup on every read while signed in
- * (a 401 signs this device out; a key that does not open the setup is dropped), and follows `cloudAccount` /
- * `cloudSyncKey` in `chrome.storage.onChanged`, so another app tab signing out shows at once.
- * The listener lives in the page and dies with it.
+ * The cloud sync account as Settings shows it (spec 9.1, 9.3). Runs the v1 upgrade (a page can
+ * open before `onInstalled` ran), forgets an expired account (its key stays), reads the stored
+ * account, key and owner, and asks the server (`GET /v2/me`) while signed in: a higher generation
+ * raises the stored one, a lower one is reported once per page, a 401 removes that bearer only.
+ * Follows the three account keys in `chrome.storage.onChanged`; the listener lives in the page.
  */
 export function useCloudAccount(): CloudAccountView {
   const configured = isCloudSyncEnabled();
-  const [account, setAccount] = useState<CloudAccount | null>(null);
-  const [hasKey, setHasKey] = useState(false);
-  const [keySetup, setKeySetup] = useState<CloudKeySetup | null | undefined>(undefined);
-  const [loaded, setLoaded] = useState(false);
-  const [error, setError] = useState<string | undefined>(undefined);
+  const [read, setRead] = useState<Read>(UNREAD);
   const [generation, setGeneration] = useState(0);
-  /** The token the known `keySetup` belongs to: a setup is never shown for another account. */
-  const setupToken = useRef<string | undefined>(undefined);
-
   const refresh = useCallback(() => setGeneration((value) => value + 1), []);
-  const recordKeySetup = useCallback(
-    (setup: CloudKeySetup | null | undefined, token: string | undefined) => {
-      setupToken.current = setup === undefined ? undefined : token;
-      setKeySetup(setup);
-    },
-    [],
-  );
 
   useEffect(() => {
     if (!configured) {
       return;
     }
     let live = true;
-    setError(undefined);
     void (async () => {
       try {
-        const [storedAccount, key] = await Promise.all([
-          loadLiveCloudAccount(Date.now()),
-          loadSyncKey(),
-        ]);
+        await upgradeCloudStorage();
+        await forgetExpiredAccount();
+        const stored = await loadCloudState();
         if (!live) {
           return;
         }
-        setAccount(storedAccount);
-        setHasKey(key !== null);
-        if (storedAccount?.token !== setupToken.current) {
-          // Whatever the server said about the passphrase belonged to another account.
-          setupToken.current = undefined;
-          setKeySetup(undefined);
-        }
-        setLoaded(true);
-        if (storedAccount === null) {
+        setRead((current) => ({
+          ...current,
+          loaded: true,
+          account: stored.account,
+          owner: stored.owner,
+          key: stored.key,
+          error: undefined,
+          ...(stored.account?.token === current.serverOf
+            ? {}
+            : { serverOf: undefined, server: undefined, usage: null }),
+        }));
+        const account = stored.account;
+        if (account === null || account.expiresAt <= Date.now()) {
           return;
         }
-        const answer = await checkKeySetup(storedAccount);
-        if (live) {
-          setupToken.current = storedAccount.token;
-          setKeySetup(answer.keySetup);
-          setHasKey(answer.keyKept);
+        const { answer, rollback } = await refreshMe(account);
+        if (!live) {
+          return;
         }
+        const after = await loadCloudState();
+        let error: string | undefined;
+        if (rollback && !rollbackShown) {
+          rollbackShown = true;
+          error = t('settingsAccountRollback');
+        }
+        setRead((current) => ({
+          ...current,
+          account: after.account,
+          owner: after.owner,
+          key: after.key,
+          serverOf: account.token,
+          server: after.account?.token === account.token ? answer.key : undefined,
+          usage: answer.usage,
+          error,
+        }));
       } catch (err: unknown) {
         if (live) {
-          setLoaded(true);
-          setError(reportError('cloud account not read', err));
+          const stored = await loadCloudState().catch(() => null);
+          setRead((current) => ({
+            ...current,
+            loaded: true,
+            ...(stored === null ? {} : stored),
+            error: reportError('cloud account not read', err),
+          }));
         }
       }
     })();
@@ -109,7 +142,10 @@ export function useCloudAccount(): CloudAccountView {
       return;
     }
     const onChanged = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
-      if (area === 'local' && (CLOUD_ACCOUNT_KEY in changes || CLOUD_SYNC_KEY in changes)) {
+      if (
+        area === 'local' &&
+        (CLOUD_ACCOUNT_KEY in changes || CLOUD_KEY_KEY in changes || CLOUD_OWNER_KEY in changes)
+      ) {
         refresh();
       }
     };
@@ -117,13 +153,24 @@ export function useCloudAccount(): CloudAccountView {
     return () => chrome.storage.onChanged.removeListener(onChanged);
   }, [configured, refresh]);
 
-  const state = loaded
-    ? accountState({ configured, account, hasLocalKey: hasKey, keySetup, now: Date.now() })
-    : configured
-      ? 'unknown'
-      : 'unconfigured';
-
-  const syncRow = showsSyncRow(state, account, hasKey, Date.now());
-
-  return { state, syncRow, account, keySetup, error, refresh, setKeySetup: recordKeySetup };
+  const server =
+    read.account !== null && read.serverOf === read.account.token ? read.server : undefined;
+  const state = accountState({
+    configured,
+    loaded: read.loaded,
+    now: Date.now(),
+    account: read.account,
+    key: read.key,
+    server,
+  });
+  return {
+    state,
+    account: read.account,
+    owner: read.owner,
+    key: read.key,
+    server,
+    usage: read.usage,
+    error: read.error,
+    refresh,
+  };
 }

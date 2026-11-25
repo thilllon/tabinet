@@ -5,9 +5,9 @@ import type { SessionSummary, WindowSnapshot } from '@/types';
  * A size number in the UI language's digits and decimal mark. No digit grouping, so a value just
  * under the next unit reads "1023.9", as it always has.
  */
-function formatSize(value: number, fractionDigits: number): string {
+function formatSize(value: number, fractionDigits: number, minimumDigits = fractionDigits): string {
   return new Intl.NumberFormat(uiLocale(), {
-    minimumFractionDigits: fractionDigits,
+    minimumFractionDigits: minimumDigits,
     maximumFractionDigits: fractionDigits,
     useGrouping: false,
   }).format(value);
@@ -21,6 +21,20 @@ export function formatBytes(bytes: number): string {
     return t('treeSizeKilobytes', formatSize(bytes / 1024, 1));
   }
   return t('treeSizeMegabytes', formatSize(bytes / (1024 * 1024), 1));
+}
+
+/**
+ * A limit in the same 1024-based units as `formatBytes()`, without a forced decimal: `50 MB`,
+ * not `50.0 MB`.
+ */
+export function formatByteLimit(bytes: number): string {
+  if (bytes < 1024) {
+    return t('treeSizeBytes', formatSize(bytes, 0));
+  }
+  if (bytes < 1024 * 1024) {
+    return t('treeSizeKilobytes', formatSize(bytes / 1024, 1, 0));
+  }
+  return t('treeSizeMegabytes', formatSize(bytes / (1024 * 1024), 1, 0));
 }
 
 export function formatSessionMeta(

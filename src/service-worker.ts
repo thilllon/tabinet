@@ -1,6 +1,7 @@
 import { STORE_EXTENSION_ID } from '@/constants';
 import { formatRoute } from '@/lib/app-route';
 import { assembleTabs } from '@/lib/assemble-tabs';
+import { restrictStorageAccess, upgradeCloudStorage } from '@/lib/cloud-storage';
 import {
   CLOUD_SYNC_ALARM,
   handleCloudStorageChange,
@@ -282,6 +283,8 @@ async function onInstalled(details: chrome.runtime.InstalledDetails): Promise<vo
   }
   await sessionRepo.reconcile().catch(report);
   await notesRepo.reconcile().catch(report);
+  // Sync v1's keys give way to v2's (spec 8.2); nothing is read while sync is unconfigured.
+  await upgradeCloudStorage().catch(report);
   // Chrome drops every alarm on extension update/reload, so the periodic history alarm is
   // re-asserted for all reasons (a no-op replace when it already exists).
   await ensureHistoryAlarm();
@@ -400,6 +403,10 @@ function report(err: unknown): void {
 // can run, and never rejecting; everything that makes text waits on `uiLanguageReady()`. Listeners
 // are still registered synchronously below - this only starts a read.
 void applyStoredUiLanguage();
+
+// Local storage, where the sync data key lives, for the extension's own pages only (spec 8.4).
+// Never awaited, never throwing: Chrome 123 to 139 refuse it, which changes nothing.
+restrictStorageAccess();
 
 chrome.runtime.onInstalled.addListener((details) => {
   onInstalled(details).catch(report);

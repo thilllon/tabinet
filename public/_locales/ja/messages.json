@@ -364,7 +364,7 @@
     "description": "Explanation under the Backup heading in Settings."
   },
   "settingsBackupDescriptionSynced": {
-    "message": "ログインすると保存したセッションが同期され、スナップショットはこのデバイスにのみ残ります。自分用のコピーを残すにはファイルにエクスポートしてください。",
+    "message": "ログインすると保存したセッション、自由メモとメモが同期され、スナップショットはこの端末にのみ残ります。ここでのエクスポートはセッションとスナップショットを保存します。",
     "description": "Settings > Backup, section description shown instead of settingsBackupDescription when cloud sync is available in this build."
   },
   "settingsExportEverything": {
@@ -1768,7 +1768,7 @@
     "description": "Heading of the Settings section for signing in to cloud sync. One or two words."
   },
   "settingsAccountDescription": {
-    "message": "ログインすると、保存したセッション、YouTube メモと設定を複数の端末でそろえられます。データは自分だけが知るパスフレーズで、この端末上で暗号化されます。",
+    "message": "ログインすると、保存したセッション、自由メモ、YouTube メモと設定を複数の端末でそろえられます。データはこの端末上で、パスフレーズが守る鍵で暗号化されます。",
     "description": "Explanation under the Account heading in Settings."
   },
   "settingsAccountGoogle": {
@@ -1792,8 +1792,8 @@
     "description": "Label of the Settings row where a new cloud sync passphrase is typed twice."
   },
   "settingsAccountCreatePassphraseHint": {
-    "message": "すべてのデータは、この端末を出る前にこのパスフレーズで暗号化されます。誰も代わりに復元できないため、忘れるとクラウド上のコピーは失われます。",
-    "description": "Warning under \"Create a sync passphrase\" in Settings. It must say clearly that a forgotten passphrase cannot be recovered and the cloud copy is then lost."
+    "message": "このパスフレーズがクラウドデータの鍵を守ります。誰も代わりに復元できません。すでにロックを解除した端末なら新しいパスフレーズを設定できます。そのような端末がなければクラウドのコピーは失われます。バージョン 10 より前の同期で使ったことのないパスフレーズにしてください。",
+    "description": "Warning under \"Create a sync passphrase\" in Settings. It must say clearly that nobody can recover it, how to reset it, and not to reuse a passphrase from before version 10."
   },
   "settingsAccountPassphrase": {
     "message": "パスフレーズ",
@@ -1816,8 +1816,8 @@
     "description": "Button that saves a new sync passphrase. Keep it short."
   },
   "settingsAccountPassphraseExists": {
-    "message": "このアカウントには、別の端末で作成した同期パスフレーズがすでにあります。下に入力してください。",
-    "description": "Notice when the person tried to create a sync passphrase but another device had already created one."
+    "message": "このアカウントには同期パスフレーズがすでに設定されています。入力してください。",
+    "description": "Notice when the person tried to create a sync passphrase but the account already has one."
   },
   "settingsAccountUnlock": {
     "message": "同期パスフレーズを入力",
@@ -1844,7 +1844,7 @@
     "description": "Button in Settings that signs out of cloud sync on this device. Keep it short."
   },
   "settingsAccountSignedOut": {
-    "message": "ログアウトしました。この端末のセッションとメモはそのまま残っています。",
+    "message": "ログアウトしました。この端末のセッション、自由メモとメモはそのまま残っています。",
     "description": "Toast after signing out of cloud sync."
   },
   "settingsAccountDelete": {
@@ -1856,7 +1856,7 @@
     "description": "Title of the dialog that asks before deleting the cloud sync account."
   },
   "settingsAccountDeleteBody": {
-    "message": "アカウントと、同期サーバーに保存されたすべてのデータを削除します。元に戻せません。この端末のセッションとメモは残ります。",
+    "message": "Chrome が Google アカウントを確認した後、アカウントと同期サーバーに保存されたすべてのデータを削除します。元に戻せません。この端末のセッション、自由メモとメモは残ります。",
     "description": "Body of the dialog that asks before deleting the cloud sync account."
   },
   "settingsAccountDeleted": {
@@ -1928,8 +1928,8 @@
     "description": "Live sync status when nothing waits to be sent. $1 is the date and time of the last sync, already formatted."
   },
   "settingsAccountStatusHeld_other": {
-    "message": "上限を超えたスクリーンショット $1 枚を除いて同期済みです。最終同期: $2",
-    "description": "Live sync status when all but screenshots over the account limit are synced. $1 is how many stay only on this device, $2 the date and time of the last sync."
+    "message": "上限を超えた項目 $1 件を除いて同期済みです。最終同期: $2",
+    "description": "Live sync status when everything but items over a limit (storage or screenshots) is synced. $1 is how many stay only on this device, $2 the date and time of the last sync."
   },
   "settingsAccountNextCheck_other": {
     "message": "他の端末の変更を次に確認: $2（$1分ごと）",
@@ -2004,7 +2004,7 @@
     "description": "Heading in the sync explanation: what syncs."
   },
   "settingsAccountHelpWhatSynced_other": {
-    "message": "同期される: 保存したセッション、YouTube メモとそのスクリーンショット（アカウントごとに最大$1枚）、言語を含む設定",
+    "message": "同期される: 保存したセッション、自由メモ、YouTube メモとスクリーンショット（アカウントごとにスクリーンショット最大 $1 枚）、言語を含む設定",
     "description": "Sync explanation. $1 is the screenshot limit per account (100)."
   },
   "settingsAccountHelpWhatLocal": {
@@ -2020,12 +2020,12 @@
     "description": "Heading in the sync explanation: conflicting edits."
   },
   "settingsAccountHelpConflictNewer": {
-    "message": "各端末の時計で後に行った変更が残り、もう一方を上書きします。削除も変更として扱います。",
-    "description": "Sync explanation: last writer wins, by each device’s clock, deletions included."
+    "message": "セッション、設定、YouTube メモの 1 件ずつ: 各端末の時計で後に行った変更が残ります。削除も変更として扱います。",
+    "description": "Sync explanation: last writer wins for sessions, settings and each YouTube note, by each device’s clock, deletions included."
   },
   "settingsAccountHelpConflictWhole": {
-    "message": "内容は統合されません。セッション1件、動画1本分のメモ全体、または設定全体が丸ごと置き換わります。",
-    "description": "Sync explanation: the unit that is replaced."
+    "message": "自由メモ: 両方で編集した場合は両方の内容を残し、片方を「競合コピー」にします。編集は削除より優先されます。",
+    "description": "Sync explanation: memos edited in two places keep both texts. Quotes the conflict badge (memoConflictBadge)."
   },
   "settingsAccountImagesHeld_other": {
     "message": "スクリーンショット $1 枚を同期できませんでした。アカウントにはすでに上限の $2 枚があります。この端末には残っていて、スクリーンショットを削除すると同期されます。",
@@ -2310,5 +2310,181 @@
   "treeShowMoreTabsTitle_other": {
     "message": "このウィンドウで非表示のタブ $1 個",
     "description": "Tooltip of the \"Show N more tabs\" button under a long window. $1 is how many tabs are still hidden in that window, formatted."
+  },
+  "settingsAccountUpgradeHint": {
+    "message": "バージョン 10 で同期が作り直されました。ログインして、同期パスフレーズをもう一度作成してください。この端末のデータはすべて残っています。",
+    "description": "Settings > Account, signed out, on a device that used sync before version 10."
+  },
+  "settingsAccountExpired": {
+    "message": "ログインの期限が切れました。もう一度ログインすると同期が再開します。鍵はこの端末に残っています。",
+    "description": "Settings > Account when the sign-in ran out but the key is still on this device."
+  },
+  "settingsAccountSignInTitle": {
+    "message": "Chrome のウィンドウで Google アカウントを選ぶか確認します",
+    "description": "Tooltip of the Sign in with Google button."
+  },
+  "settingsAccountConfirm": {
+    "message": "この端末のデータをこのアカウントに追加しますか?",
+    "description": "Question shown after signing in to another account than the one this device last synced with."
+  },
+  "settingsAccountConfirmBody": {
+    "message": "この端末が最後に同期したのは $1、またはそのクラウドデータの以前のコピーです。$2 に追加すると、パスフレーズを作成または入力した後で、ここにある保存したセッション、自由メモ、YouTube メモと設定がそのアカウントにアップロードされます。",
+    "description": "Explains the account question. $1 is the email this device last synced with, $2 the email just signed in."
+  },
+  "settingsAccountKeepHere": {
+    "message": "いいえ、ここに残します",
+    "description": "Default button of the account question: cancel the sign-in and upload nothing."
+  },
+  "settingsAccountKeepHereTitle": {
+    "message": "このログインを取り消し、何もアップロードしません",
+    "description": "Tooltip of the \"No, keep it here\" button."
+  },
+  "settingsAccountAddData": {
+    "message": "このアカウントに追加",
+    "description": "Button of the account question: allow uploading this device’s data to the account just signed in."
+  },
+  "settingsAccountAddDataTitle": {
+    "message": "この端末のデータをこのアカウントにアップロードすることを許可します",
+    "description": "Tooltip of the \"Add to this account\" button."
+  },
+  "settingsAccountCheckFailed": {
+    "message": "アカウントを確認できませんでした。",
+    "description": "Settings > Account when the sync server could not be asked about the account."
+  },
+  "settingsAccountCreateTitle": {
+    "message": "パスフレーズを設定します。先に Chrome が Google アカウントを確認します。",
+    "description": "Tooltip of the Create passphrase button."
+  },
+  "settingsAccountPassphraseEmpty": {
+    "message": "パスフレーズを入力してください。",
+    "description": "Field error when the passphrase field was left empty."
+  },
+  "settingsAccountUnlockTitle": {
+    "message": "この端末で同期のロックを解除します。先に Chrome が Google アカウントを確認します。",
+    "description": "Tooltip of the Unlock button."
+  },
+  "settingsAccountForgotHint": {
+    "message": "忘れた場合は、同期が動いている端末で「パスフレーズを変更」を使ってください。そのような端末がなければ「クラウドのデータを削除」でやり直してください。",
+    "description": "Hint under the passphrase field when unlocking. Quotes the labels of the Change passphrase and Delete cloud data buttons."
+  },
+  "settingsAccountChangePassphrase": {
+    "message": "パスフレーズを変更",
+    "description": "Button in Settings > Account that sets a new sync passphrase from this device."
+  },
+  "settingsAccountChangeHint": {
+    "message": "忘れたパスフレーズを設定し直すときにも使います。",
+    "description": "Grey hint beside the Change passphrase button."
+  },
+  "settingsAccountChangeTitle": {
+    "message": "この端末から新しい同期パスフレーズを設定します",
+    "description": "Tooltip of the Change passphrase button."
+  },
+  "settingsAccountChangeDialogTitle": {
+    "message": "同期パスフレーズを変更しますか?",
+    "description": "Title of the dialog that changes the sync passphrase."
+  },
+  "settingsAccountChangeBody": {
+    "message": "先に Chrome が Google アカウントを確認します。以前のパスフレーズは不要です。すでにロックを解除した端末はそのまま使えます。データを再びアップロードすることはありません。",
+    "description": "Body of the dialog that changes the sync passphrase."
+  },
+  "settingsAccountNewPassphrase": {
+    "message": "新しいパスフレーズ",
+    "description": "Label of the new passphrase field in the Change passphrase dialog."
+  },
+  "settingsAccountChanged": {
+    "message": "同期パスフレーズを変更しました。",
+    "description": "Toast after the sync passphrase was changed."
+  },
+  "settingsAccountKeyMismatch": {
+    "message": "クラウドのデータの鍵が異なるため、同期を一時停止しました。この端末からは何も削除していません。ログアウトしてもう一度ログインするか、クラウドのデータを削除してください。",
+    "description": "Settings > Account when the cloud data has another key than this device."
+  },
+  "settingsAccountRollback": {
+    "message": "同期サーバーが、この端末が以前に見たものより古いパスフレーズの記録を返しました。古いパスフレーズが再び使える可能性があります。パスフレーズを変更してください。",
+    "description": "Error toast when the sync server returned an older passphrase record than this device saw before."
+  },
+  "settingsAccountSignOutTitle": {
+    "message": "同期からログアウトしますか?",
+    "description": "Title of the dialog that asks before signing out of sync and removing the key."
+  },
+  "settingsAccountSignOutBody": {
+    "message": "この端末から鍵を削除するため、ここで再び同期するにはパスフレーズが必要です。これがロックを解除した最後の端末で、パスフレーズを忘れている場合、クラウドのコピーは復元できません。この端末のデータは残ります。",
+    "description": "Body of the sign-out dialog, shown when the key will be removed."
+  },
+  "settingsAccountSignOutButtonTitle": {
+    "message": "同期を止めて、この端末から鍵を削除します",
+    "description": "Tooltip of the Sign out button."
+  },
+  "settingsAccountDeleteTooltip": {
+    "message": "同期サーバーにこのアカウント用に保存されたものをすべて削除します",
+    "description": "Tooltip of the Delete cloud data button."
+  },
+  "settingsAccountUsage": {
+    "message": "クラウドの保存容量",
+    "description": "Label of the row in Settings > Account that shows how much cloud storage the account uses."
+  },
+  "settingsAccountUsageValue": {
+    "message": "$1 / $2",
+    "description": "Value of the Cloud storage row. $1 is the amount used, $2 the limit, both with their unit (such as 12.3 MB and 50 MB)."
+  },
+  "settingsAccountUsageTitle": {
+    "message": "アカウントに暗号化して保存されたすべて（スクリーンショットと削除の記録を含む）",
+    "description": "Tooltip of the Cloud storage row."
+  },
+  "settingsAccountTryAgainTitle": {
+    "message": "同期サーバーにもう一度問い合わせます",
+    "description": "Tooltip of the Try again button in Settings > Account."
+  },
+  "settingsAccountStorageHeld_other": {
+    "message": "$1 件の項目を同期できませんでした。クラウドの保存容量がいっぱいです（$2）。この端末には残っていて、空きができると同期されます。",
+    "description": "Toast when the sync server refused items because the account storage is full. $1 is how many items, $2 the limit with its unit (such as 50 MB)."
+  },
+  "settingsAccountHelpWhatLimit": {
+    "message": "1 つのアカウントに、スクリーンショットと削除の記録を含めて最大 $1 まで保存できます。超えた分はこの端末に残り、削除はいつでもできます。",
+    "description": "Sync explanation of the account storage limit. $1 is the limit with its unit (such as 50 MB)."
+  },
+  "errorCloudGoogleRefused": {
+    "message": "Google がアカウントを確認しませんでした。もう一度お試しください。",
+    "description": "Error when Google did not confirm the account."
+  },
+  "errorCloudGoogleAccount": {
+    "message": "Chrome が、同期にログインしているものとは別の Google アカウントを選びました。もう一度試して、そのアカウントを選んでください。",
+    "description": "Error when Chrome picked another Google account than the one signed in to sync. Must not advise signing out."
+  },
+  "errorCloudGoogleUnavailable": {
+    "message": "アカウントを確認するために Google に接続できませんでした。もう一度お試しください。",
+    "description": "Error when Google could not be reached to confirm the account."
+  },
+  "errorCloudKeyChanged": {
+    "message": "クラウドのデータの鍵が異なるため同期を一時停止しました。設定 > アカウントを開いてください。",
+    "description": "Error when sync is paused because the cloud data has another key."
+  },
+  "errorCloudKeyConflict": {
+    "message": "その間にパスフレーズの記録が変わりました。もう一度お試しください。",
+    "description": "Error when the passphrase record changed on the server while this device was changing it."
+  },
+  "errorCloudKeyUnavailable": {
+    "message": "サーバーがパスフレーズの記録を開けませんでした。同期がすでに動いている端末でパスフレーズを変更してください。",
+    "description": "Error when the server could not open the stored passphrase record."
+  },
+  "errorCloudUpgrade": {
+    "message": "このバージョンの Tabinet は同期できなくなりました。更新してください。",
+    "description": "Error when the sync server no longer speaks this version’s protocol."
+  },
+  "errorCloudInterrupted": {
+    "message": "ダウンロードが途中で切れました。止まったところから同期を続けます。",
+    "description": "Error when the download from the sync server was cut off before its end."
+  },
+  "errorCloudNewerData": {
+    "message": "一部の項目には新しいバージョンの Tabinet が必要です。何も変更していません。",
+    "description": "Error when some synced items need a newer version of the extension."
+  },
+  "errorCloudClock": {
+    "message": "一部の項目の日付が 1 日以上先になっています。このコンピューターの時計を確認してください。",
+    "description": "Error when items are dated more than a day ahead, so the server refused them."
+  },
+  "errorCloudItemTooLarge": {
+    "message": "項目が大きすぎて同期できません。この端末にのみ残ります。",
+    "description": "Error when an item is too large to sync and stays on this device."
   }
 }

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { CLOUD_ACCOUNT_KEY, CLOUD_SYNC_KEY } from '@/lib/cloud-auth';
-import { toBase64 } from '@/lib/cloud-crypto';
+import { keyIdOf, toBase64 } from '@/lib/cloud-crypto';
+import { CLOUD_ACCOUNT_KEY, CLOUD_KEY_KEY } from '@/lib/cloud-storage';
 import { CLOUD_SYNC_ALARM, CLOUD_SYNC_SOON_ALARM } from '@/lib/cloud-sync';
 import { CLOUD_SYNC_META_KEY } from '@/lib/cloud-sync-state';
 import { SESSION_SCHEMA_VERSION, type Session } from '@/types';
@@ -18,12 +18,39 @@ async function settle(): Promise<void> {
   }
 }
 
-const ACCOUNT = { token: 'tok', expiresAt: 4_000_000_000_000, email: 'a@b.c' };
+const ACCOUNT = {
+  accountId: 'acct',
+  token: 'tok',
+  expiresAt: 4_000_000_000_000,
+  email: 'a@b.c',
+  uploadConfirmed: true,
+};
 
-function signIn(): void {
+async function keyFor(dek: string) {
+  return { accountId: ACCOUNT.accountId, keyId: await keyIdOf(dek), generation: 1, dek };
+}
+
+/** A ready device, and a server that knows its bearer and key. */
+async function signIn() {
+  const key = await keyFor(toBase64(crypto.getRandomValues(new Uint8Array(32))));
   const { state } = getChromeFake();
   state.local.set(CLOUD_ACCOUNT_KEY, ACCOUNT);
-  state.local.set(CLOUD_SYNC_KEY, toBase64(crypto.getRandomValues(new Uint8Array(32))));
+  state.local.set(CLOUD_KEY_KEY, key);
+  const server = fakeSyncServer();
+  server.seedAccount({ token: ACCOUNT.token });
+  server.seedKey({
+    keyId: key.keyId,
+    generation: 1,
+    envelope: {
+      v: 2,
+      generation: 1,
+      keyId: key.keyId,
+      salt: toBase64(new Uint8Array(16)),
+      iv: toBase64(new Uint8Array(12)),
+      wrapped: toBase64(new Uint8Array(48)),
+    },
+  });
+  return server;
 }
 
 /**
@@ -77,7 +104,7 @@ afterEach(() => {
 
 describe('cloud sync in the worker', () => {
   it('stays dormant while unconfigured: no sync alarm on install, startup or a change', async () => {
-    signIn();
+    await signIn();
     const { sessionRepo } = await loadWorker(false);
     const fake = getChromeFake();
     fake.fire.installed({ reason: 'install' });
@@ -90,7 +117,7 @@ describe('cloud sync in the worker', () => {
   });
 
   it('arms the periodic alarm on install and on startup while ready', async () => {
-    signIn();
+    await signIn();
     await loadWorker(true);
     const fake = getChromeFake();
     fake.fire.installed({ reason: 'update', previousVersion: '1.0.0' });
@@ -111,19 +138,18 @@ describe('cloud sync in the worker', () => {
     // The server does not answer yet: the fallback stands while the first sync runs.
     vi.stubGlobal('fetch', () => new Promise<Response>(() => {}));
     vi.stubGlobal('navigator', { locks: undefined });
-    await chrome.storage.local.set({ [CLOUD_SYNC_KEY]: toBase64(new Uint8Array(32)) });
+    await chrome.storage.local.set({ [CLOUD_KEY_KEY]: await keyFor(toBase64(new Uint8Array(32))) });
     await settle();
     expect(fake.state.alarms.has(CLOUD_SYNC_ALARM)).toBe(true);
     expect(fake.state.alarms.has(CLOUD_SYNC_SOON_ALARM)).toBe(true);
-    await chrome.storage.local.remove([CLOUD_ACCOUNT_KEY, CLOUD_SYNC_KEY]);
+    await chrome.storage.local.remove([CLOUD_ACCOUNT_KEY, CLOUD_KEY_KEY]);
     await settle();
     expect(fake.state.alarms.has(CLOUD_SYNC_ALARM)).toBe(false);
     expect(fake.state.alarms.has(CLOUD_SYNC_SOON_ALARM)).toBe(false);
   });
 
   it('the sync alarm runs a sync, and a later change arms the 30-second fallback', async () => {
-    signIn();
-    const server = fakeSyncServer();
+    const server = await signIn();
     vi.stubGlobal('fetch', server.fetch);
     const { sessionRepo } = await loadWorker(true);
     const fake = getChromeFake();
@@ -146,8 +172,7 @@ describe('cloud sync in the worker', () => {
   });
 
   it('a settings change in sync storage marks the settings for the next sync', async () => {
-    signIn();
-    const server = fakeSyncServer();
+    const server = await signIn();
     vi.stubGlobal('fetch', server.fetch);
     await loadWorker(true);
     const fake = getChromeFake();
