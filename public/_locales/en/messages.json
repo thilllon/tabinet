@@ -2243,14 +2243,6 @@
     "message": "The sync server sent an answer this version cannot read.",
     "description": "Error when the sync server's answer has an unexpected shape."
   },
-  "errorCloudRecordTooLarge": {
-    "message": "A session is too large to sync. It stays on this device only.",
-    "description": "Error when a saved session is too large for the sync server; it stays on this device only."
-  },
-  "errorCloudNoteTooLarge": {
-    "message": "A video's notes or a screenshot is too large to sync. It stays on this device only.",
-    "description": "Error when one video's notes, or one note screenshot, is too large for the sync server; it stays on this device only."
-  },
   "commonTryAgain": {
     "message": "Try again",
     "description": "Button that repeats something that failed, such as reading the cloud sync account. Keep it short."

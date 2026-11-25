@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { POLICY } from '@/constants';
 import { keyIdOf, toBase64 } from '@/lib/cloud-crypto';
 import { CLOUD_ACCOUNT_KEY, CLOUD_KEY_KEY } from '@/lib/cloud-storage';
 import { CLOUD_SYNC_ALARM, CLOUD_SYNC_SOON_ALARM } from '@/lib/cloud-sync';
@@ -186,5 +187,57 @@ describe('cloud sync in the worker', () => {
     fake.fire.alarm(CLOUD_SYNC_SOON_ALARM);
     await settle();
     expect(server.record('settings', 'settings')?.seq).toBeGreaterThan(before ?? 0);
+  });
+
+  it.each(['rejects', 'throws', 'absent'] as const)(
+    'asks for trusted contexts only where Chrome can; when it %s, every listener still registers',
+    async (how) => {
+      const local = chrome.storage.local as unknown as Record<string, unknown>;
+      const calls: unknown[] = [];
+      local.setAccessLevel =
+        how === 'absent'
+          ? undefined
+          : (options: unknown) => {
+              calls.push(options);
+              if (how === 'throws') {
+                throw new Error('Unsupported');
+              }
+              return Promise.reject(new Error('Unsupported'));
+            };
+      await loadWorker(true);
+      await settle();
+      expect(calls).toEqual(how === 'absent' ? [] : [{ accessLevel: 'TRUSTED_CONTEXTS' }]);
+      expect(chrome.action.onClicked.hasListeners()).toBe(true);
+      expect(chrome.alarms.onAlarm.hasListeners()).toBe(true);
+      expect(chrome.storage.onChanged.hasListeners()).toBe(true);
+    },
+  );
+
+  it('keeps the worker alive with an extension call while a run waits, and stops after it', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    try {
+      const server = await signIn();
+      let answer: (() => void) | undefined;
+      vi.stubGlobal('fetch', async (...args: Parameters<typeof fetch>) => {
+        await new Promise<void>((resolve) => (answer = resolve));
+        return server.fetch(...args);
+      });
+      await loadWorker(true);
+      const fake = getChromeFake();
+      fake.fire.alarm(CLOUD_SYNC_ALARM);
+      await settle();
+      await vi.advanceTimersByTimeAsync(POLICY.sync.keepAliveMs * 2);
+      expect(fake.state.platformInfoCalls).toBeGreaterThanOrEqual(2);
+      for (let round = 0; round < 10 && answer !== undefined; round += 1) {
+        answer();
+        answer = undefined;
+        await settle();
+      }
+      const calls = fake.state.platformInfoCalls;
+      await vi.advanceTimersByTimeAsync(POLICY.sync.keepAliveMs * 3);
+      expect(fake.state.platformInfoCalls).toBe(calls);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

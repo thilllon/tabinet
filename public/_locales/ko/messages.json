@@ -2051,14 +2051,6 @@
     "message": "동기화 서버가 이 버전이 읽을 수 없는 응답을 보냈습니다.",
     "description": "Error when the sync server's answer has an unexpected shape."
   },
-  "errorCloudRecordTooLarge": {
-    "message": "세션 하나가 너무 커서 동기화할 수 없습니다. 이 기기에만 남아 있습니다.",
-    "description": "Error when a saved session is too large for the sync server; it stays on this device only."
-  },
-  "errorCloudNoteTooLarge": {
-    "message": "메모나 스크린샷 하나가 너무 커서 동기화할 수 없습니다. 이 기기에만 남아 있습니다.",
-    "description": "Error when one video's notes, or one note screenshot, is too large for the sync server; it stays on this device only."
-  },
   "commonTryAgain": {
     "message": "다시 시도",
     "description": "Button that repeats something that failed, such as reading the cloud sync account. Keep it short."

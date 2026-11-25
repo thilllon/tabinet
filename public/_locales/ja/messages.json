@@ -2059,14 +2059,6 @@
     "message": "同期サーバーから、このバージョンでは読めない応答が届きました。",
     "description": "Error when the sync server's answer has an unexpected shape."
   },
-  "errorCloudRecordTooLarge": {
-    "message": "大きすぎて同期できないセッションがあります。このデバイスにだけ残ります。",
-    "description": "Error when a saved session is too large for the sync server; it stays on this device only."
-  },
-  "errorCloudNoteTooLarge": {
-    "message": "メモまたはスクリーンショットが大きすぎて同期できません。この端末にだけ残ります。",
-    "description": "Error when one video's notes, or one note screenshot, is too large for the sync server; it stays on this device only."
-  },
   "commonTryAgain": {
     "message": "再試行",
     "description": "Button that repeats something that failed, such as reading the cloud sync account. Keep it short."
