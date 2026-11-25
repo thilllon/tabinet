@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
+import { POLICY } from '@/constants';
 import {
   captureFrame,
   captureFrameInPage,
   controlPlayerInPage,
-  FRAME_MAX_WIDTH,
-  FRAME_QUALITY,
   pausePlayer,
   playPlayer,
   readPlayer,
@@ -155,8 +154,8 @@ describe('a screenshot of the video', () => {
     const [canvas] = getChromeFake().state.pageCanvases;
     expect(canvas?.drawn).toHaveLength(1);
     expect(canvas?.drawn[0]).toMatchObject({ width: 1280, height: 720 });
-    expect(canvas?.encoded).toEqual([{ type: 'image/webp', quality: FRAME_QUALITY }]);
-    expect(FRAME_MAX_WIDTH).toBe(1280);
+    expect(canvas?.encoded).toEqual([{ type: 'image/webp', quality: POLICY.screenshot.quality }]);
+    expect(POLICY.screenshot.maxWidth).toBe(1280);
   });
 
   it('keeps a frame narrower than the limit at its own size', async () => {

@@ -5,15 +5,9 @@
  * failure an `ExplainedError` whose `userKey` `src/lib/error-message.ts` turns into a sentence.
  * Nothing here logs a token or a ciphertext.
  */
+import { POLICY } from '@/constants';
 import { cloudSyncConfig } from '@/lib/cloud-config';
-import {
-  base64ByteLength,
-  IV_BYTES,
-  KDF_MAX_ITERATIONS,
-  KDF_MIN_ITERATIONS,
-  SALT_MAX_BYTES,
-  SALT_MIN_BYTES,
-} from '@/lib/cloud-crypto';
+import { base64ByteLength, IV_BYTES } from '@/lib/cloud-crypto';
 import { ExplainedError } from '@/lib/error-message';
 import { isRecord } from '@/lib/import-guards';
 import {
@@ -90,9 +84,9 @@ function byteLength(value: unknown): number | undefined {
 }
 
 /**
- * A key setup within the bounds the server itself enforces on `PUT /v1/keys`: 100,000 to
- * 10,000,000 PBKDF2 rounds, a 16 to 64 byte salt, a 12-byte iv and a non-empty check, all
- * base64. Anything else never reaches PBKDF2, where a huge round count would hang the page.
+ * A key setup within the bounds the server itself enforces on `PUT /v1/keys`: rounds and salt
+ * within `POLICY.kdf`, a 12-byte iv and a non-empty check, all base64. Anything else never
+ * reaches PBKDF2, where a huge round count would hang the page.
  */
 export function isCloudKeySetup(value: unknown): value is CloudKeySetup {
   if (!isRecord(value) || !isRecord(value.kdf)) {
@@ -104,11 +98,11 @@ export function isCloudKeySetup(value: unknown): value is CloudKeySetup {
     value.kdf.name === 'PBKDF2' &&
     value.kdf.hash === 'SHA-256' &&
     isCount(value.kdf.iterations) &&
-    value.kdf.iterations >= KDF_MIN_ITERATIONS &&
-    value.kdf.iterations <= KDF_MAX_ITERATIONS &&
+    value.kdf.iterations >= POLICY.kdf.minIterations &&
+    value.kdf.iterations <= POLICY.kdf.maxIterations &&
     salt !== undefined &&
-    salt >= SALT_MIN_BYTES &&
-    salt <= SALT_MAX_BYTES &&
+    salt >= POLICY.kdf.minSaltBytes &&
+    salt <= POLICY.kdf.maxSaltBytes &&
     check !== undefined &&
     check > 0 &&
     byteLength(value.checkIv) === IV_BYTES
@@ -357,7 +351,10 @@ export async function getRecords(
   return { records: body.records, next: body.next, hasMore: body.hasMore };
 }
 
-/** `POST /v1/records`: writes up to 100 records; each is applied, or `stale` with the newer one. */
+/**
+ * `POST /v1/records`: writes up to `POLICY.request.maxRecordsPerPush` records; each is applied, or
+ * `stale` with the newer one.
+ */
 export async function postRecords(
   token: string,
   records: readonly CloudRecord[],

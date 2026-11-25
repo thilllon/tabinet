@@ -1,13 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { POLICY } from '@/constants';
 import { CLOUD_ACCOUNT_KEY, CLOUD_SYNC_KEY } from '@/lib/cloud-auth';
 import { overrideCloudSyncConfig } from '@/lib/cloud-config';
 import { encryptRecord, toBase64 } from '@/lib/cloud-crypto';
 import {
   handleCloudStorageChange,
   markHeldImagesNoticed,
-  PUSH_MAX_BYTES,
-  PUSH_MAX_RECORDS,
   readLocalSettings,
   syncNow,
   type SyncResult,
@@ -455,7 +454,7 @@ describe('two devices converging through the server', () => {
     });
     expect(await sync(a)).toMatchObject({ outcome: 'synced', pushed: 251 });
     expect(server.posts.map((post) => post.count)).toEqual([100, 100, 51]);
-    expect(server.posts.every((post) => post.count <= PUSH_MAX_RECORDS)).toBe(true);
+    expect(server.posts.every((post) => post.count <= POLICY.request.maxRecordsPerPush)).toBe(true);
     // Reading them back pages through the feed.
     expect(await sync(b, { pageSize: 40 })).toMatchObject({ outcome: 'synced', pulled: 250 });
     expect(server.requests.filter((request) => request.method === 'GET').length).toBeGreaterThan(6);
@@ -482,7 +481,7 @@ describe('two devices converging through the server', () => {
     });
     expect(await sync(a)).toMatchObject({ outcome: 'synced', pushed: 9 });
     expect(server.posts.length).toBeGreaterThan(1);
-    expect(server.posts.every((post) => post.bytes <= PUSH_MAX_BYTES)).toBe(true);
+    expect(server.posts.every((post) => post.bytes <= POLICY.request.pushBatchBytes)).toBe(true);
     expect(server.posts.reduce((sum, post) => sum + post.count, 0)).toBe(9);
     await sync(b);
     expect((await on(b, () => sessionRepo.listSummaries())).length).toBe(8);

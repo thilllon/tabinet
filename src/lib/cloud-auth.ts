@@ -5,7 +5,7 @@
  * loaded by the service worker. Neither key is session data, so they are written here rather
  * than through `sessionRepo`; signing out or deleting the cloud data never touches a session.
  */
-import { GOOGLE_OAUTH_SCOPES } from '@/constants';
+import { GOOGLE_OAUTH_SCOPES, POLICY } from '@/constants';
 import {
   type CloudApiOptions,
   type CloudSignInResult,
@@ -24,9 +24,6 @@ import type { CloudAccount, CloudKeySetup } from '@/types';
 export const CLOUD_ACCOUNT_KEY = 'cloudAccount';
 /** `chrome.storage.local` key of the raw sync key (base64). Never sent anywhere. */
 export const CLOUD_SYNC_KEY = 'cloudSyncKey';
-
-/** The shortest sync passphrase Settings accepts. */
-export const PASSPHRASE_MIN_LENGTH = 8;
 
 /** What Settings > Account shows. */
 export type AccountState =
@@ -79,7 +76,7 @@ export function newPassphraseProblem(
   passphrase: string,
   repeated: string,
 ): 'tooShort' | 'mismatch' | null {
-  if ([...passphrase].length < PASSPHRASE_MIN_LENGTH) {
+  if ([...passphrase].length < POLICY.passphrase.minLength) {
     return 'tooShort';
   }
   return passphrase === repeated ? null : 'mismatch';

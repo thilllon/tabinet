@@ -1,4 +1,4 @@
-import { LAZY_AUTO_THRESHOLD } from '@/constants';
+import { POLICY } from '@/constants';
 import { ExplainedError } from '@/lib/error-message';
 import { unwrapSuspendedUrl } from '@/lib/suspended-url';
 import type { Session, SessionSettings, WindowBounds, WindowSnapshot } from '@/types';
@@ -185,7 +185,7 @@ export function screenRectOf(source: Pick<Screen, 'availWidth' | 'availHeight'>)
 
 /** Whether the `restoreLazy` setting discards tabs for a restore of `tabCount` tabs. */
 export function isLazyRestore(lazy: SessionSettings['restoreLazy'], tabCount: number): boolean {
-  return lazy === 'always' || (lazy === 'auto' && tabCount > LAZY_AUTO_THRESHOLD);
+  return lazy === 'always' || (lazy === 'auto' && tabCount > POLICY.restore.lazyAboveTabs);
 }
 
 function chunk<T>(items: T[], size: number): T[][] {

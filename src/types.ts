@@ -1,3 +1,6 @@
+// Relative, not `@/`: scripts/ load this file with tsx, from any working directory.
+import { POLICY } from './constants';
+
 export type SortBy = 'url' | 'title' | 'custom';
 
 export type GroupFrom = 'leftToRight' | 'rightToLeft';
@@ -120,27 +123,19 @@ export interface SessionSettings {
   // chrome.storage.local key 'sessionSettings' (device-local; NOT sync)
   historyEnabled: boolean; // default true (owner decision)
   /**
-   * Whole minutes between automatic snapshots, default 5. The Settings view offers 5, 10 and 30 or
+   * Whole minutes between automatic snapshots. The Settings view offers the preset choices or
    * any value the user types; `normalizeSettings` clamps whatever is stored into
-   * [HISTORY_INTERVAL_MIN_MINUTES, HISTORY_INTERVAL_MAX_MINUTES].
+   * the bounds of `POLICY.snapshots.intervalMinutes`.
    */
   historyIntervalMinutes: number;
-  historyMaxSnapshots: number; // default 20 unprotected
-  restoreLazy: 'auto' | 'always' | 'never'; // default 'auto' = discard when tabCount > LAZY_AUTO_THRESHOLD (src/constants.ts)
+  historyMaxSnapshots: number; // unprotected ones; see POLICY.snapshots.keep
+  restoreLazy: 'auto' | 'always' | 'never'; // default 'auto': see POLICY.restore.lazyAboveTabs
 }
-
-/**
- * Bounds for `historyIntervalMinutes`. Chrome accepts `periodInMinutes >= 0.5` for a packed
- * extension, so 1 minute is safely above its floor; a day is the longest interval that still makes
- * sense for crash recovery.
- */
-export const HISTORY_INTERVAL_MIN_MINUTES = 1;
-export const HISTORY_INTERVAL_MAX_MINUTES = 1440;
 
 export const DEFAULT_SESSION_SETTINGS: SessionSettings = {
   historyEnabled: true,
-  historyIntervalMinutes: 5,
-  historyMaxSnapshots: 20,
+  historyIntervalMinutes: POLICY.snapshots.intervalMinutes.default,
+  historyMaxSnapshots: POLICY.snapshots.keep.default,
   restoreLazy: 'auto',
 };
 

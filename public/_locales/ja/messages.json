@@ -345,7 +345,7 @@
   },
   "settingsLazyAuto": {
     "message": "自動（タブが$1個を超える場合）",
-    "description": "Lazy restore dropdown option: only when a session has more tabs than $1, the formatted threshold (LAZY_AUTO_THRESHOLD in src/constants.ts)."
+    "description": "Lazy restore dropdown option: only when a session has more tabs than $1, the formatted threshold (POLICY.restore.lazyAboveTabs in src/constants.ts)."
   },
   "settingsLazyAlways": {
     "message": "常に",
@@ -1881,7 +1881,7 @@
   },
   "settingsAccountImagesHeld_other": {
     "message": "スクリーンショット $1 枚を同期できませんでした。アカウントにはすでに上限の $2 枚があります。この端末には残っていて、スクリーンショットを削除すると同期されます。",
-    "description": "Toast in Settings > Account, shown once, when the sync server refused note screenshots because the account is at its limit. $1 is how many are held back on this device, $2 the limit (100)."
+    "description": "Toast in Settings > Account, shown once, when the sync server refused note screenshots because the account is at its limit. $1 is how many are held back on this device, $2 the limit (POLICY.account.screenshots)."
   },
   "errorCloudUnreachable": {
     "message": "同期サーバーに接続できません。接続を確認して、もう一度お試しください。",

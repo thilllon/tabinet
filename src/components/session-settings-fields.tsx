@@ -4,14 +4,10 @@ import { SelectMenu } from '@/components/select-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { POLICY } from '@/constants';
 import { t } from '@/lib/i18n';
 import {
   CUSTOM_INTERVAL,
-  HISTORY_INTERVAL_MAX_MINUTES,
-  HISTORY_INTERVAL_MIN_MINUTES,
-  HISTORY_INTERVALS,
-  HISTORY_MAX_MAX,
-  HISTORY_MAX_MIN,
   intervalLabel,
   intervalRangeHint,
   intervalSelectValue,
@@ -131,7 +127,7 @@ export function SessionSettingsFields({
             value={intervalChoice}
             disabled={intervalDisabled}
             options={[
-              ...HISTORY_INTERVALS.map((minutes) => ({
+              ...POLICY.snapshots.intervalMinutes.choices.map((minutes) => ({
                 value: String(minutes),
                 label: intervalLabel(minutes),
               })),
@@ -156,8 +152,8 @@ export function SessionSettingsFields({
                 aria-label={t('settingsIntervalCustomLabel')}
                 type="number"
                 inputMode="numeric"
-                min={HISTORY_INTERVAL_MIN_MINUTES}
-                max={HISTORY_INTERVAL_MAX_MINUTES}
+                min={POLICY.snapshots.intervalMinutes.min}
+                max={POLICY.snapshots.intervalMinutes.max}
                 step={1}
                 className="h-8 w-20"
                 value={intervalDraft}
@@ -183,8 +179,8 @@ export function SessionSettingsFields({
             id={maxId}
             type="number"
             inputMode="numeric"
-            min={HISTORY_MAX_MIN}
-            max={HISTORY_MAX_MAX}
+            min={POLICY.snapshots.keep.min}
+            max={POLICY.snapshots.keep.max}
             step={1}
             className="h-8 w-20"
             value={maxDraft}

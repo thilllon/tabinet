@@ -11,9 +11,9 @@
  * language; one video's notes are `{ kind: 'notes', id: <videoId> }` with the whole `VideoNotes`
  * inside, and one screenshot `{ kind: 'image', id: <imageId> }` with its data URL inside (its
  * `updatedAt` is when it was stored or deleted: a picture never changes). Last writer wins by
- * `updatedAt`, as on the server. The server keeps at most `CLOUD_IMAGE_LIMIT` live screenshots per
- * account and refuses one more (`rejected`); such a picture stays on this device, is offered again
- * once a screenshot is deleted, and Settings > Account says so once.
+ * `updatedAt`, as on the server. The server keeps at most `POLICY.account.screenshots` live
+ * screenshots per account and refuses one more (`rejected`); such a picture stays on this device,
+ * is offered again once a screenshot is deleted, and Settings > Account says so once.
  *
  * The server is not trusted: every record, a tombstone included, is encrypted with its
  * `kind`/`id`/`updatedAt`/`deleted` as AES-GCM additional data (`encryptRecord()`), so a record
@@ -32,6 +32,7 @@
  * Everything here is a no-op while cloud sync is unconfigured (`isCloudSyncEnabled()`), and
  * nothing touches `chrome.*` while the module body runs.
  */
+import { POLICY } from '@/constants';
 import {
   type CloudApiOptions,
   CloudUnauthorizedError,
@@ -73,11 +74,10 @@ import type {
   VideoNotes,
 } from '@/types';
 
-/** The periodic sync alarm, every `SYNC_PERIOD_MINUTES` while ready. */
+/** The periodic sync alarm, every `POLICY.sync.periodMinutes` while ready. */
 export const CLOUD_SYNC_ALARM = 'cloud-sync';
 /** The one-shot alarm about a minute after a local change. */
 export const CLOUD_SYNC_SOON_ALARM = 'cloud-sync-soon';
-export const SYNC_PERIOD_MINUTES = 15;
 const SYNC_SOON_MINUTES = 1;
 
 /** The Web Lock one sync holds from start to end, shared by the page and the worker. */
@@ -85,12 +85,6 @@ const SYNC_LOCK_NAME = 'tabinet:cloud-sync';
 
 /** The id of the one settings record. */
 const SETTINGS_RECORD_ID = 'settings';
-
-/** What one `POST /v1/records` may carry: the server's 100 records, and 3.5 MiB of its 4 MiB body. */
-export const PUSH_MAX_RECORDS = 100;
-export const PUSH_MAX_BYTES = 3.5 * 1024 * 1024;
-/** The largest ciphertext the server accepts (1 MiB of base64). */
-const MAX_CIPHERTEXT_CHARS = 1024 * 1024;
 
 /** Record ids the server accepts. */
 const RECORD_ID = /^[A-Za-z0-9_-]{1,64}$/;
@@ -111,7 +105,7 @@ export interface SyncResult {
 }
 
 export interface SyncOptions extends CloudApiOptions {
-  /** Records per `GET /v1/records` page; the server's default (500) when omitted. */
+  /** Records per `GET /v1/records` page; `POLICY.request.maxRecordsPerPull` when omitted. */
   pageSize?: number;
 }
 
@@ -169,8 +163,8 @@ export function recordBytes(record: CloudRecord): number {
  */
 export function splitIntoBatches(
   records: readonly CloudRecord[],
-  maxCount: number = PUSH_MAX_RECORDS,
-  maxBytes: number = PUSH_MAX_BYTES,
+  maxCount: number = POLICY.request.maxRecordsPerPush,
+  maxBytes: number = POLICY.request.pushBatchBytes,
 ): CloudRecord[][] {
   const envelope = utf8Length('{"records":[]}');
   const batches: CloudRecord[][] = [];
@@ -646,7 +640,7 @@ async function outgoingRecord(
 ): Promise<Outgoing | undefined> {
   const meta = { ...recordMeta, deleted: false };
   const payload = await encryptRecord(run.context.rawKey, meta, value);
-  if (payload.ciphertext.length > MAX_CIPHERTEXT_CHARS) {
+  if (payload.ciphertext.length > POLICY.record.maxCiphertextBytes) {
     run.problems.push(new RecordTooLargeError(recordMeta.kind, recordMeta.id));
     return undefined;
   }
@@ -1100,8 +1094,8 @@ export async function ensureSyncAlarm(): Promise<void> {
     return;
   }
   await chrome.alarms.create(CLOUD_SYNC_ALARM, {
-    delayInMinutes: SYNC_PERIOD_MINUTES,
-    periodInMinutes: SYNC_PERIOD_MINUTES,
+    delayInMinutes: POLICY.sync.periodMinutes,
+    periodInMinutes: POLICY.sync.periodMinutes,
   });
 }
 

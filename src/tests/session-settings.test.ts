@@ -1,12 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
+import { POLICY } from '@/constants';
 import {
   CUSTOM_INTERVAL,
-  HISTORY_INTERVAL_MAX_MINUTES,
-  HISTORY_INTERVAL_MIN_MINUTES,
-  HISTORY_INTERVALS,
-  HISTORY_MAX_MAX,
-  HISTORY_MAX_MIN,
   intervalLabel,
   intervalSelectValue,
   isRestoreLazy,
@@ -19,13 +15,19 @@ import { DEFAULT_SESSION_SETTINGS } from '@/types';
 
 describe('option lists', () => {
   it('include the defaults, so the selects always have a matching option', () => {
-    expect(HISTORY_INTERVALS).toContain(DEFAULT_SESSION_SETTINGS.historyIntervalMinutes);
+    expect(POLICY.snapshots.intervalMinutes.choices).toContain(
+      DEFAULT_SESSION_SETTINGS.historyIntervalMinutes,
+    );
     expect(RESTORE_LAZY_MODES).toContain(DEFAULT_SESSION_SETTINGS.restoreLazy);
   });
 
   it('bracket the default snapshot limit', () => {
-    expect(DEFAULT_SESSION_SETTINGS.historyMaxSnapshots).toBeGreaterThanOrEqual(HISTORY_MAX_MIN);
-    expect(DEFAULT_SESSION_SETTINGS.historyMaxSnapshots).toBeLessThanOrEqual(HISTORY_MAX_MAX);
+    expect(DEFAULT_SESSION_SETTINGS.historyMaxSnapshots).toBeGreaterThanOrEqual(
+      POLICY.snapshots.keep.min,
+    );
+    expect(DEFAULT_SESSION_SETTINGS.historyMaxSnapshots).toBeLessThanOrEqual(
+      POLICY.snapshots.keep.max,
+    );
   });
 });
 
@@ -67,11 +69,11 @@ describe('parseIntervalMinutes', () => {
   });
 
   it('clamps to the supported range', () => {
-    expect(HISTORY_INTERVAL_MIN_MINUTES).toBe(1);
-    expect(HISTORY_INTERVAL_MAX_MINUTES).toBe(1440);
-    expect(parseIntervalMinutes('0')).toBe(HISTORY_INTERVAL_MIN_MINUTES);
-    expect(parseIntervalMinutes('-5')).toBe(HISTORY_INTERVAL_MIN_MINUTES);
-    expect(parseIntervalMinutes('99999')).toBe(HISTORY_INTERVAL_MAX_MINUTES);
+    expect(POLICY.snapshots.intervalMinutes.min).toBe(1);
+    expect(POLICY.snapshots.intervalMinutes.max).toBe(1440);
+    expect(parseIntervalMinutes('0')).toBe(POLICY.snapshots.intervalMinutes.min);
+    expect(parseIntervalMinutes('-5')).toBe(POLICY.snapshots.intervalMinutes.min);
+    expect(parseIntervalMinutes('99999')).toBe(POLICY.snapshots.intervalMinutes.max);
   });
 
   it('rounds a fractional entry to whole minutes, as stored values are', () => {
@@ -110,9 +112,9 @@ describe('parseSnapshotLimit', () => {
   });
 
   it('clamps to the supported range', () => {
-    expect(parseSnapshotLimit('0')).toBe(HISTORY_MAX_MIN);
-    expect(parseSnapshotLimit('-4')).toBe(HISTORY_MAX_MIN);
-    expect(parseSnapshotLimit('9999')).toBe(HISTORY_MAX_MAX);
+    expect(parseSnapshotLimit('0')).toBe(POLICY.snapshots.keep.min);
+    expect(parseSnapshotLimit('-4')).toBe(POLICY.snapshots.keep.min);
+    expect(parseSnapshotLimit('9999')).toBe(POLICY.snapshots.keep.max);
   });
 
   it('truncates a fractional entry to whole snapshots', () => {

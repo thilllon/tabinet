@@ -25,6 +25,10 @@ The extension calls it at `CLOUD_SYNC.apiBase` in `src/constants.ts`, set to
 the sync engine in `src/lib/cloud-sync.ts`); clearing `apiBase` makes the extension dormant again.
 The functions run in Vercel region `sin1` (Singapore), pinned in `vercel.json`.
 
+Every limit below is in `POLICY` in the repository's `src/constants.ts`, the file the extension
+reads too, and the only file outside `server/` that the server imports. So it runs from a checkout
+of the whole repository, never from a copy of `server/` alone.
+
 ## Layout
 
 A Hono app, kept thin: a route handler calls the store directly. No services, classes or container.
@@ -127,7 +131,7 @@ Limits and rules:
   update, and every applied write takes a new `seq` from one global sequence. The statement locks
   the user's row first, so a user's writes commit in `seq` order and paging by `since` never
   skips one.
-- At most `IMAGE_RECORD_LIMIT` (100, `src/db/store.ts`) live `image` records per account. A write
+- At most `POLICY.account.screenshots` (100) live `image` records per account. A write
   that would add one more is answered `rejected` with `reason: "image_limit"` and stores nothing;
   tombstones and writes to an image that is already live are always accepted. Image writes go
   through the SQL function `apply_image_record()` (migration 002): it takes the same user row lock
@@ -162,6 +166,12 @@ are checked with Google as in production. `PORT` and `ALLOWED_ORIGINS` are read 
    detects Hono from the dependency even when "Other" was chosen, builds `src/app.ts` instead of
    `api/`, and fails. The function runs on the Node.js runtime. Vercel compiles `api/vercel.adaptor.ts` with the `typescript` it finds in `server/`,
    which needs the compiler API that TypeScript 7 no longer ships, so `server/` pins TypeScript 6.
+   In the Root Directory settings keep **Include source files outside of the Root Directory** on:
+   the function bundles `../src/constants.ts`. After a commit that changes only `POLICY`, check
+   that the server was deployed. Vercel's docs say a change outside the workspace packages deploys
+   every project, but nobody has tested it with this repository (the server does not depend on the
+   root package). If such a commit is skipped, turn **Skip deployment** off.
+
 2. **Add Postgres.** In the project's **Storage** tab, add **Neon** from the Vercel Marketplace and
    connect it to the project. This sets `DATABASE_URL` for every environment.
 3. **Set the environment variables** (Settings > Environment Variables):

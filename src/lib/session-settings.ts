@@ -1,10 +1,6 @@
-import { LAZY_AUTO_THRESHOLD } from '@/constants';
+import { POLICY } from '@/constants';
 import { formatNumber, t, tp } from '@/lib/i18n';
-import {
-  HISTORY_INTERVAL_MAX_MINUTES,
-  HISTORY_INTERVAL_MIN_MINUTES,
-  type SessionSettings,
-} from '@/types';
+import type { SessionSettings } from '@/types';
 
 /**
  * Pure rules behind the session-settings controls (the Settings dialog's "Sessions"
@@ -14,25 +10,14 @@ import {
 
 type RestoreLazy = SessionSettings['restoreLazy'];
 
-/**
- * The preset intervals the select offers. Any other whole number of minutes in
- * [HISTORY_INTERVAL_MIN_MINUTES, HISTORY_INTERVAL_MAX_MINUTES] is a "Custom" value the user types.
- */
-export const HISTORY_INTERVALS: readonly number[] = [5, 10, 30];
-
 /** The select's value for "type your own"; never a number, so it cannot collide with a preset. */
 export const CUSTOM_INTERVAL = 'custom';
 
-export { HISTORY_INTERVAL_MAX_MINUTES, HISTORY_INTERVAL_MIN_MINUTES };
 export const RESTORE_LAZY_MODES: readonly RestoreLazy[] = ['auto', 'always', 'never'];
-
-/** Ring-buffer bounds for `historyMaxSnapshots`, mirrored on the number input's min/max. */
-export const HISTORY_MAX_MIN = 1;
-export const HISTORY_MAX_MAX = 200;
 
 /** Reads a preset option of the interval select back into minutes; `undefined` for "Custom". */
 export function parseHistoryInterval(value: string): number | undefined {
-  return HISTORY_INTERVALS.find((minutes) => String(minutes) === value);
+  return POLICY.snapshots.intervalMinutes.choices.find((minutes) => String(minutes) === value);
 }
 
 /**
@@ -40,7 +25,10 @@ export function parseHistoryInterval(value: string): number | undefined {
  * when the stored value is not a preset or the user has just chosen to type one.
  */
 export function intervalSelectValue(minutes: number, customOpen: boolean): string {
-  if (!customOpen && HISTORY_INTERVALS.includes(minutes)) {
+  if (
+    !customOpen &&
+    POLICY.snapshots.intervalMinutes.choices.some((choice) => choice === minutes)
+  ) {
     return String(minutes);
   }
   return CUSTOM_INTERVAL;
@@ -49,7 +37,7 @@ export function intervalSelectValue(minutes: number, customOpen: boolean): strin
 /**
  * Reads the custom interval input. Like `parseSnapshotLimit`: `undefined` for an empty or
  * non-numeric entry (the stored value stays), otherwise whole minutes clamped into
- * [HISTORY_INTERVAL_MIN_MINUTES, HISTORY_INTERVAL_MAX_MINUTES], the same range `normalizeSettings`
+ * `POLICY.snapshots.intervalMinutes`, the same range `normalizeSettings`
  * enforces on what is stored.
  */
 export function parseIntervalMinutes(raw: string): number | undefined {
@@ -61,8 +49,8 @@ export function parseIntervalMinutes(raw: string): number | undefined {
     return undefined;
   }
   return Math.min(
-    HISTORY_INTERVAL_MAX_MINUTES,
-    Math.max(HISTORY_INTERVAL_MIN_MINUTES, Math.round(parsed)),
+    POLICY.snapshots.intervalMinutes.max,
+    Math.max(POLICY.snapshots.intervalMinutes.min, Math.round(parsed)),
   );
 }
 
@@ -73,15 +61,15 @@ export function isRestoreLazy(value: string): value is RestoreLazy {
 /**
  * Reads the "Keep last N snapshots" input. Returns `undefined` for anything that is not a number
  * - including the empty string mid-edit, which must leave the stored value alone rather than
- * writing a 0 - and clamps everything else into [1, 200]. `Number.parseInt` also swallows the
- * decimal part of "20.7", which is what the ring buffer wants (whole snapshots only).
+ * writing a 0 - and clamps everything else into `POLICY.snapshots.keep`. `Number.parseInt` also
+ * swallows the decimal part of "20.7", which is what the ring buffer wants (whole snapshots only).
  */
 export function parseSnapshotLimit(raw: string): number | undefined {
   const parsed = Number.parseInt(raw.trim(), 10);
   if (!Number.isFinite(parsed)) {
     return undefined;
   }
-  return Math.min(HISTORY_MAX_MAX, Math.max(HISTORY_MAX_MIN, parsed));
+  return Math.min(POLICY.snapshots.keep.max, Math.max(POLICY.snapshots.keep.min, parsed));
 }
 
 /** "Every 5 minutes" - the interval select's option text. */
@@ -93,7 +81,7 @@ export function intervalLabel(minutes: number): string {
 export function lazyLabel(mode: RestoreLazy): string {
   switch (mode) {
     case 'auto':
-      return t('settingsLazyAuto', formatNumber(LAZY_AUTO_THRESHOLD));
+      return t('settingsLazyAuto', formatNumber(POLICY.restore.lazyAboveTabs));
     case 'always':
       return t('settingsLazyAlways');
     default:
@@ -105,7 +93,7 @@ export function lazyLabel(mode: RestoreLazy): string {
 export function intervalRangeHint(): string {
   return t(
     'settingsSnapshotIntervalHint',
-    formatNumber(HISTORY_INTERVAL_MIN_MINUTES),
-    formatNumber(HISTORY_INTERVAL_MAX_MINUTES),
+    formatNumber(POLICY.snapshots.intervalMinutes.min),
+    formatNumber(POLICY.snapshots.intervalMinutes.max),
   );
 }

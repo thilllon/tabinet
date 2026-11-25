@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { POLICY } from '@/constants';
 import {
   buildImportPreview,
   checkImportSize,
   fileReadError,
   formatImportTotals,
-  MAX_IMPORT_BYTES,
   PREVIEW_SESSION_LIMIT,
   PREVIEW_TITLE_LIMIT,
   PREVIEW_WINDOW_LIMIT,
@@ -43,11 +43,11 @@ function makeSession(name: string, windows: WindowSnapshot[]): Session {
 describe('checkImportSize', () => {
   it('accepts anything up to the limit', () => {
     expect(checkImportSize(0)).toEqual({ ok: true });
-    expect(checkImportSize(MAX_IMPORT_BYTES)).toEqual({ ok: true });
+    expect(checkImportSize(POLICY.import.maxFileBytes)).toEqual({ ok: true });
   });
 
   it('refuses a larger input, naming both sizes', () => {
-    expect(checkImportSize(MAX_IMPORT_BYTES + 1)).toEqual({
+    expect(checkImportSize(POLICY.import.maxFileBytes + 1)).toEqual({
       ok: false,
       error: 'That is too large to import (20.0 MB). The limit is 20.0 MB.',
     });

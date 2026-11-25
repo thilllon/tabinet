@@ -4,22 +4,13 @@
  * check text (`CloudKeySetup`), never the passphrase or the key. The raw key stays on this device,
  * base64, under `chrome.storage.local` `cloudSyncKey` (`src/lib/cloud-auth.ts`).
  */
+import { POLICY } from '@/constants';
 import { ExplainedError } from '@/lib/error-message';
 import type { CloudKeySetup, CloudRecord, EncryptedPayload } from '@/types';
 
-/** PBKDF2 rounds for a new setup (OWASP's 2023 figure for PBKDF2-HMAC-SHA256). */
-export const KDF_ITERATIONS = 600_000;
 /** The text encrypted into `check`: decrypting it back proves the passphrase. */
 const KEY_CHECK_TEXT = 'tabinet-key-check-v1';
 
-/** The PBKDF2 rounds a key setup may ask for (the sync server refuses any other). */
-export const KDF_MIN_ITERATIONS = 100_000;
-export const KDF_MAX_ITERATIONS = 10_000_000;
-/** The salt lengths, in bytes, a key setup may carry (the sync server refuses any other). */
-export const SALT_MIN_BYTES = 16;
-export const SALT_MAX_BYTES = 64;
-
-const SALT_BYTES = 16;
 export const IV_BYTES = 12;
 const KEY_BITS = 256;
 
@@ -130,13 +121,13 @@ async function decryptBytes(
 /**
  * A new sync passphrase: a fresh salt, the key derived from it, and the check text encrypted
  * under that key. `setup` goes to the server; `rawKey` (base64) stays on this device.
- * `iterations` exists for tests; everything else uses `KDF_ITERATIONS`.
+ * `iterations` exists for tests; everything else uses `POLICY.kdf.iterations`.
  */
 export async function createKeySetup(
   passphrase: string,
-  iterations: number = KDF_ITERATIONS,
+  iterations: number = POLICY.kdf.iterations,
 ): Promise<{ setup: CloudKeySetup; rawKey: string }> {
-  const salt = randomBytes(SALT_BYTES);
+  const salt = randomBytes(POLICY.kdf.saltBytes);
   const raw = await deriveRawKey(passphrase, salt, iterations);
   const key = await importAesKey(raw);
   const check = await encryptBytes(key, new TextEncoder().encode(KEY_CHECK_TEXT));

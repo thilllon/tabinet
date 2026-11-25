@@ -1,3 +1,4 @@
+import { POLICY } from '@/constants';
 import { isRecord } from '@/lib/import-guards';
 import { isImageDataUrl } from '@/lib/youtube-video';
 
@@ -117,11 +118,6 @@ export function playPlayer(tabId: number): Promise<PlayerState | null> {
 // Screenshots
 // ---------------------------------------------------------------------------
 
-/** Widest screenshot kept, in pixels; a larger frame is scaled down to it. */
-export const FRAME_MAX_WIDTH = 1280;
-/** WebP quality of a screenshot, 0 to 1. */
-export const FRAME_QUALITY = 0.8;
-
 /** Why a frame could not be taken. */
 export type FrameFailure =
   /** The page has no video. */
@@ -233,7 +229,8 @@ export async function captureFrame(tabId: number): Promise<FrameResult> {
   const results = await chrome.scripting.executeScript({
     target: { tabId },
     func: captureFrameInPage,
-    args: [FRAME_MAX_WIDTH, FRAME_QUALITY],
+    // Serialized into the page, so it cannot read POLICY itself.
+    args: [POLICY.screenshot.maxWidth, POLICY.screenshot.quality],
   });
   const result: unknown = results[0]?.result;
   return isFrameResult(result) ? result : { ok: false, reason: 'failed' };

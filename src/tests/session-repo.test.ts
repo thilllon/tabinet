@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { POLICY } from '@/constants';
 import { overrideCloudSyncConfig } from '@/lib/cloud-config';
 import { UnknownSchemaVersionError } from '@/lib/session-migrate';
 import {
@@ -15,8 +16,6 @@ import {
 } from '@/lib/session-repo';
 import {
   DEFAULT_SESSION_SETTINGS,
-  HISTORY_INTERVAL_MAX_MINUTES,
-  HISTORY_INTERVAL_MIN_MINUTES,
   SESSION_SCHEMA_VERSION,
   type Session,
   type SessionIndex,
@@ -961,12 +960,12 @@ describe('sessionRepo settings', () => {
     const fake = getChromeFake();
     fake.state.local.set(SETTINGS_KEY, { historyIntervalMinutes: 0.2 });
     await expect(sessionRepo.getSettings()).resolves.toMatchObject({
-      historyIntervalMinutes: HISTORY_INTERVAL_MIN_MINUTES,
+      historyIntervalMinutes: POLICY.snapshots.intervalMinutes.min,
     });
 
     await sessionRepo.setSettings({ historyIntervalMinutes: 100000 });
     expect(fake.state.local.get(SETTINGS_KEY)).toMatchObject({
-      historyIntervalMinutes: HISTORY_INTERVAL_MAX_MINUTES,
+      historyIntervalMinutes: POLICY.snapshots.intervalMinutes.max,
     });
   });
 });
@@ -975,16 +974,16 @@ describe('normalizeHistoryInterval', () => {
   it('keeps any whole number of minutes in range', () => {
     expect(normalizeHistoryInterval(5)).toBe(5);
     expect(normalizeHistoryInterval(7)).toBe(7);
-    expect(normalizeHistoryInterval(HISTORY_INTERVAL_MAX_MINUTES)).toBe(
-      HISTORY_INTERVAL_MAX_MINUTES,
+    expect(normalizeHistoryInterval(POLICY.snapshots.intervalMinutes.max)).toBe(
+      POLICY.snapshots.intervalMinutes.max,
     );
   });
 
   it('rounds fractions and clamps to the range', () => {
     expect(normalizeHistoryInterval(12.4)).toBe(12);
-    expect(normalizeHistoryInterval(0)).toBe(HISTORY_INTERVAL_MIN_MINUTES);
-    expect(normalizeHistoryInterval(-30)).toBe(HISTORY_INTERVAL_MIN_MINUTES);
-    expect(normalizeHistoryInterval(5000)).toBe(HISTORY_INTERVAL_MAX_MINUTES);
+    expect(normalizeHistoryInterval(0)).toBe(POLICY.snapshots.intervalMinutes.min);
+    expect(normalizeHistoryInterval(-30)).toBe(POLICY.snapshots.intervalMinutes.min);
+    expect(normalizeHistoryInterval(5000)).toBe(POLICY.snapshots.intervalMinutes.max);
   });
 
   it('falls back to the default for anything that is not a finite number', () => {

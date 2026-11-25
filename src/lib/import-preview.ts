@@ -1,3 +1,4 @@
+import { POLICY } from '@/constants';
 import { formatBytes } from '@/lib/display-format';
 import { errorDetail, knownErrorText } from '@/lib/error-message';
 import { joinFacts, type MessageKey, t, tp } from '@/lib/i18n';
@@ -9,13 +10,6 @@ import type { Session } from '@/types';
  * is named, and the preview tree shown before anything is written. Parsing itself lives in
  * `src/lib/session-import.ts`; nothing here touches storage or the DOM.
  */
-
-/**
- * Largest input the dialog accepts. A session body is JSON of urls and titles - 20 MB is far
- * past any real backup - and the parsers are regex passes over the whole string, so a
- * hundred-megabyte paste would freeze the page instead of failing politely.
- */
-export const MAX_IMPORT_BYTES = 20 * 1024 * 1024;
 
 /** How much of the tree the preview draws before it starts counting instead. */
 export const PREVIEW_SESSION_LIMIT = 10;
@@ -29,7 +23,14 @@ export function utf8ByteLength(text: string): number {
   return new TextEncoder().encode(text).length;
 }
 
-export function checkImportSize(bytes: number, max: number = MAX_IMPORT_BYTES): SizeCheck {
+/**
+ * Whether the dialog accepts input this large. The parsers are regex passes over the whole string,
+ * so a hundred-megabyte paste would freeze the page instead of failing politely.
+ */
+export function checkImportSize(
+  bytes: number,
+  max: number = POLICY.import.maxFileBytes,
+): SizeCheck {
   if (bytes <= max) {
     return { ok: true };
   }

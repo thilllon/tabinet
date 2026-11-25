@@ -1,8 +1,5 @@
 import { createHash } from 'node:crypto';
 
-/** How long a bearer token stays valid after sign-in. */
-export const TOKEN_TTL_MS = 90 * 24 * 60 * 60 * 1000;
-
 const TOKEN_BYTES = 32;
 
 /** A new bearer token: 32 random bytes, base64url. Only its hash is ever stored. */

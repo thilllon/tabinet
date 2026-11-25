@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
+import { POLICY } from '@/constants';
 import {
   CloudDecryptError,
   createKeySetup,
   decryptRecord,
   encryptRecord,
   fromBase64,
-  KDF_ITERATIONS,
   recordAdditionalData,
   toBase64,
   unlockKeySetup,
@@ -27,8 +27,12 @@ describe('base64', () => {
 describe('createKeySetup / unlockKeySetup', () => {
   it('describes PBKDF2-SHA-256 with 600000 rounds, a 16-byte salt and a 12-byte check iv', async () => {
     const { setup, rawKey } = await createKeySetup('correct horse battery staple');
-    expect(setup.kdf).toEqual({ name: 'PBKDF2', hash: 'SHA-256', iterations: KDF_ITERATIONS });
-    expect(KDF_ITERATIONS).toBe(600_000);
+    expect(setup.kdf).toEqual({
+      name: 'PBKDF2',
+      hash: 'SHA-256',
+      iterations: POLICY.kdf.iterations,
+    });
+    expect(POLICY.kdf.iterations).toBe(600_000);
     expect(fromBase64(setup.salt)).toHaveLength(16);
     expect(fromBase64(setup.checkIv)).toHaveLength(12);
     expect(fromBase64(rawKey)).toHaveLength(32);
