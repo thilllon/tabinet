@@ -150,20 +150,9 @@ export interface ExportBundle {
 }
 
 // ---------------------------------------------------------------------------
-// Cloud sync (src/lib/cloud-*.ts; the server contract is GitHub issue #165)
+// Cloud sync, protocol v2 (src/lib/cloud-*.ts). The wire shapes are declared verbatim on both
+// sides (here and in server/src/types.ts), never imported from the other.
 // ---------------------------------------------------------------------------
-
-/**
- * How the sync key is derived from the passphrase, as the server keeps it (`PUT /v1/keys`). It
- * holds nothing secret: the salt, and `check`, the fixed text `tabinet-key-check-v1` encrypted
- * under the key, so a passphrase can be tested without the server ever seeing one. Base64 values.
- */
-export interface CloudKeySetup {
-  kdf: { name: 'PBKDF2'; hash: 'SHA-256'; iterations: number };
-  salt: string;
-  check: string;
-  checkIv: string;
-}
 
 /** One AES-GCM ciphertext and its 12-byte iv, both base64. */
 export interface EncryptedPayload {
@@ -171,34 +160,221 @@ export interface EncryptedPayload {
   ciphertext: string;
 }
 
-/** The kinds of record, in the order a pull asks for them (`GET /v1/records?kinds=`). */
-export const CLOUD_RECORD_KINDS = ['session', 'settings', 'notes', 'image'] as const;
-
-/** A saved session, the settings, one video's notes, or one note screenshot. */
-export type CloudRecordKind = (typeof CLOUD_RECORD_KINDS)[number];
-
-/** A record as the server stores it: everything readable lives inside `ciphertext`. */
-export interface CloudRecord extends EncryptedPayload {
-  kind: CloudRecordKind;
+export type WireKey = { keyId: string; generation: number } | null;
+export interface Usage {
+  bytes: number;
+  screenshots: number;
+}
+export type RecordKind = 'session' | 'settings' | 'image' | 'doc';
+export interface RecordOut {
+  kind: RecordKind;
   id: string;
   updatedAt: number;
   deleted: boolean;
-}
-
-/** A record read back from the server, with its place in the change feed. */
-export interface CloudRecordWithSeq extends CloudRecord {
+  iv: string;
+  ciphertext: string;
   seq: number;
 }
+export type RecordIn = Omit<RecordOut, 'seq'> & { baseSeq?: number | null }; // baseSeq: required on doc, absent otherwise
+export type WriteResult = { kind: RecordKind; id: string } & (
+  | { status: 'applied'; seq: number }
+  | { status: 'absent' } // a deletion of a row the server lacks, over the cap: nothing stored, settled
+  | { status: 'stale'; current: RecordOut | null } // null only for doc: no row
+  | { status: 'stale'; withheld: true } // current not sent, the answer would be too large
+  | { status: 'rejected'; reason: 'image_limit' | 'storage_limit' }
+  | { status: 'rejected'; reason: 'clock_ahead' }
+);
+export type PullLine =
+  | { type: 'start'; keyId: string; since: number; through: number; usage: Usage }
+  | { type: 'record'; record: RecordOut }
+  | { type: 'checkpoint'; cursor: number; count: number }
+  | { type: 'end'; cursor: number; complete: boolean };
+export type ErrorCode =
+  | 'bad_request'
+  | 'unauthorized'
+  | 'google_refused'
+  | 'google_account_mismatch'
+  | 'proof_invalid'
+  | 'not_found'
+  | 'method_not_allowed'
+  | 'key_exists'
+  | 'key_missing'
+  | 'key_mismatch'
+  | 'generation_conflict'
+  | 'upgrade_required'
+  | 'payload_too_large'
+  | 'key_unavailable'
+  | 'internal'
+  | 'google_unavailable';
 
-/**
- * The signed-in account, in `chrome.storage.local` under `cloudAccount`: the server's bearer
- * token, when it expires (ms since the epoch) and the Google address it belongs to.
- */
-export interface CloudAccount {
+/** The record kinds, in the order the engine applies them. */
+export const RECORD_KINDS: readonly RecordKind[] = ['session', 'doc', 'image', 'settings'];
+
+/** The data key wrapped under the passphrase (spec 3.3). Exactly these fields and lengths. */
+export interface KeyEnvelope {
+  v: 2;
+  /** Integer 1..2147483647. */
+  generation: number;
+  /** b64u of 16 bytes. */
+  keyId: string;
+  /** b64 of 16 bytes. */
+  salt: string;
+  /** b64 of 12 bytes. */
+  iv: string;
+  /** b64 of 48 bytes: AES-GCM(wrapKey, iv, dek). */
+  wrapped: string;
+}
+
+/** `cloudAccountV2`: the signed-in account. */
+export interface CloudAccountV2 {
+  accountId: string;
   token: string;
   expiresAt: number;
   email: string;
+  uploadConfirmed: boolean;
 }
+/** `cloudKeyV2`: the data key of an account; `dek` is b64 of 32 bytes. */
+export interface CloudKeyV2 {
+  accountId: string;
+  keyId: string;
+  generation: number;
+  dek: string;
+}
+/** `cloudOwnerV2`: whose cloud this device's data last went to. Kept through sign-out. */
+export interface CloudOwnerV2 {
+  accountId: string | null;
+  email: string;
+  legacy?: true;
+}
+
+export interface Memo {
+  schemaVersion: 1;
+  id: string;
+  text: string;
+  createdAt: number;
+  updatedAt: number;
+  conflictOf?: string;
+}
+export interface MemoSummary {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  conflict: boolean;
+}
+export interface MemoDraft {
+  schemaVersion: 1;
+  id: string;
+  text: string;
+  /** The text last confirmed saved, then every text whose save started and was not confirmed. */
+  bases: (string | null)[];
+  at: number;
+}
+
+/** Sessions: what still has to be sent, and what the server sent or accepted. */
+export interface RecordTrack {
+  dirty: Record<string, number>;
+  deleted: Record<string, number>;
+  /** Raised only by what the server sent or accepted, never by a local deletion. */
+  known: Record<string, number>;
+}
+export interface ImageTrack extends RecordTrack {
+  /** Image id to the doc ref whose deletion must be accepted first. */
+  owner: Record<string, string>;
+}
+export interface Version {
+  at: number;
+  deleted: boolean;
+}
+export interface DocTrack {
+  /** The HMAC id, stored when the track is made. */
+  recordId: string;
+  /** The server row the next write is based on. */
+  seq: number | null;
+  /** Newest seen on the server, never lowered, kept for good. */
+  known: Version | null;
+  pending: Version | null;
+  /** Posted, answer not seen; at most `POLICY.sync.sentVersions`. */
+  sent: { at: number; hash: string }[];
+  /** A note's videoId, needed for its tombstone. */
+  parent?: string;
+  /** Made by sync as a conflict copy and not edited since. */
+  autoCopy?: true;
+}
+/** `usage`: bytes or screenshots when refused. */
+export interface Held {
+  stamp: number;
+  reason: 'image_limit' | 'storage_limit';
+  usage: number;
+}
+/** `raw`: its `cloudRaw:*` key. */
+export interface Blocked {
+  at: number;
+  reason: 'localUnreadable' | 'newer' | 'unknownType';
+  raw: string;
+}
+export interface CloudSyncMeta {
+  schemaVersion: 2;
+  accountId: string;
+  keyId: string;
+  cursor: number;
+  sessions: RecordTrack;
+  images: ImageTrack;
+  /** `"<type>:<local id>"`: usable without the DEK. */
+  docs: Record<string, DocTrack>;
+  /** `"session"`, and each doc type or `"image"` whose tracking started. */
+  started: string[];
+  settingsUpdatedAt: number;
+  settingsDirty: boolean;
+  settingsHash?: string;
+  settingsSyncedAt?: number;
+  pendingSettings?: Record<string, unknown>;
+  /** Refs refused for a cap. */
+  held: Record<string, Held>;
+  heldNoticed?: boolean;
+  /** Refs this build cannot apply: push blocked, raw copy kept. */
+  blocked: Record<string, Blocked>;
+  /** `"<kind>:<record id>"` to updatedAt: failed decryption or checks. */
+  unreadable: Record<string, number>;
+  usage?: Usage;
+  /** Only grow. */
+  conflicts: number;
+  conflictsNoticed: number;
+  rereadFeed?: true;
+  /** The last pull ended at `maxRequestsPerRun` with more to read. */
+  pullIncomplete?: true;
+  /** The worker's current batch target after a timeout. */
+  pushBatchBytes?: number;
+  tooLarge?: number;
+  lastSyncAt: number | null;
+  lastAttemptAt?: number;
+  changedAt?: number;
+  failures?: number;
+  retryAt?: number;
+  lastError?: string;
+}
+
+export interface AccountInput {
+  configured: boolean;
+  /** Storage read. */
+  loaded: boolean;
+  now: number;
+  account: CloudAccountV2 | null;
+  key: CloudKeyV2 | null;
+  /** The last key from sign-in or me; undefined while unknown. */
+  server: WireKey | undefined;
+}
+export type AccountState =
+  | 'unconfigured'
+  | 'loading'
+  | 'signedOut'
+  | 'expired'
+  | 'confirmAccount'
+  | 'keyMismatch'
+  | 'ready'
+  | 'unknown'
+  | 'needsCreate'
+  | 'needsUnlock';
 
 // ---------------------------------------------------------------------------
 // YouTube notes (the side panel, src/pages/notes-panel.tsx; stored by src/lib/notes-repo.ts)

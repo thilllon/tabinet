@@ -108,7 +108,21 @@ describe('the numbers fit each other', () => {
   it('ends a stream before the function is stopped, and a worker request before Chrome stops it', () => {
     expect(POLICY.pull.streamMs).toBeLessThan(FUNCTION_MAX_MS);
     expect(POLICY.request.answerTimeoutMs).toBeLessThan(WORKER_FETCH_MS);
+    expect(POLICY.pull.readIdleMs).toBeLessThan(WORKER_FETCH_MS);
+    expect(POLICY.sync.keepAliveMs).toBeLessThan(WORKER_FETCH_MS);
     expect(POLICY.sync.fallbackMs).toBeGreaterThanOrEqual(30_000);
+  });
+
+  it("leaves room for every collection's tombstone", () => {
+    // The largest deleted data any collection has: a YouTube note's `{ id, videoId }`, wrapped in
+    // `{type, version, data}`, JSON, AES-GCM (16 bytes of tag) and base64.
+    const plain = JSON.stringify({
+      type: 'youtubeNote',
+      version: 1,
+      data: { id: 'x'.repeat(64), videoId: 'x'.repeat(11) },
+    });
+    const chars = Math.ceil((plain.length + 16) / 3) * 4;
+    expect(chars).toBeLessThan(POLICY.record.maxTombstoneChars);
   });
 
   it('counts every row at least as a tombstone', () => {

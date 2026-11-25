@@ -75,8 +75,8 @@ describe('syncPhase', () => {
     expect(syncPhase(facts({ lastError: 'x' }), NOW)).toEqual({ kind: 'partial', at: CHECK });
   });
 
-  it('screenshots over the limit are never called up to date', () => {
-    expect(syncPhase(facts({ heldImages: 3 }), NOW)).toEqual({
+  it('items over a limit are never called up to date', () => {
+    expect(syncPhase(facts({ held: 3 }), NOW)).toEqual({
       kind: 'held',
       count: 3,
       at: NOW - 60_000,
@@ -174,7 +174,7 @@ describe('the text', () => {
       `Some items did not sync. Next sync at ${at}.`,
     );
     expect(syncPhaseText({ kind: 'held', count: 1, at: NOW })).toBe(
-      `Synced ${day}, except 1 screenshot over the limit.`,
+      `Synced ${day}, except 1 item over a limit.`,
     );
     expect(syncPhaseText({ kind: 'upToDate', at: NOW })).toBe(`Up to date. Last synced ${day}.`);
     expect(syncPhaseText({ kind: 'notSynced' })).toBe('Not synced yet.');

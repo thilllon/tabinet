@@ -368,7 +368,7 @@
     "description": "Explanation under the Backup heading in Settings."
   },
   "settingsBackupDescriptionSynced": {
-    "message": "Las sesiones guardadas se sincronizan cuando inicias sesión; las instantáneas se quedan en este dispositivo. Exporta un archivo para conservar tu propia copia.",
+    "message": "Las sesiones guardadas, los apuntes y las notas se sincronizan cuando inicias sesión; las instantáneas se quedan en este dispositivo. Exportar aquí guarda sesiones e instantáneas.",
     "description": "Settings > Backup, section description shown instead of settingsBackupDescription when cloud sync is available in this build."
   },
   "settingsExportEverything": {
@@ -1932,7 +1932,7 @@
     "description": "Heading of the Settings section for signing in to cloud sync. One or two words."
   },
   "settingsAccountDescription": {
-    "message": "Inicia sesión para mantener tus sesiones guardadas, tus notas de YouTube y tus ajustes al día en varios dispositivos. Se cifran en este dispositivo con una frase de contraseña que solo tú conoces.",
+    "message": "Inicia sesión para mantener tus sesiones guardadas, apuntes, notas de YouTube y ajustes al día en varios dispositivos. Se cifran en este dispositivo con una clave que protege tu frase de contraseña.",
     "description": "Explanation under the Account heading in Settings."
   },
   "settingsAccountGoogle": {
@@ -1956,8 +1956,8 @@
     "description": "Label of the Settings row where a new cloud sync passphrase is typed twice."
   },
   "settingsAccountCreatePassphraseHint": {
-    "message": "Todo se cifra con esta frase de contraseña antes de salir de este dispositivo. Nadie puede recuperarla por ti: si la olvidas, la copia en la nube se pierde.",
-    "description": "Warning under \"Create a sync passphrase\" in Settings. It must say clearly that a forgotten passphrase cannot be recovered and the cloud copy is then lost."
+    "message": "Protege la clave de tus datos en la nube. Nadie puede recuperarla por ti. Un dispositivo ya desbloqueado puede poner una nueva. Sin un dispositivo así, la copia en la nube se pierde. Usa una frase de contraseña que nunca usaras para sincronizar antes de la versión 10.",
+    "description": "Warning under \"Create a sync passphrase\" in Settings. It must say clearly that nobody can recover it, how to reset it, and not to reuse a passphrase from before version 10."
   },
   "settingsAccountPassphrase": {
     "message": "Frase de contraseña",
@@ -1984,8 +1984,8 @@
     "description": "Button that saves a new sync passphrase. Keep it short."
   },
   "settingsAccountPassphraseExists": {
-    "message": "Esta cuenta ya tiene una frase de contraseña de sincronización, creada en otro dispositivo. Escríbela abajo.",
-    "description": "Notice when the person tried to create a sync passphrase but another device had already created one."
+    "message": "Esta cuenta ya tiene una frase de contraseña de sincronización. Escríbela.",
+    "description": "Notice when the person tried to create a sync passphrase but the account already has one."
   },
   "settingsAccountUnlock": {
     "message": "Escribe tu frase de contraseña de sincronización",
@@ -2012,7 +2012,7 @@
     "description": "Button in Settings that signs out of cloud sync on this device. Keep it short."
   },
   "settingsAccountSignedOut": {
-    "message": "Sesión cerrada. Tus sesiones y notas de este dispositivo siguen aquí.",
+    "message": "Sesión cerrada. Tus sesiones, apuntes y notas de este dispositivo siguen aquí.",
     "description": "Toast after signing out of cloud sync."
   },
   "settingsAccountDelete": {
@@ -2024,7 +2024,7 @@
     "description": "Title of the dialog that asks before deleting the cloud sync account."
   },
   "settingsAccountDeleteBody": {
-    "message": "Se eliminarán tu cuenta y todo lo guardado para ella en el servidor de sincronización. No se puede deshacer. Las sesiones y notas de este dispositivo se quedan.",
+    "message": "Chrome confirma tu cuenta de Google y después se eliminan tu cuenta y todo lo guardado para ella en el servidor de sincronización. No se puede deshacer. Las sesiones, apuntes y notas de este dispositivo se quedan.",
     "description": "Body of the dialog that asks before deleting the cloud sync account."
   },
   "settingsAccountDeleted": {
@@ -2104,12 +2104,12 @@
     "description": "Live sync status when nothing waits to be sent. $1 is the date and time of the last sync, already formatted."
   },
   "settingsAccountStatusHeld_one": {
-    "message": "Sincronizado ($2), salvo $1 captura que supera el límite.",
-    "description": "Live sync status when all but screenshots over the account limit are synced. $1 is how many stay only on this device, $2 the date and time of the last sync."
+    "message": "Sincronizado ($2), salvo $1 elemento que supera un límite.",
+    "description": "Live sync status when everything but items over a limit (storage or screenshots) is synced. $1 is how many stay only on this device, $2 the date and time of the last sync."
   },
   "settingsAccountStatusHeld_other": {
-    "message": "Sincronizado ($2), salvo $1 capturas que superan el límite.",
-    "description": "Live sync status when all but screenshots over the account limit are synced. $1 is how many stay only on this device, $2 the date and time of the last sync."
+    "message": "Sincronizado ($2), salvo $1 elementos que superan un límite.",
+    "description": "Live sync status when everything but items over a limit (storage or screenshots) is synced. $1 is how many stay only on this device, $2 the date and time of the last sync."
   },
   "settingsAccountNextCheck_other": {
     "message": "Próxima búsqueda de cambios de otros dispositivos: $2 (cada $1 minutos)",
@@ -2184,7 +2184,7 @@
     "description": "Heading in the sync explanation: what syncs."
   },
   "settingsAccountHelpWhatSynced_other": {
-    "message": "Se sincronizan: sesiones guardadas, notas de YouTube con sus capturas (hasta $1 por cuenta) y ajustes, incluido el idioma.",
+    "message": "Se sincronizan: sesiones guardadas, apuntes, notas de YouTube con capturas (hasta $1 capturas por cuenta) y ajustes, incluido el idioma.",
     "description": "Sync explanation. $1 is the screenshot limit per account (100)."
   },
   "settingsAccountHelpWhatLocal": {
@@ -2200,12 +2200,12 @@
     "description": "Heading in the sync explanation: conflicting edits."
   },
   "settingsAccountHelpConflictNewer": {
-    "message": "Gana el cambio más reciente, según el reloj de cada dispositivo, y sustituye al otro. Eliminar también cuenta como cambio.",
-    "description": "Sync explanation: last writer wins, by each device’s clock, deletions included."
+    "message": "Sesiones, ajustes y cada nota de YouTube: gana el cambio más reciente, según el reloj de cada dispositivo. Eliminar también cuenta como cambio.",
+    "description": "Sync explanation: last writer wins for sessions, settings and each YouTube note, by each device’s clock, deletions included."
   },
   "settingsAccountHelpConflictWhole": {
-    "message": "Los cambios no se combinan: se sustituye entera una sesión, todas las notas de un vídeo o todos los ajustes.",
-    "description": "Sync explanation: the unit that is replaced."
+    "message": "Apuntes: si se editaron en los dos sitios, se conservan ambos textos, uno como «Copia por conflicto». Una edición también gana a una eliminación.",
+    "description": "Sync explanation: memos edited in two places keep both texts. Quotes the conflict badge (memoConflictBadge)."
   },
   "settingsAccountImagesHeld_one": {
     "message": "$1 captura no se sincronizó: tu cuenta ya guarda $2 capturas, el máximo. Se queda en este dispositivo y se sincronizará cuando elimines una captura.",
@@ -2242,14 +2242,6 @@
   "errorCloudBadResponse": {
     "message": "El servidor de sincronización envió una respuesta que esta versión no puede leer.",
     "description": "Error when the sync server's answer has an unexpected shape."
-  },
-  "errorCloudRecordTooLarge": {
-    "message": "Una sesión es demasiado grande para sincronizarse. Solo se queda en este dispositivo.",
-    "description": "Error when a saved session is too large for the sync server; it stays on this device only."
-  },
-  "errorCloudNoteTooLarge": {
-    "message": "Las notas de un vídeo o una captura son demasiado grandes para sincronizarse. Solo se quedan en este dispositivo.",
-    "description": "Error when one video's notes, or one note screenshot, is too large for the sync server; it stays on this device only."
   },
   "commonTryAgain": {
     "message": "Reintentar",
@@ -2506,5 +2498,185 @@
   "treeShowMoreTabsTitle_other": {
     "message": "$1 pestañas ocultas en esta ventana",
     "description": "Tooltip of the \"Show N more tabs\" button under a long window. $1 is how many tabs are still hidden in that window, formatted."
+  },
+  "settingsAccountUpgradeHint": {
+    "message": "La sincronización se rehízo en la versión 10. Inicia sesión y vuelve a crear tu frase de contraseña de sincronización. Todo lo que hay en este dispositivo sigue aquí.",
+    "description": "Settings > Account, signed out, on a device that used sync before version 10."
+  },
+  "settingsAccountExpired": {
+    "message": "Tu inicio de sesión terminó. Vuelve a iniciar sesión para reanudar la sincronización. La clave sigue en este dispositivo.",
+    "description": "Settings > Account when the sign-in ran out but the key is still on this device."
+  },
+  "settingsAccountSignInTitle": {
+    "message": "Elige o confirma tu cuenta de Google en la ventana de Chrome",
+    "description": "Tooltip of the Sign in with Google button."
+  },
+  "settingsAccountConfirm": {
+    "message": "¿Añadir los datos de este dispositivo a esta cuenta?",
+    "description": "Question shown after signing in to another account than the one this device last synced with."
+  },
+  "settingsAccountConfirmBody": {
+    "message": "Este dispositivo se sincronizó por última vez con $1 o con una copia anterior de sus datos en la nube. Si lo añades a $2, las sesiones guardadas, los apuntes, las notas de YouTube y los ajustes de aquí se subirán a esa cuenta cuando crees o escribas su frase de contraseña.",
+    "description": "Explains the account question. $1 is the email this device last synced with, $2 the email just signed in."
+  },
+  "settingsAccountKeepHere": {
+    "message": "No, mantenerlos aquí",
+    "description": "Default button of the account question: cancel the sign-in and upload nothing."
+  },
+  "settingsAccountKeepHereTitle": {
+    "message": "Cancela este inicio de sesión y no sube nada",
+    "description": "Tooltip of the \"No, keep it here\" button."
+  },
+  "settingsAccountAddData": {
+    "message": "Añadir a esta cuenta",
+    "description": "Button of the account question: allow uploading this device’s data to the account just signed in."
+  },
+  "settingsAccountAddDataTitle": {
+    "message": "Permite subir los datos de este dispositivo a esta cuenta",
+    "description": "Tooltip of the \"Add to this account\" button."
+  },
+  "settingsAccountCheckFailed": {
+    "message": "No se pudo comprobar la cuenta.",
+    "description": "Settings > Account when the sync server could not be asked about the account."
+  },
+  "settingsAccountCreateTitle": {
+    "message": "Pone la frase de contraseña. Chrome confirma antes tu cuenta de Google.",
+    "description": "Tooltip of the Create passphrase button."
+  },
+  "settingsAccountPassphraseEmpty": {
+    "message": "Escribe la frase de contraseña.",
+    "description": "Field error when the passphrase field was left empty."
+  },
+  "settingsAccountUnlockTitle": {
+    "message": "Desbloquea la sincronización en este dispositivo. Chrome confirma antes tu cuenta de Google.",
+    "description": "Tooltip of the Unlock button."
+  },
+  "settingsAccountForgotHint": {
+    "message": "¿La olvidaste? En un dispositivo donde la sincronización funcione, usa «Cambiar frase de contraseña». Si no tienes ninguno, usa «Eliminar datos de la nube» y empieza de nuevo.",
+    "description": "Hint under the passphrase field when unlocking. Quotes the labels of the Change passphrase and Delete cloud data buttons."
+  },
+  "settingsAccountChangePassphrase": {
+    "message": "Cambiar frase de contraseña",
+    "description": "Button in Settings > Account that sets a new sync passphrase from this device."
+  },
+  "settingsAccountChangeHint": {
+    "message": "También sirve para restablecer una frase de contraseña olvidada.",
+    "description": "Grey hint beside the Change passphrase button."
+  },
+  "settingsAccountChangeTitle": {
+    "message": "Pone una nueva frase de contraseña de sincronización desde este dispositivo",
+    "description": "Tooltip of the Change passphrase button."
+  },
+  "settingsAccountChangeDialogTitle": {
+    "message": "¿Cambiar la frase de contraseña de sincronización?",
+    "description": "Title of the dialog that changes the sync passphrase."
+  },
+  "settingsAccountChangeBody": {
+    "message": "Chrome confirma antes tu cuenta de Google. No necesitas la frase de contraseña anterior. Los dispositivos ya desbloqueados siguen funcionando. Tus datos no se vuelven a subir.",
+    "description": "Body of the dialog that changes the sync passphrase."
+  },
+  "settingsAccountNewPassphrase": {
+    "message": "Nueva frase de contraseña",
+    "description": "Label of the new passphrase field in the Change passphrase dialog."
+  },
+  "settingsAccountChanged": {
+    "message": "Frase de contraseña de sincronización cambiada.",
+    "description": "Toast after the sync passphrase was changed."
+  },
+  "settingsAccountKeyMismatch": {
+    "message": "Los datos de la nube tienen otra clave, así que la sincronización está en pausa. No se eliminó nada de este dispositivo. Cierra sesión y vuelve a iniciarla, o elimina los datos de la nube.",
+    "description": "Settings > Account when the cloud data has another key than this device."
+  },
+  "settingsAccountRollback": {
+    "message": "El servidor de sincronización devolvió un registro de frase de contraseña más antiguo del que este dispositivo ya vio. Una frase de contraseña antigua podría volver a funcionar. Cambia la frase de contraseña.",
+    "description": "Error toast when the sync server returned an older passphrase record than this device saw before."
+  },
+  "settingsAccountSignOutTitle": {
+    "message": "¿Cerrar sesión de la sincronización?",
+    "description": "Title of the dialog that asks before signing out of sync and removing the key."
+  },
+  "settingsAccountSignOutBody": {
+    "message": "La clave se elimina de este dispositivo, así que necesitarás la frase de contraseña para volver a sincronizar aquí. Si es tu último dispositivo desbloqueado y la olvidaste, la copia en la nube no se puede recuperar. Tus datos de aquí se quedan.",
+    "description": "Body of the sign-out dialog, shown when the key will be removed."
+  },
+  "settingsAccountSignOutButtonTitle": {
+    "message": "Deja de sincronizar y elimina la clave de este dispositivo",
+    "description": "Tooltip of the Sign out button."
+  },
+  "settingsAccountDeleteTooltip": {
+    "message": "Elimina todo lo guardado para esta cuenta en el servidor de sincronización",
+    "description": "Tooltip of the Delete cloud data button."
+  },
+  "settingsAccountUsage": {
+    "message": "Almacenamiento en la nube",
+    "description": "Label of the row in Settings > Account that shows how much cloud storage the account uses."
+  },
+  "settingsAccountUsageValue": {
+    "message": "$1 / $2",
+    "description": "Value of the Cloud storage row. $1 is the amount used, $2 the limit, both with their unit (such as 12.3 MB and 50 MB)."
+  },
+  "settingsAccountUsageTitle": {
+    "message": "Todo lo cifrado en tu cuenta, capturas y marcas de eliminación incluidas",
+    "description": "Tooltip of the Cloud storage row."
+  },
+  "settingsAccountTryAgainTitle": {
+    "message": "Vuelve a preguntar al servidor de sincronización",
+    "description": "Tooltip of the Try again button in Settings > Account."
+  },
+  "settingsAccountStorageHeld_one": {
+    "message": "$1 elemento no se sincronizó: tu almacenamiento en la nube está lleno ($2). Se queda en este dispositivo y se sincronizará cuando haya espacio.",
+    "description": "Toast when the sync server refused items because the account storage is full. $1 is how many items, $2 the limit with its unit (such as 50 MB)."
+  },
+  "settingsAccountStorageHeld_other": {
+    "message": "$1 elementos no se sincronizaron: tu almacenamiento en la nube está lleno ($2). Se quedan en este dispositivo y se sincronizarán cuando haya espacio.",
+    "description": "Toast when the sync server refused items because the account storage is full. $1 is how many items, $2 the limit with its unit (such as 50 MB)."
+  },
+  "settingsAccountHelpWhatLimit": {
+    "message": "Una cuenta guarda hasta $1, capturas y marcas de eliminación incluidas. Lo que no quepa se queda en este dispositivo, y eliminar siempre funciona.",
+    "description": "Sync explanation of the account storage limit. $1 is the limit with its unit (such as 50 MB)."
+  },
+  "errorCloudGoogleRefused": {
+    "message": "Google no confirmó tu cuenta. Inténtalo de nuevo.",
+    "description": "Error when Google did not confirm the account."
+  },
+  "errorCloudGoogleAccount": {
+    "message": "Chrome eligió otra cuenta de Google distinta de la que tiene la sesión de sincronización. Inténtalo de nuevo y elige esa cuenta.",
+    "description": "Error when Chrome picked another Google account than the one signed in to sync. Must not advise signing out."
+  },
+  "errorCloudGoogleUnavailable": {
+    "message": "No se pudo contactar con Google para confirmar tu cuenta. Inténtalo de nuevo.",
+    "description": "Error when Google could not be reached to confirm the account."
+  },
+  "errorCloudKeyChanged": {
+    "message": "La sincronización está en pausa porque los datos de la nube tienen otra clave. Abre Ajustes > Cuenta.",
+    "description": "Error when sync is paused because the cloud data has another key."
+  },
+  "errorCloudKeyConflict": {
+    "message": "El registro de la frase de contraseña cambió entretanto. Inténtalo de nuevo.",
+    "description": "Error when the passphrase record changed on the server while this device was changing it."
+  },
+  "errorCloudKeyUnavailable": {
+    "message": "El servidor no pudo abrir el registro de la frase de contraseña. Cambia la frase de contraseña en un dispositivo donde la sincronización ya funcione.",
+    "description": "Error when the server could not open the stored passphrase record."
+  },
+  "errorCloudUpgrade": {
+    "message": "Esta versión de Tabinet ya no puede sincronizar. Actualízala.",
+    "description": "Error when the sync server no longer speaks this version’s protocol."
+  },
+  "errorCloudInterrupted": {
+    "message": "La descarga se cortó. La sincronización seguirá donde se detuvo.",
+    "description": "Error when the download from the sync server was cut off before its end."
+  },
+  "errorCloudNewerData": {
+    "message": "Algunos elementos necesitan una versión más reciente de Tabinet. No se cambió nada.",
+    "description": "Error when some synced items need a newer version of the extension."
+  },
+  "errorCloudClock": {
+    "message": "Algunos elementos tienen una fecha de más de un día en el futuro. Revisa el reloj de este ordenador.",
+    "description": "Error when items are dated more than a day ahead, so the server refused them."
+  },
+  "errorCloudItemTooLarge": {
+    "message": "Un elemento es demasiado grande para sincronizarse. Se queda solo en este dispositivo.",
+    "description": "Error when an item is too large to sync and stays on this device."
   }
 }

@@ -1,11 +1,18 @@
 import { POLICY } from '@/constants';
 import { isCloudSyncEnabled } from '@/lib/cloud-config';
 import {
+  CLOUD_SYNC_META_KEY,
+  cloudRawKey,
+  SESSIONS_LOCK_NAME,
+  setThenClean,
+  withSessionsLock,
+} from '@/lib/cloud-storage';
+import {
   readSyncMeta,
   type SessionChanges,
-  trackSessionChanges,
-  withKnownVersion,
-  writeSyncMeta,
+  stageSessionChanges,
+  stampOf,
+  withKnown,
 } from '@/lib/cloud-sync-state';
 import { LocalizedError } from '@/lib/error-message';
 import { t } from '@/lib/i18n';
@@ -24,14 +31,15 @@ import {
   type SessionIndex,
   type SessionSettings,
   type SessionSummary,
+  type CloudSyncMeta,
+  type RecordOut,
 } from '@/types';
 
 export const INDEX_KEY = 'sessionIndex';
 export const SETTINGS_KEY = 'sessionSettings';
 export const HISTORY_META_KEY = 'historyMeta';
-// The extension's name before Tabinet. Kept: a lock name is shared by every page and the worker,
-// so renaming it would let an old page and a new worker write at once during an update.
-export const LOCK_NAME = 'tab-organizer:sessions';
+/** The sessions lock (`cloud-storage.ts` holds it, so the sync bookkeeping can take it too). */
+export const LOCK_NAME = SESSIONS_LOCK_NAME;
 
 const SESSION_KEY_PREFIX = 'session:';
 
@@ -43,28 +51,7 @@ function idFromKey(key: string): string | undefined {
   return key.startsWith(SESSION_KEY_PREFIX) ? key.slice(SESSION_KEY_PREFIX.length) : undefined;
 }
 
-// Fallback serialization for runtimes without Web Locks (page-local only).
-let fallbackChain: Promise<unknown> = Promise.resolve();
-
-export function withLock<T>(fn: () => Promise<T>): Promise<T> {
-  const locks = typeof navigator === 'undefined' ? undefined : navigator.locks;
-  if (locks === undefined) {
-    const run = fallbackChain.then(fn, fn);
-    fallbackChain = run.catch(() => undefined);
-    return run;
-  }
-  return new Promise<T>((resolve, reject) => {
-    locks
-      .request(LOCK_NAME, async () => {
-        try {
-          resolve(await fn());
-        } catch (err) {
-          reject(err);
-        }
-      })
-      .catch(reject);
-  });
-}
+export const withLock = withSessionsLock;
 
 export function toSummary(session: Session, bytes: number): SessionSummary {
   const summary: SessionSummary = {
@@ -104,12 +91,12 @@ async function readIndex(): Promise<SessionIndex> {
   return migrateIndex(raw[INDEX_KEY]);
 }
 
+function indexValue(sessions: SessionSummary[]): SessionIndex {
+  return { schemaVersion: SESSION_SCHEMA_VERSION, sessions: sortNewestFirst(sessions) };
+}
+
 async function writeIndex(sessions: SessionSummary[]): Promise<void> {
-  const index: SessionIndex = {
-    schemaVersion: SESSION_SCHEMA_VERSION,
-    sessions: sortNewestFirst(sessions),
-  };
-  await chrome.storage.local.set({ [INDEX_KEY]: index });
+  await chrome.storage.local.set({ [INDEX_KEY]: indexValue(sessions) });
 }
 
 async function readRawBody(id: SessionId): Promise<unknown> {
@@ -127,17 +114,27 @@ async function readBody(id: SessionId): Promise<Session | undefined> {
 }
 
 /**
- * Body first, then index: an interruption between the two writes leaves an orphan body
- * (re-indexed by `reconcile()`), never a dangling index entry. The index is read -- and thereby
- * validated -- before the body is written, so an unreadable index fails the call without leaving
- * behind a body nothing can list. Must be called inside withLock.
+ * The body and the index entry of `body`, as entries of one `set` (invariant 12: body, index and
+ * bookkeeping go together, so no interruption leaves them apart). The index is read, and thereby
+ * validated, first: an unreadable index fails the call before anything is written. Must be called
+ * inside withLock.
  */
-async function writeBodyAndIndex(body: Session): Promise<void> {
+async function bodyAndIndexEntries(body: Session): Promise<Record<string, unknown>> {
   const index = await readIndex();
   const bytes = byteLength(JSON.stringify(body));
-  await chrome.storage.local.set({ [sessionKey(body.id)]: body });
   const others = index.sessions.filter((summary) => summary.id !== body.id);
-  await writeIndex([...others, toSummary(body, bytes)]);
+  return {
+    [sessionKey(body.id)]: body,
+    [INDEX_KEY]: indexValue([...others, toSummary(body, bytes)]),
+  };
+}
+
+/** Writes `body` and its index entry, with the bookkeeping of `changes`, in one `set`. */
+async function writeBodyAndIndex(body: Session, changes: SessionChanges = {}): Promise<void> {
+  await setThenClean({
+    ...(await bodyAndIndexEntries(body)),
+    ...(await stageSessionChanges(changes)),
+  });
 }
 
 /** Field-by-field: does the index entry still describe this body? */
@@ -253,9 +250,10 @@ export function normalizeSettings(value: unknown): SessionSettings {
         ? value.historyEnabled
         : DEFAULT_SESSION_SETTINGS.historyEnabled,
     historyIntervalMinutes: normalizeHistoryInterval(interval),
+    // Stored and synced values alike are clamped (#270): over the maximum reads as the maximum.
     historyMaxSnapshots:
       typeof max === 'number' && Number.isInteger(max) && max >= POLICY.snapshots.keep.min
-        ? max
+        ? Math.min(max, POLICY.snapshots.keep.max)
         : DEFAULT_SESSION_SETTINGS.historyMaxSnapshots,
     restoreLazy:
       lazy === 'auto' || lazy === 'always' || lazy === 'never'
@@ -323,8 +321,7 @@ export const sessionRepo = {
   put(session: Session): Promise<void> {
     return withLock(async () => {
       const body: Session = { ...session, updatedAt: Date.now() };
-      await writeBodyAndIndex(body);
-      await trackSessionChanges(savedChange(body));
+      await writeBodyAndIndex(body, savedChange(body));
     });
   },
 
@@ -336,8 +333,7 @@ export const sessionRepo = {
       }
       const next: Session = { ...existing, name };
       stampEdit(existing, next);
-      await writeBodyAndIndex(next);
-      await trackSessionChanges(savedChange(next));
+      await writeBodyAndIndex(next, savedChange(next));
     });
   },
 
@@ -363,8 +359,7 @@ export const sessionRepo = {
       const next = mutate(existing);
       if (next === null) {
         // Same path as remove(): body, index, then the `historyMeta` staleness check.
-        await removeBodiesAndIndex(await readIndex(), [id]);
-        await trackSessionChanges(savedDeletion([existing]));
+        await removeBodiesAndIndex(await readIndex(), [id], savedDeletion([existing]));
         return null;
       }
       if (next.id !== id) {
@@ -372,8 +367,7 @@ export const sessionRepo = {
         throw new TypeError(`update() must not change the session id (${id} -> ${next.id})`);
       }
       stampEdit(existing, next);
-      await writeBodyAndIndex(next);
-      await trackSessionChanges(savedChange(next));
+      await writeBodyAndIndex(next, savedChange(next));
       return next;
     });
   },
@@ -385,8 +379,11 @@ export const sessionRepo = {
       // drops a `historyMeta` left fingerprinting the snapshot just removed: otherwise the next
       // alarm compares against a hash nothing holds and returns 'skipped-unchanged' forever.
       const index = await readIndex();
-      await removeBodiesAndIndex(index, [id]);
-      await trackSessionChanges(savedDeletion(index.sessions.filter((entry) => entry.id === id)));
+      await removeBodiesAndIndex(
+        index,
+        [id],
+        savedDeletion(index.sessions.filter((entry) => entry.id === id)),
+      );
     });
   },
 
@@ -401,109 +398,274 @@ export const sessionRepo = {
         saved = [];
       }
       const keys = await listStorageKeys();
-      const bodyKeys = keys.filter((key) => idFromKey(key) !== undefined);
-      if (bodyKeys.length > 0) {
-        await chrome.storage.local.remove(bodyKeys);
+      const entries: Record<string, unknown> = { [INDEX_KEY]: null, [HISTORY_META_KEY]: null };
+      for (const key of keys.filter((candidate) => idFromKey(candidate) !== undefined)) {
+        entries[key] = null;
       }
-      await chrome.storage.local.remove([INDEX_KEY, HISTORY_META_KEY]);
-      await trackSessionChanges(savedDeletion(saved));
+      await setThenClean({ ...entries, ...(await stageSessionChanges(savedDeletion(saved))) });
     });
   },
 
   /**
-   * Applies a change received from the sync server (`src/lib/cloud-sync.ts`): a saved session, or
-   * the tombstone of one. Not recorded in the dirty sets, because it came from the server. Last
-   * writer wins by `updatedAt`, decided here under the lock against the copy as it is now:
+   * Applies a batch of changes received from the sync server (`src/lib/cloud-sync.ts`): saved
+   * sessions and tombstones, in order, decided under the lock against the copies as they are now
+   * and written in ONE `set` with the bookkeeping (10.6). Last writer wins by `updatedAt`:
    *
-   * - the remote change is newer (or `serverWinsTies` and equally new, for a `stale` answer): the
-   *   session is written, or deleted, with the server's `updatedAt` kept exactly, and any pending
-   *   entry of this device for it is dropped (`'applied'`);
-   * - this device's copy (or pending tombstone) is newer: nothing is written and the copy is made
-   *   pending if it was not, so the server gets it on the next push (`'kept-local'`);
-   * - the same `updatedAt` (this device's own write coming back), nothing to delete, a snapshot,
-   *   or a body this build cannot read: nothing happens (`'unchanged'`). A snapshot or an unreadable
-   *   body is never overwritten or deleted by a remote change.
+   * - the remote change is newer (or `serverWinsTies` and equally new, for a stale answer): the
+   *   session is written, or deleted, with the server's `updatedAt` kept exactly, its pending
+   *   entries dropped and `known` raised (`'applied'`);
+   * - this device's copy or pending deletion is newer: nothing is written and the copy is made
+   *   pending if it was not (`'kept-local'`);
+   * - otherwise nothing (`'unchanged'`). A snapshot is never overwritten or deleted.
    *
-   * With no copy here, the bar is the pending tombstone and `knownVersions`, the newest version of
-   * the id this device ever applied, deleted or had accepted: a live record must be strictly newer
-   * (no tie, even for a `stale` answer), so a server replaying a deleted session's last record
-   * byte for byte cannot bring it back. A remote tombstone with no copy here deletes nothing; it
-   * raises the mark and settles a pending tombstone that is not newer than it.
+   * With no copy here the floor is the pending deletion and `known`: a live record must be
+   * strictly newer. A body this build cannot read is held (8.3): `blocked` with the raw record
+   * under `cloudRaw:*`, replaced only by a newer record (`'held'`). `belongs` says whether the
+   * stored bookkeeping is still the run's; when it is not, nothing is written.
    */
-  applyRemote(change: RemoteSessionChange, options: { serverWinsTies?: boolean } = {}) {
-    return withLock(async (): Promise<RemoteApplyOutcome> => {
-      const id = change.type === 'session' ? change.session.id : change.id;
-      const remoteAt = change.type === 'session' ? change.session.updatedAt : change.updatedAt;
+  applyRemoteBatch(
+    changes: readonly RemoteSessionChange[],
+    options: {
+      serverWinsTies?: boolean;
+      belongs: (meta: CloudSyncMeta) => boolean;
+      now?: number;
+    },
+  ): Promise<RemoteApplyOutcome[] | null> {
+    return withLock(async () => {
+      const found = await readSyncMeta();
+      if (found === undefined || !options.belongs(found)) {
+        return null;
+      }
+      let meta: CloudSyncMeta = found;
+      const now = options.now ?? Date.now();
       const index = await readIndex();
-      const summary = index.sessions.find((entry) => entry.id === id);
-      if (summary !== undefined && (summary.kind === 'history' || summary.unreadable)) {
-        return 'unchanged';
-      }
-      let local: Session | undefined;
-      try {
-        local = await readBody(id);
-      } catch {
-        return 'unchanged';
-      }
-      if (local !== undefined && local.kind !== 'saved') {
-        return 'unchanged';
-      }
-      const meta = await readSyncMeta();
-      const tombstone = meta?.deletedSessions[id];
-
-      if (local === undefined) {
-        // Nothing here: the floor is this device's pending deletion and the newest version it has
-        // ever known of the id. A record at or below it is old, whatever the server says: that is
-        // what keeps a replay of a deleted session's last live record from bringing it back.
-        const floors = [tombstone, meta?.knownVersions[id]].filter((at) => at !== undefined);
-        const floor = floors.length > 0 ? Math.max(...floors) : undefined;
-        if (change.type === 'deleted') {
-          // Nothing to delete. A deletion at or after the pending one settles it.
-          if (meta !== undefined) {
-            let next = withKnownVersion(meta, id, remoteAt);
+      const summaries = new Map(index.sessions.map((summary) => [summary.id, summary]));
+      const bodies = new Map<SessionId, Session | null>();
+      const entries: Record<string, unknown> = {};
+      let indexChanged = false;
+      const outcomes: RemoteApplyOutcome[] = [];
+      const settle = (id: SessionId, remoteAt: number) => {
+        const dirty = { ...meta.sessions.dirty };
+        const deleted = { ...meta.sessions.deleted };
+        delete dirty[id];
+        delete deleted[id];
+        meta = {
+          ...meta,
+          sessions: withKnown({ ...meta.sessions, dirty, deleted }, id, remoteAt),
+        };
+        const blocked = { ...meta.blocked };
+        delete blocked[`session:${id}`];
+        meta = { ...meta, blocked };
+      };
+      for (const change of changes) {
+        const id = change.type === 'session' ? change.session.id : change.id;
+        const remoteAt = change.type === 'session' ? change.session.updatedAt : change.updatedAt;
+        const summary = summaries.get(id);
+        if (summary !== undefined && summary.kind === 'history') {
+          outcomes.push('unchanged');
+          continue;
+        }
+        let local: Session | undefined;
+        try {
+          local = bodies.has(id) ? (bodies.get(id) ?? undefined) : await readBody(id);
+        } catch {
+          local = undefined;
+          if (change.raw !== undefined) {
+            const ref = `session:${id}`;
+            const held = meta.blocked[ref];
+            if (held === undefined || remoteAt > held.at) {
+              const raw = cloudRawKey('session', id);
+              meta = {
+                ...meta,
+                blocked: {
+                  ...meta.blocked,
+                  [ref]: { at: remoteAt, reason: 'localUnreadable', raw },
+                },
+              };
+              entries[raw] = change.raw;
+            }
+          }
+          outcomes.push('held');
+          continue;
+        }
+        if (summary?.unreadable !== undefined) {
+          outcomes.push('unchanged');
+          continue;
+        }
+        if (local !== undefined && local.kind !== 'saved') {
+          outcomes.push('unchanged');
+          continue;
+        }
+        const tombstone = meta.sessions.deleted[id];
+        if (local === undefined) {
+          const floors = [tombstone, meta.sessions.known[id]].filter((at) => at !== undefined);
+          const floor = floors.length > 0 ? Math.max(...floors) : undefined;
+          if (change.type === 'deleted') {
+            meta = { ...meta, sessions: withKnown(meta.sessions, id, remoteAt) };
             if (tombstone !== undefined && remoteAt >= tombstone) {
-              const deletedSessions = { ...next.deletedSessions };
-              delete deletedSessions[id];
-              next = { ...next, deletedSessions };
+              const deleted = { ...meta.sessions.deleted };
+              delete deleted[id];
+              meta = { ...meta, sessions: { ...meta.sessions, deleted } };
             }
-            if (next !== meta) {
-              await writeSyncMeta(next);
-            }
+            outcomes.push(
+              tombstone !== undefined && remoteAt < tombstone ? 'kept-local' : 'unchanged',
+            );
+            continue;
           }
-          return tombstone !== undefined && remoteAt < tombstone ? 'kept-local' : 'unchanged';
+          if (floor !== undefined && remoteAt <= floor) {
+            outcomes.push(tombstone !== undefined ? 'kept-local' : 'unchanged');
+            continue;
+          }
+          bodies.set(id, change.session);
+          entries[sessionKey(id)] = change.session;
+          summaries.set(id, toSummary(change.session, byteLength(JSON.stringify(change.session))));
+          indexChanged = true;
+          settle(id, remoteAt);
+          outcomes.push('applied');
+          continue;
         }
-        if (floor !== undefined && remoteAt <= floor) {
-          return tombstone !== undefined ? 'kept-local' : 'unchanged';
-        }
-        await writeBodyAndIndex(change.session);
-        await settleRemote(id, remoteAt);
-        return 'applied';
-      }
-
-      const localAt = Math.max(local.updatedAt, tombstone ?? 0);
-      const remoteWins =
-        remoteAt > localAt || (options.serverWinsTies === true && remoteAt === localAt);
-
-      if (!remoteWins) {
-        if (localAt > remoteAt && meta !== undefined) {
-          if (meta.dirtySessions[id] === undefined && tombstone === undefined) {
-            await writeSyncMeta({
+        const localAt = Math.max(local.updatedAt, tombstone ?? 0);
+        const remoteWins =
+          remoteAt > localAt || (options.serverWinsTies === true && remoteAt === localAt);
+        if (!remoteWins) {
+          if (
+            localAt > remoteAt &&
+            meta.sessions.dirty[id] === undefined &&
+            tombstone === undefined
+          ) {
+            meta = {
               ...meta,
-              dirtySessions: { ...meta.dirtySessions, [id]: local.updatedAt },
-            });
+              sessions: {
+                ...meta.sessions,
+                dirty: { ...meta.sessions.dirty, [id]: stampOf(local.updatedAt, now) },
+              },
+            };
           }
-          return 'kept-local';
+          outcomes.push(localAt > remoteAt ? 'kept-local' : 'unchanged');
+          continue;
         }
-        return localAt > remoteAt ? 'kept-local' : 'unchanged';
+        if (change.type === 'session') {
+          bodies.set(id, change.session);
+          entries[sessionKey(id)] = change.session;
+          summaries.set(id, toSummary(change.session, byteLength(JSON.stringify(change.session))));
+        } else {
+          bodies.set(id, null);
+          entries[sessionKey(id)] = null;
+          summaries.delete(id);
+        }
+        indexChanged = true;
+        settle(id, remoteAt);
+        outcomes.push('applied');
       }
+      if (indexChanged) {
+        entries[INDEX_KEY] = indexValue([...summaries.values()]);
+        const history = await readHistoryMeta();
+        const remaining = [...summaries.values()];
+        if (
+          history !== undefined &&
+          !remaining.some((entry) => isHistory(entry) && entry.contentHash === history.lastHash)
+        ) {
+          entries[HISTORY_META_KEY] = null;
+        }
+      }
+      entries[CLOUD_SYNC_META_KEY] = meta;
+      await setThenClean(entries);
+      return outcomes;
+    });
+  },
 
-      if (change.type === 'session') {
-        await writeBodyAndIndex(change.session);
-      } else {
-        await removeBodiesAndIndex(index, [id]);
+  /**
+   * Gives saved sessions new stamps, body and bookkeeping in one `set` (10.4): a pending version
+   * that has to go above what the server has, or below a stamp that was too far ahead. Only
+   * pending entries are restamped; `belongs` as for `applyRemoteBatch()`.
+   */
+  restampSaved(
+    stamps: readonly (readonly [SessionId, number])[],
+    belongs: (meta: CloudSyncMeta) => boolean,
+  ): Promise<boolean> {
+    return withLock(async () => {
+      const found = await readSyncMeta();
+      if (found === undefined || !belongs(found) || stamps.length === 0) {
+        return false;
       }
-      await settleRemote(id, remoteAt);
-      return 'applied';
+      const sessions = {
+        ...found.sessions,
+        dirty: { ...found.sessions.dirty },
+        deleted: { ...found.sessions.deleted },
+      };
+      const index = await readIndex();
+      const summaries = new Map(index.sessions.map((summary) => [summary.id, summary]));
+      const entries: Record<string, unknown> = {};
+      for (const [id, stamp] of stamps) {
+        if (sessions.deleted[id] !== undefined) {
+          sessions.deleted[id] = stamp;
+          continue;
+        }
+        if (sessions.dirty[id] === undefined) {
+          continue;
+        }
+        const body = await readBody(id).catch(() => undefined);
+        if (body === undefined || body.kind !== 'saved') {
+          continue;
+        }
+        const next = { ...body, updatedAt: stamp };
+        entries[sessionKey(id)] = next;
+        summaries.set(id, toSummary(next, byteLength(JSON.stringify(next))));
+        sessions.dirty[id] = stamp;
+      }
+      entries[INDEX_KEY] = indexValue([...summaries.values()]);
+      entries[CLOUD_SYNC_META_KEY] = { ...found, sessions };
+      await setThenClean(entries);
+      return true;
+    });
+  },
+
+  /**
+   * Starts tracking saved sessions for the bookkeeping, once (`started`): every readable saved
+   * session pending at its validated stamp (8.2), a body whose stamp had to change rewritten in
+   * the same `set`. Whether it started now.
+   */
+  startSyncTracking(
+    belongs: (meta: CloudSyncMeta) => boolean,
+    now: number = Date.now(),
+  ): Promise<boolean> {
+    return withLock(async () => {
+      const found = await readSyncMeta();
+      if (found === undefined || !belongs(found) || found.started.includes('session')) {
+        return false;
+      }
+      const dirty = { ...found.sessions.dirty };
+      const entries: Record<string, unknown> = {};
+      const index = await readIndex();
+      const summaries = new Map(index.sessions.map((summary) => [summary.id, summary]));
+      let rewritten = false;
+      for (const summary of index.sessions) {
+        if (summary.kind !== 'saved' || summary.unreadable !== undefined) {
+          continue;
+        }
+        const body = await readBody(summary.id).catch(() => undefined);
+        if (body === undefined) {
+          continue;
+        }
+        const stamp = stampOf(body.updatedAt, now);
+        if (stamp !== body.updatedAt) {
+          const next = { ...body, updatedAt: stamp };
+          entries[sessionKey(body.id)] = next;
+          summaries.set(body.id, toSummary(next, byteLength(JSON.stringify(next))));
+          rewritten = true;
+        }
+        dirty[body.id] = stamp;
+      }
+      if (rewritten) {
+        entries[INDEX_KEY] = indexValue([...summaries.values()]);
+      }
+      entries[CLOUD_SYNC_META_KEY] = {
+        ...found,
+        sessions: { ...found.sessions, dirty },
+        started: [...found.started, 'session'],
+      };
+      await setThenClean(entries);
+      return true;
     });
   },
 
@@ -530,9 +692,18 @@ export const sessionRepo = {
   reconcile(): Promise<{ reindexed: number; dropped: number }> {
     return withLock(async () => {
       const keys = await listStorageKeys();
-      const ids = keys
+      const listed = keys
         .map((key) => idFromKey(key))
         .filter((id): id is SessionId => id !== undefined);
+      const records: Record<string, unknown> =
+        listed.length > 0 ? await chrome.storage.local.get(listed.map((id) => sessionKey(id))) : {};
+      // A `null` body is a deletion whose cleanup did not run (invariant 12): absent, never
+      // re-indexed, and removed now.
+      const nulls = listed.filter((id) => records[sessionKey(id)] === null);
+      if (nulls.length > 0) {
+        await chrome.storage.local.remove(nulls.map((id) => sessionKey(id)));
+      }
+      const ids = listed.filter((id) => records[sessionKey(id)] !== null);
       const bodyIds = new Set(ids);
 
       let indexUnreadable = false;
@@ -546,8 +717,6 @@ export const sessionRepo = {
       const indexed = new Map(index.sessions.map((summary) => [summary.id, summary]));
       const dropped = index.sessions.filter((summary) => !bodyIds.has(summary.id)).length;
 
-      const records: Record<string, unknown> =
-        ids.length > 0 ? await chrome.storage.local.get(ids.map((id) => sessionKey(id))) : {};
       const kept: SessionSummary[] = [];
       let reindexed = 0;
       for (const id of ids) {
@@ -774,8 +943,7 @@ export const sessionRepo = {
       if (source.contentHash !== undefined) {
         copy.contentHash = source.contentHash;
       }
-      await writeBodyAndIndex(copy);
-      await trackSessionChanges(savedChange(copy));
+      await writeBodyAndIndex(copy, savedChange(copy));
       return copy;
     });
   },
@@ -802,30 +970,13 @@ export const sessionRepo = {
 // Cloud sync hooks (src/lib/cloud-sync-state.ts holds the bookkeeping)
 // ---------------------------------------------------------------------------
 
-/** A change received from the sync server, for `sessionRepo.applyRemote()`. */
-export type RemoteSessionChange =
+/** A change received from the sync server, for `sessionRepo.applyRemoteBatch()`. */
+export type RemoteSessionChange = (
   | { type: 'session'; session: Session }
-  | { type: 'deleted'; id: SessionId; updatedAt: number };
+  | { type: 'deleted'; id: SessionId; updatedAt: number }
+) & { raw?: RecordOut };
 
-export type RemoteApplyOutcome = 'applied' | 'kept-local' | 'unchanged';
-
-/**
- * After a remote change was applied: this device's pending entries for `id` are dropped (the
- * remote change replaced them) and `remoteAt` is remembered in `knownVersions`. Inside the lock.
- */
-async function settleRemote(id: SessionId, remoteAt: number): Promise<void> {
-  const current = await readSyncMeta();
-  if (current === undefined) {
-    return;
-  }
-  const dirtySessions = { ...current.dirtySessions };
-  const deletedSessions = { ...current.deletedSessions };
-  delete dirtySessions[id];
-  delete deletedSessions[id];
-  await writeSyncMeta(
-    withKnownVersion({ ...current, dirtySessions, deletedSessions }, id, remoteAt),
-  );
-}
+export type RemoteApplyOutcome = 'applied' | 'kept-local' | 'unchanged' | 'held';
 
 /** The dirty-set entry for a written session: saved sessions only, snapshots never sync. */
 function savedChange(session: Session): SessionChanges {
@@ -912,23 +1063,38 @@ function updateBody(id: SessionId, update: (existing: Session) => Session): Prom
  * snapshot it fingerprints is gone - otherwise the next `takeHistorySnapshot()` would skip a
  * state that no stored snapshot holds any more. Must be called inside withLock.
  */
-async function removeBodiesAndIndex(index: SessionIndex, ids: SessionId[]): Promise<void> {
+async function removeBodiesAndIndex(
+  index: SessionIndex,
+  ids: SessionId[],
+  changes: SessionChanges = {},
+): Promise<void> {
   if (ids.length === 0) {
     return;
   }
-  await chrome.storage.local.remove(ids.map((id) => sessionKey(id)));
+  await setThenClean({
+    ...(await removalEntries(index, ids)),
+    ...(await stageSessionChanges(changes)),
+  });
+}
+
+/** The entries of one `set` that remove `ids`: bodies as `null`, the index, `historyMeta`. */
+async function removalEntries(
+  index: SessionIndex,
+  ids: readonly SessionId[],
+): Promise<Record<string, unknown>> {
+  const entries: Record<string, unknown> = {};
+  for (const id of ids) {
+    entries[sessionKey(id)] = null;
+  }
   const removed = new Set(ids);
   const remaining = index.sessions.filter((summary) => !removed.has(summary.id));
-  await writeIndex(remaining);
-
+  entries[INDEX_KEY] = indexValue(remaining);
   const meta = await readHistoryMeta();
-  if (meta === undefined) {
-    return;
+  if (
+    meta !== undefined &&
+    !remaining.some((summary) => isHistory(summary) && summary.contentHash === meta.lastHash)
+  ) {
+    entries[HISTORY_META_KEY] = null;
   }
-  const stillHeld = remaining.some(
-    (summary) => isHistory(summary) && summary.contentHash === meta.lastHash,
-  );
-  if (!stillHeld) {
-    await chrome.storage.local.remove(HISTORY_META_KEY);
-  }
+  return entries;
 }

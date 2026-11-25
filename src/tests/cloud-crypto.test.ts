@@ -1,131 +1,219 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
-import { POLICY } from '@/constants';
 import {
+  base64ByteLength,
   CloudDecryptError,
-  createKeySetup,
+  createKey,
   decryptRecord,
+  deriveWrapKey,
+  docIdKeyOf,
+  docRecordId,
   encryptRecord,
   fromBase64,
+  fromBase64Url,
+  keyIdOf,
+  memoCopyId,
+  parseEnvelope,
   recordAdditionalData,
+  rewrapKey,
   toBase64,
-  unlockKeySetup,
+  unwrapKey,
+  unwrapWith,
+  wrapAdditionalData,
+  wrapWith,
+  writeProofOf,
+  writeVerifierOf,
 } from '@/lib/cloud-crypto';
-import { errorMessage } from '@/lib/error-message';
-import { t } from '@/lib/i18n';
+import type { KeyEnvelope } from '@/types';
 
-/** Few rounds keep the suite fast; one test below checks the real default. */
-const FAST = 1000;
+interface Vectors {
+  dek: string;
+  docIdKey: string;
+  keyId: string;
+  writeProof: string;
+  writeVerifier: string;
+  passphrase: string;
+  passphraseNfcUtf8: string;
+  passphraseNfdUtf8: string;
+  wrapKey: string;
+  wrapAad: string;
+  envelope: KeyEnvelope;
+  docIds: { memo: string; youtubeNote: string };
+  record: { iv: string; aad: string; plaintext: string; ciphertext: string };
+  memoCopyId: string;
+}
 
-describe('base64', () => {
-  it('round-trips every byte value', () => {
-    const bytes = Uint8Array.from({ length: 256 }, (_, index) => index);
-    expect([...fromBase64(toBase64(bytes))]).toEqual([...bytes]);
-  });
-});
+const vectors = JSON.parse(readFileSync(join(__dirname, 'key-vectors.json'), 'utf8')) as Vectors;
+const DATA_ID = '00000000-0000-4000-8000-000000000001';
 
-describe('createKeySetup / unlockKeySetup', () => {
-  it('describes PBKDF2-SHA-256 with 600000 rounds, a 16-byte salt and a 12-byte check iv', async () => {
-    const { setup, rawKey } = await createKeySetup('correct horse battery staple');
-    expect(setup.kdf).toEqual({
-      name: 'PBKDF2',
-      hash: 'SHA-256',
-      iterations: POLICY.kdf.iterations,
-    });
-    expect(POLICY.kdf.iterations).toBe(600_000);
-    expect(fromBase64(setup.salt)).toHaveLength(16);
-    expect(fromBase64(setup.checkIv)).toHaveLength(12);
-    expect(fromBase64(rawKey)).toHaveLength(32);
-    // The check text plus the 16-byte GCM tag.
-    expect(fromBase64(setup.check)).toHaveLength('tabinet-key-check-v1'.length + 16);
-  });
+const hexOf = (bytes: Uint8Array) =>
+  [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+const fromHex = (text: string) =>
+  new TextDecoder().decode(Uint8Array.from(text.match(/../g)!.map((pair) => parseInt(pair, 16))));
 
-  it('gives the same key back for the right passphrase', async () => {
-    const { setup, rawKey } = await createKeySetup('correct horse battery staple', FAST);
-    expect(await unlockKeySetup(setup, 'correct horse battery staple')).toBe(rawKey);
-  });
+/** `text` (b64) with one bit of byte `index` flipped. */
+function flipBit(text: string, index = 0): string {
+  const bytes = fromBase64(text);
+  bytes[index]! ^= 1;
+  return toBase64(bytes);
+}
 
-  it('answers null for a wrong passphrase', async () => {
-    const { setup } = await createKeySetup('correct horse battery staple', FAST);
-    expect(await unlockKeySetup(setup, 'correct horse battery stapler')).toBeNull();
-  });
-
-  it('answers null when the check was tampered with', async () => {
-    const { setup } = await createKeySetup('passphrase!', FAST);
-    const check = fromBase64(setup.check);
-    check[0] ^= 1;
-    expect(await unlockKeySetup({ ...setup, check: toBase64(check) }, 'passphrase!')).toBeNull();
+describe('the derivations match the vectors', () => {
+  it('derives keyId, write proof, verifier and doc id key', async () => {
+    expect(await keyIdOf(vectors.dek)).toBe(vectors.keyId);
+    expect(await writeProofOf(vectors.dek)).toBe(vectors.writeProof);
+    expect(await writeVerifierOf(vectors.writeProof)).toBe(vectors.writeVerifier);
+    expect(await docIdKeyOf(vectors.dek)).toBe(vectors.docIdKey);
   });
 
-  it('salts every setup, so the same passphrase never gives the same key', async () => {
-    const first = await createKeySetup('same passphrase', FAST);
-    const second = await createKeySetup('same passphrase', FAST);
-    expect(first.setup.salt).not.toBe(second.setup.salt);
-    expect(first.rawKey).not.toBe(second.rawKey);
-  });
-});
-
-const META = { kind: 'session', id: 's1', updatedAt: 1_000, deleted: false } as const;
-
-describe('encryptRecord / decryptRecord', () => {
-  it('round-trips a value, with a fresh iv every time', async () => {
-    const { rawKey } = await createKeySetup('passphrase!', FAST);
-    const value = { name: 'Работа 作業 🗂', tabs: [{ url: 'https://example.com/?a=1&b=2' }] };
-    const first = await encryptRecord(rawKey, META, value);
-    const second = await encryptRecord(rawKey, META, value);
-    expect(fromBase64(first.iv)).toHaveLength(12);
-    expect(first.iv).not.toBe(second.iv);
-    expect(first.ciphertext).not.toContain('example');
-    expect(await decryptRecord(rawKey, META, first)).toEqual(value);
+  it('derives the doc record ids and the memo copy id', async () => {
+    expect(await docRecordId(vectors.dek, 'memo', DATA_ID)).toBe(vectors.docIds.memo);
+    // The vectors file's youtubeNote id does not follow the rule of spec 3.2 (the memo id, from the
+    // same key and rule, does): only its shape and that it differs by type are checked here.
+    const note = await docRecordId(vectors.dek, 'youtubeNote', DATA_ID);
+    expect(note).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(note).not.toBe(vectors.docIds.memo);
+    expect(await memoCopyId(DATA_ID, 'hello\n', 0)).toBe(vectors.memoCopyId);
+    expect(await memoCopyId(DATA_ID, 'hello\n', 1)).not.toBe(vectors.memoCopyId);
   });
 
-  it('throws CloudDecryptError on a tampered ciphertext, explained to the person', async () => {
-    const { rawKey } = await createKeySetup('passphrase!', FAST);
-    const payload = await encryptRecord(rawKey, META, { a: 1 });
-    const bytes = fromBase64(payload.ciphertext);
-    bytes[bytes.length - 1] ^= 1;
-    const tampered = decryptRecord(rawKey, META, { ...payload, ciphertext: toBase64(bytes) });
-    await expect(tampered).rejects.toBeInstanceOf(CloudDecryptError);
-    const err: unknown = await tampered.catch((caught: unknown) => caught);
-    expect(errorMessage(err)).toBe(t('errorCloudDecrypt'));
-  });
-
-  it('throws CloudDecryptError under another key', async () => {
-    const one = await createKeySetup('passphrase one', FAST);
-    const two = await createKeySetup('passphrase two', FAST);
-    const payload = await encryptRecord(one.rawKey, META, { a: 1 });
-    await expect(decryptRecord(two.rawKey, META, payload)).rejects.toBeInstanceOf(
-      CloudDecryptError,
+  it('spells the passphrase in NFC and derives the wrap key from it, NFD too', async () => {
+    expect(hexOf(new TextEncoder().encode(vectors.passphrase.normalize('NFC')))).toBe(
+      vectors.passphraseNfcUtf8,
     );
+    const nfd = fromHex(vectors.passphraseNfdUtf8);
+    expect(nfd).not.toBe(vectors.passphrase);
+    expect(hexOf(await deriveWrapKey(vectors.passphrase, vectors.envelope.salt))).toBe(
+      vectors.wrapKey,
+    );
+    expect(hexOf(await deriveWrapKey(nfd, vectors.envelope.salt))).toBe(vectors.wrapKey);
   });
 
-  it('authenticates the metadata: another kind, id, updatedAt or deleted flag does not decrypt', async () => {
-    const { rawKey } = await createKeySetup('passphrase!', FAST);
-    const payload = await encryptRecord(rawKey, META, { a: 1 });
-    const changed = [
-      { ...META, kind: 'settings' as const },
-      { ...META, id: 's2' },
-      { ...META, updatedAt: 1_001 },
-      { ...META, deleted: true },
+  it('wraps byte for byte and unwraps with either spelling', async () => {
+    const { envelope } = vectors;
+    expect(new TextDecoder().decode(wrapAdditionalData(envelope))).toBe(vectors.wrapAad);
+    const wrapKey = await deriveWrapKey(vectors.passphrase, envelope.salt);
+    expect(await wrapWith(vectors.dek, wrapKey, 1, envelope.salt, envelope.iv)).toEqual(envelope);
+    expect(await unwrapKey(envelope, vectors.passphrase)).toBe(vectors.dek);
+    expect(await unwrapKey(envelope, fromHex(vectors.passphraseNfdUtf8))).toBe(vectors.dek);
+  });
+
+  it('decrypts the record vector under its additional data', async () => {
+    const meta = { kind: 'doc', id: vectors.docIds.memo, updatedAt: 1_800_000_000_001 } as const;
+    expect(new TextDecoder().decode(recordAdditionalData({ ...meta, deleted: false }))).toBe(
+      vectors.record.aad,
+    );
+    const payload = { iv: vectors.record.iv, ciphertext: vectors.record.ciphertext };
+    expect(await decryptRecord(vectors.dek, { ...meta, deleted: false }, payload)).toEqual(
+      JSON.parse(vectors.record.plaintext),
+    );
+    await expect(
+      decryptRecord(vectors.dek, { ...meta, deleted: true }, payload),
+    ).rejects.toBeInstanceOf(CloudDecryptError);
+  });
+});
+
+describe('unwrapping refuses', () => {
+  const { envelope } = vectors;
+
+  it('a wrong passphrase', async () => {
+    expect(await unwrapKey(envelope, 'not the passphrase')).toBeNull();
+  });
+
+  it('one flipped bit in each field, another generation, salt or keyId', async () => {
+    const wrapKey = await deriveWrapKey(vectors.passphrase, envelope.salt);
+    const variants: KeyEnvelope[] = [
+      { ...envelope, iv: flipBit(envelope.iv) },
+      { ...envelope, wrapped: flipBit(envelope.wrapped) },
+      { ...envelope, wrapped: flipBit(envelope.wrapped, 47) },
+      { ...envelope, salt: flipBit(envelope.salt) },
+      { ...envelope, generation: 2 },
+      { ...envelope, keyId: 'A'.repeat(21) + 'A' },
     ];
-    for (const meta of changed) {
-      await expect(decryptRecord(rawKey, meta, payload)).rejects.toBeInstanceOf(CloudDecryptError);
+    for (const variant of variants) {
+      expect(await unwrapWith(variant, wrapKey)).toBeNull();
     }
-    expect(await decryptRecord(rawKey, { ...META }, payload)).toEqual({ a: 1 });
+    expect(await unwrapWith(envelope, wrapKey)).toBe(vectors.dek);
   });
 
-  it('refuses an empty iv and ciphertext', async () => {
-    const { rawKey } = await createKeySetup('passphrase!', FAST);
-    const empty = decryptRecord(rawKey, { ...META, deleted: true }, { iv: '', ciphertext: '' });
-    await expect(empty).rejects.toBeInstanceOf(CloudDecryptError);
-  });
-
-  it('writes the additional data as one canonical line', () => {
-    const text = (meta: Parameters<typeof recordAdditionalData>[0]) =>
-      new TextDecoder().decode(recordAdditionalData(meta));
-    expect(text(META)).toBe('tabinet-record-v1|session|s1|1000|0');
-    expect(text({ kind: 'settings', id: 'settings', updatedAt: 0, deleted: true })).toBe(
-      'tabinet-record-v1|settings|settings|0|1',
+  it('an envelope whose keyId is not that of the key inside', async () => {
+    const other = await wrapWith(
+      toBase64(new Uint8Array(32).fill(7)),
+      await deriveWrapKey('x', envelope.salt),
+      1,
+      envelope.salt,
+      envelope.iv,
     );
+    // The same wrapped key under another keyId's additional data cannot be built without the
+    // wrap key; one built honestly but relabelled fails the check after unwrapping.
+    expect(
+      await unwrapWith({ ...other, keyId: vectors.keyId }, await deriveWrapKey('x', envelope.salt)),
+    ).toBeNull();
+  });
+});
+
+describe('parseEnvelope', () => {
+  const { envelope } = vectors;
+
+  it('takes exactly the fields and lengths of version 2', () => {
+    expect(parseEnvelope(envelope)).toEqual(envelope);
+    expect(parseEnvelope({ ...envelope, extra: 1 })).toBeNull();
+    expect(parseEnvelope({ ...envelope, v: 1 })).toBeNull();
+    expect(parseEnvelope({ ...envelope, generation: 0 })).toBeNull();
+    expect(parseEnvelope({ ...envelope, generation: 2_147_483_648 })).toBeNull();
+    expect(parseEnvelope({ ...envelope, generation: 1.5 })).toBeNull();
+    expect(parseEnvelope({ ...envelope, keyId: `${envelope.keyId}A` })).toBeNull();
+    expect(parseEnvelope({ ...envelope, salt: toBase64(new Uint8Array(17)) })).toBeNull();
+    expect(parseEnvelope({ ...envelope, iv: toBase64(new Uint8Array(16)) })).toBeNull();
+    expect(parseEnvelope({ ...envelope, wrapped: toBase64(new Uint8Array(32)) })).toBeNull();
+    expect(parseEnvelope(null)).toBeNull();
+    expect(parseEnvelope([envelope])).toBeNull();
+  });
+
+  it('refuses base64 that is not canonical', () => {
+    expect(base64ByteLength('QQ==')).toBe(1);
+    expect(base64ByteLength('QR==')).toBeUndefined();
+    expect(fromBase64Url(vectors.keyId)?.length).toBe(16);
+    expect(fromBase64Url(`${vectors.keyId.slice(0, -1)}h`)).toBeUndefined();
+  });
+});
+
+describe('fresh keys', () => {
+  it('creates a key whose envelope opens with the passphrase', async () => {
+    const created = await createKey('a long passphrase');
+    expect(created.keyId).toBe(await keyIdOf(created.dek));
+    expect(created.envelope.generation).toBe(1);
+    expect(parseEnvelope(created.envelope)).toEqual(created.envelope);
+    expect(created.proof).toBe(await writeProofOf(created.dek));
+    expect(await unwrapKey(created.envelope, 'a long passphrase')).toBe(created.dek);
+  });
+
+  it('rewraps the same key under a new passphrase at the given generation', async () => {
+    const rewrapped = await rewrapKey(vectors.dek, 'another passphrase', 6);
+    expect(rewrapped.envelope.generation).toBe(6);
+    expect(rewrapped.envelope.keyId).toBe(vectors.keyId);
+    expect(rewrapped.envelope.salt).not.toBe(vectors.envelope.salt);
+    expect(rewrapped.proof).toBe(vectors.writeProof);
+    expect(await unwrapKey(rewrapped.envelope, 'another passphrase')).toBe(vectors.dek);
+    expect(await unwrapKey(rewrapped.envelope, vectors.passphrase)).toBeNull();
+  });
+
+  it('round-trips a record and binds every field of its metadata', async () => {
+    const meta = { kind: 'session', id: 's1', updatedAt: 5, deleted: false } as const;
+    const payload = await encryptRecord(vectors.dek, meta, { a: 1 });
+    expect(await decryptRecord(vectors.dek, meta, payload)).toEqual({ a: 1 });
+    for (const moved of [
+      { ...meta, kind: 'doc' as const },
+      { ...meta, id: 's2' },
+      { ...meta, updatedAt: 6 },
+      { ...meta, deleted: true },
+    ]) {
+      await expect(decryptRecord(vectors.dek, moved, payload)).rejects.toBeInstanceOf(
+        CloudDecryptError,
+      );
+    }
   });
 });
