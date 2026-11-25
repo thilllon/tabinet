@@ -1,46 +1,123 @@
+import { POLICY } from '../../../src/constants.js';
 import type { AppHandler, Deps } from '../context.js';
-import { error, json } from '../responses.js';
-import type { StoredRecord } from '../types.js';
-import { parseRecordsBody, parseRecordsQuery } from '../validation.js';
+import { error, json, ndjson } from '../responses.js';
+import { createPullStream } from '../stream.js';
+import type { RecordIn, WriteResult } from '../types.js';
+import { isClockAhead, parseRecordsBody, parseSince, storedBytesOf } from '../validation.js';
 
+/** Why a fence failed after the key header passed: the account went, or its key changed. */
+async function fenceFailure(deps: Deps, accountId: string): Promise<Response> {
+  const state = await deps.store.readKeyState(accountId);
+  if (state === null) {
+    return error(401, 'unauthorized');
+  }
+  return state.keyId === null ? error(409, 'key_missing') : error(409, 'key_mismatch');
+}
+
+/** `GET /v2/records?since=<n>`: every kind, streamed as NDJSON (spec 4.4). */
 export function getRecords(deps: Deps): AppHandler {
   return async (c) => {
-    // URLSearchParams, not c.req.query(), whose decoding differs.
-    const query = parseRecordsQuery(new URL(c.req.url).searchParams);
-    if (query === null) {
+    // URLSearchParams, not c.req.query(), whose decoding differs. Unknown parameters are ignored.
+    const since = parseSince(new URL(c.req.url).searchParams);
+    if (since === null) {
       return error(400, 'bad_request');
     }
-    // One extra row says whether there is more without a second query.
-    const { since, limit, kinds } = query;
-    const rows = await deps.store.listRecords(c.get('user').id, since, limit + 1, kinds);
-    const hasMore = rows.length > limit;
-    const records: StoredRecord[] = hasMore ? rows.slice(0, limit) : rows;
-    const next = records.length > 0 ? records[records.length - 1].seq : since;
-    return json(200, { records, next, hasMore });
+    const accountId = c.get('account').id;
+    const keyId = c.get('keyId');
+    const start = await deps.store.streamStart(accountId, keyId);
+    if (start === null) {
+      return fenceFailure(deps, accountId);
+    }
+    return ndjson(
+      createPullStream({
+        store: deps.store,
+        accountId,
+        keyId,
+        since,
+        through: start.through,
+        usage: start.usage,
+        now: deps.now,
+      }),
+    );
   };
 }
 
+/** `POST /v2/records` (spec 4.5): one `apply_account_record()` per record, in request order. */
 export function postRecords(deps: Deps): AppHandler {
   return async (c) => {
     const records = parseRecordsBody(c.get('body'));
     if (records === null) {
       return error(400, 'bad_request');
     }
-    const userId = c.get('user').id;
-    const results = [];
-    // In order, one statement each: a later record with the same (kind, id) sees the earlier one.
+    const accountId = c.get('account').id;
+    const keyId = c.get('keyId');
+    const results: WriteResult[] = [];
+    let staleBytes = 0;
     for (const record of records) {
-      const result = await deps.store.applyRecord(userId, record);
       const { kind, id } = record;
-      if (result.status === 'applied') {
-        results.push({ kind, id, status: 'applied', seq: result.seq });
-      } else if (result.status === 'stale') {
-        results.push({ kind, id, status: 'stale', current: result.current });
-      } else {
-        // Over a per-account limit: nothing stored, the client keeps it and says so.
-        results.push({ kind, id, status: 'rejected', reason: result.reason });
+      if (isClockAhead(record.updatedAt, deps.now())) {
+        results.push({ kind, id, status: 'rejected', reason: 'clock_ahead' });
+        continue;
+      }
+      const result = await deps.store.applyRecord(accountId, keyId, record, storedBytesOf(record));
+      switch (result.outcome) {
+        case 'applied':
+          results.push({ kind, id, status: 'applied', seq: result.seq });
+          break;
+        case 'absent':
+          results.push({ kind, id, status: 'absent' });
+          break;
+        case 'image_limit':
+        case 'storage_limit':
+          results.push({ kind, id, status: 'rejected', reason: result.outcome });
+          break;
+        case 'no_account':
+          // Earlier records of this request stay written, as after any lost answer.
+          return error(401, 'unauthorized');
+        case 'key_missing':
+        case 'key_mismatch':
+          return error(409, result.outcome);
+        case 'stale': {
+          const stale = await staleResult(deps, accountId, record, staleBytes);
+          if (stale === null) {
+            return error(401, 'unauthorized');
+          }
+          staleBytes += stale.bytes;
+          results.push(stale.result);
+          break;
+        }
       }
     }
-    return json(200, { results });
+    const usage = await deps.store.usage(accountId);
+    if (usage === null) {
+      return error(401, 'unauthorized');
+    }
+    return json(200, { results, usage });
   };
+}
+
+/**
+ * The stale answer, with the row that won read in a statement of its own (a fresh snapshot).
+ * `current` bodies stop at `POLICY.request.maxStaleBytes`, the first always sent, so the JSON
+ * answer stays under Vercel's limit. Null: a non-doc row is gone, which only an account deletion
+ * does.
+ */
+async function staleResult(
+  deps: Deps,
+  accountId: string,
+  record: RecordIn,
+  bytesSoFar: number,
+): Promise<{ result: WriteResult; bytes: number } | null> {
+  const { kind, id } = record;
+  const current = await deps.store.readRecord(accountId, kind, id);
+  if (current === null) {
+    return kind === 'doc'
+      ? { result: { kind, id, status: 'stale', current: null }, bytes: 0 }
+      : null;
+  }
+  const bytes = JSON.stringify(current).length;
+  if (bytesSoFar > 0 && bytesSoFar + bytes > POLICY.request.maxStaleBytes) {
+    return { result: { kind, id, status: 'stale', withheld: true }, bytes: 0 };
+  }
+  return { result: { kind, id, status: 'stale', current }, bytes };
 }

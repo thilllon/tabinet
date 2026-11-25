@@ -8,7 +8,11 @@
     "start": "node --import tsx src/railway.adaptor.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "migrate": "tsx scripts/migrate.ts"
+    "migrate": "tsx scripts/migrate.ts",
+    "schema:check": "tsx scripts/schema-check.ts",
+    "kek:new": "tsx scripts/kek.ts new",
+    "kek:id": "tsx scripts/kek.ts id",
+    "stream-check": "tsx scripts/stream-check.ts"
   },
   "dependencies": {
     "@hono/node-server": "2.1.8",
@@ -19,6 +23,8 @@
   "devDependencies": {
     "@electric-sql/pglite": "0.5.15",
     "@types/node": "^26.6.6",
+    "@types/pg": "8.23.1",
+    "pg": "8.23.1",
     "typescript": "6.0.3",
     "vitest": "^5.1.0"
   },

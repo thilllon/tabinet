@@ -1,14 +1,22 @@
+import { POLICY } from '../../src/constants.js';
 import type { GoogleIdentity } from './types.js';
 
 /** Google's token information endpoint. The token goes in a POST body, never in this URL. */
 export const GOOGLE_TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo';
 
-/** How long Google is given to answer before the sign-in fails with a 500. */
-const TOKENINFO_TIMEOUT_MS = 10_000;
+/**
+ * Google could not say whether it accepts the token: a timeout, a network failure, or an answer
+ * that says nothing about the token (408, 429, a 5xx, something other than JSON). The route
+ * answers 503 `google_unavailable`, never a refusal. The message never holds the token.
+ */
+export class GoogleUnavailableError extends Error {
+  override name = 'GoogleUnavailableError';
+}
 
 /** The statuses tokeninfo answers for a token it does not accept (invalid, expired, revoked). */
 const TOKEN_REFUSED_STATUSES: ReadonlySet<number> = new Set([400, 401]);
 
+/** The identity Google vouches for, null when it refuses the token; throws `GoogleUnavailableError`. */
 export type VerifyGoogleToken = (accessToken: string) => Promise<GoogleIdentity | null>;
 
 function nonEmptyString(value: unknown): value is string {
@@ -62,11 +70,12 @@ export function identityFromTokenInfo(
 /**
  * Verifies a Google OAuth access token by asking Google about it (the tokeninfo endpoint, the
  * token in a form body). Returns null for a token Google refuses (400 or 401, its answers for an
- * invalid or expired token) or one that fails `identityFromTokenInfo()`. Anything else is thrown,
- * so it becomes a 500 rather than a false "unauthorized": a failure to reach Google, a timeout,
- * a 5xx, and other 4xx such as 429 (rate limited) or 408, which say nothing about the token. The
- * token is never logged. Building one with no client id throws, because that is a configuration
- * error (a 500 from `createServer()`), not a refused sign-in.
+ * invalid or expired token) or one that fails `identityFromTokenInfo()`. Anything else throws
+ * `GoogleUnavailableError`, a 503 rather than a false refusal: a failure to reach Google, a
+ * timeout after `POLICY.request.googleTimeoutMs`, a 5xx, other 4xx such as 429 (rate limited) or
+ * 408, which say nothing about the token, and an answer that is not JSON. The token is never
+ * logged. Building one with no client id throws, because that is a configuration error (a 500 from
+ * `createServer()`), not a refused sign-in.
  */
 export function createGoogleVerifier(options: {
   clientIds: readonly string[];
@@ -78,28 +87,50 @@ export function createGoogleVerifier(options: {
     throw new Error('No Google OAuth client id configured');
   }
   const send = options.fetch ?? fetch;
-  const timeoutMs = options.timeoutMs ?? TOKENINFO_TIMEOUT_MS;
+  const timeoutMs = options.timeoutMs ?? POLICY.request.googleTimeoutMs;
   return async (accessToken) => {
-    const response = await send(GOOGLE_TOKENINFO_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ access_token: accessToken }).toString(),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
+    let response: Response;
+    try {
+      response = await send(GOOGLE_TOKENINFO_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ access_token: accessToken }).toString(),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    } catch {
+      // Not the cause: a network error's text is not ours to vouch for.
+      throw new GoogleUnavailableError('Google tokeninfo could not be reached');
+    }
     if (response.status !== 200) {
       // Release the connection: an unread body holds it until garbage collection.
       await response.body?.cancel().catch(() => undefined);
       if (TOKEN_REFUSED_STATUSES.has(response.status)) {
         return null;
       }
-      throw new Error(`Google tokeninfo answered HTTP ${response.status}`);
+      throw new GoogleUnavailableError(`Google tokeninfo answered HTTP ${response.status}`);
     }
     let info: unknown;
     try {
       info = await response.json();
     } catch {
-      throw new Error('Google tokeninfo answered with something other than JSON');
+      throw new GoogleUnavailableError('Google tokeninfo answered with something other than JSON');
     }
     return identityFromTokenInfo(info, clientIds);
   };
+}
+
+/**
+ * Whether the access token is a live Google token of this account: `refused` when Google does not
+ * vouch for it, `mismatch` when it is another Google account's. Throws what the verifier throws.
+ */
+export async function verifySameAccount(
+  verify: VerifyGoogleToken,
+  accessToken: string,
+  googleSub: string,
+): Promise<GoogleIdentity | 'refused' | 'mismatch'> {
+  const identity = await verify(accessToken);
+  if (identity === null) {
+    return 'refused';
+  }
+  return identity.sub === googleSub ? identity : 'mismatch';
 }

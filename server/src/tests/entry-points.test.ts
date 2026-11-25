@@ -43,10 +43,25 @@ describe('the Vercel adaptor', () => {
     expect(new Set(Object.values(adaptor)).size).toBe(1);
   });
 
-  it('is where vercel.json rewrites /v1/*', () => {
-    expect(JSON.parse(readFileSync(path.join(ROOT, 'vercel.json'), 'utf8')).rewrites).toEqual([
-      { source: '/v1/:path*', destination: '/api/vercel.adaptor' },
-    ]);
+  it('is where vercel.json rewrites /v1/* (to answer 410) and /v2/*, exactly as specified', () => {
+    expect(JSON.parse(readFileSync(path.join(ROOT, 'vercel.json'), 'utf8'))).toEqual({
+      $schema: 'https://openapi.vercel.sh/vercel.json',
+      framework: null,
+      regions: ['sin1'],
+      // The server's dependency closure only, and no install script runs.
+      installCommand: 'pnpm install --frozen-lockfile --filter tabinet-server --ignore-scripts',
+      functions: { 'api/vercel.adaptor.ts': { maxDuration: 300, supportsCancellation: true } },
+      rewrites: [
+        { source: '/v1/:path*', destination: '/api/vercel.adaptor' },
+        { source: '/v2/:path*', destination: '/api/vercel.adaptor' },
+      ],
+    });
+  });
+
+  it('runs the production check: the pinned KEK id is part of what it loads', () => {
+    const { files } = importsOf('api/vercel.adaptor.ts');
+    expect(files).toContain('src/kek-id.ts');
+    expect(files).toContain('src/env.ts');
   });
 
   it('never pulls in dev, Railway or a Node server', () => {
@@ -146,6 +161,6 @@ describe('dev', () => {
     const source = readFileSync(path.join(ROOT, 'src/dev.ts'), 'utf8');
     expect(source).toContain("new PGlite('memory://')");
     expect(source).toContain("const HOST = '127.0.0.1'");
-    expect(source).not.toMatch(/DATABASE_URL|loadEnvFile|dotenv|readEnv/);
+    expect(source).not.toMatch(/DATABASE_URL|TABINET_KEK|loadEnvFile|dotenv|readEnv/);
   });
 });

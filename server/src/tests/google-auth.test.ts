@@ -1,10 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
+import { POLICY } from '../../../src/constants.js';
 import {
   createGoogleVerifier,
   GOOGLE_TOKENINFO_URL,
+  GoogleUnavailableError,
   identityFromTokenInfo,
   issuedToUs,
+  verifySameAccount,
 } from '../google-auth.js';
 
 const CLIENT_ID = 'client-1.apps.googleusercontent.com';
@@ -147,12 +150,13 @@ describe('createGoogleVerifier', () => {
     }
   });
 
-  it('throws, rather than refusing, on any other 4xx, such as 429 or 408', async () => {
+  it('is unavailable, not a refusal, on any other 4xx, such as 429 or 408', async () => {
     for (const status of [429, 408, 403]) {
       const verify = createGoogleVerifier({
         clientIds: CLIENT_IDS,
         fetch: fakeGoogle(json(status, { error: 'rate_limit_exceeded' })).fetchFn,
       });
+      await expect(verify(TOKEN)).rejects.toThrow(GoogleUnavailableError);
       await expect(verify(TOKEN)).rejects.toThrow(String(status));
     }
   });
@@ -166,31 +170,44 @@ describe('createGoogleVerifier', () => {
     }
   });
 
-  it('throws, rather than refusing, on a network failure, a 5xx or a non-JSON answer', async () => {
+  it('is unavailable, not a refusal, on a network failure, a 5xx or a non-JSON answer', async () => {
     const offline = createGoogleVerifier({
       clientIds: CLIENT_IDS,
-      fetch: fakeGoogle(new TypeError('fetch failed')).fetchFn,
+      fetch: fakeGoogle(new TypeError(`fetch failed for ${TOKEN}`)).fetchFn,
     });
-    await expect(offline(TOKEN)).rejects.toThrow(TypeError);
+    await expect(offline(TOKEN)).rejects.toThrow(GoogleUnavailableError);
+    await expect(offline(TOKEN)).rejects.not.toThrow(TOKEN);
     const down = createGoogleVerifier({
       clientIds: CLIENT_IDS,
       fetch: fakeGoogle(json(503, {})).fetchFn,
     });
+    await expect(down(TOKEN)).rejects.toThrow(GoogleUnavailableError);
     await expect(down(TOKEN)).rejects.toThrow('503');
     const garbled = createGoogleVerifier({
       clientIds: CLIENT_IDS,
       fetch: fakeGoogle(new Response('<html>', { status: 200 })).fetchFn,
     });
-    await expect(garbled(TOKEN)).rejects.toThrow();
+    await expect(garbled(TOKEN)).rejects.toThrow(GoogleUnavailableError);
   });
 
-  it('gives up after the timeout, by throwing', async () => {
+  it('gives up after the timeout as unavailable', async () => {
     const slow: typeof fetch = (_input, init) =>
       new Promise((_resolve, reject) => {
         init?.signal?.addEventListener('abort', () => reject(init.signal?.reason));
       });
     const verify = createGoogleVerifier({ clientIds: CLIENT_IDS, fetch: slow, timeoutMs: 10 });
-    await expect(verify(TOKEN)).rejects.toThrow();
+    await expect(verify(TOKEN)).rejects.toThrow(GoogleUnavailableError);
+  });
+
+  it('waits POLICY.request.googleTimeoutMs by default', async () => {
+    const timeout = vi.spyOn(AbortSignal, 'timeout');
+    const verify = createGoogleVerifier({
+      clientIds: CLIENT_IDS,
+      fetch: fakeGoogle(json(200, goodInfo())).fetchFn,
+    });
+    await verify(TOKEN);
+    expect(timeout).toHaveBeenCalledWith(POLICY.request.googleTimeoutMs);
+    timeout.mockRestore();
   });
 
   it('never puts the token into an error message', async () => {
@@ -208,5 +225,14 @@ describe('createGoogleVerifier', () => {
       'client id',
     );
     expect(google.calls).toEqual([]);
+  });
+});
+
+describe('verifySameAccount', () => {
+  it('tells a refused token, another account and the same account apart', async () => {
+    const verify = async (token: string) => (token === 'ok' ? { sub: 's1', email: 'e' } : null);
+    expect(await verifySameAccount(verify, 'no', 's1')).toBe('refused');
+    expect(await verifySameAccount(verify, 'ok', 's2')).toBe('mismatch');
+    expect(await verifySameAccount(verify, 'ok', 's1')).toEqual({ sub: 's1', email: 'e' });
   });
 });
