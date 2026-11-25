@@ -121,9 +121,35 @@ export const SYNC_LOCK_NAME = 'tabinet:cloud-sync';
 /** The id of the one settings record. */
 const SETTINGS_RECORD_ID = 'settings';
 
-/** What the largest ciphertext the server accepts leaves for one item, in KB, for the explanation in Settings. */
+/** What the largest ciphertext the server accepts leaves for one item, in KB, for Settings. */
 export const SYNC_ITEM_MAX_KB = Math.floor((POLICY.record.maxCiphertextBytes * 3) / 4 / 1024);
 
+/** Record ids the server accepts. */
+const RECORD_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
+/** The settings as they travel inside the settings record. */
+export interface SyncedSettings {
+  sort: SortSettings;
+  sessionSettings: SessionSettings;
+  uiLanguage: UiLanguage;
+}
+
+export interface SyncResult {
+  outcome: 'synced' | 'skipped' | 'notReady' | 'failed';
+  /** Remote changes applied on this device. */
+  pulled: number;
+  /** Local changes the server accepted. */
+  pushed: number;
+}
+
+export interface SyncOptions extends CloudApiOptions {
+  /**
+   * Run only if still called for once the sync lock is ours, so a run queued behind one that
+   * already sent everything, or one that just failed, makes no request. `'changed'` (the debounce
+   * timer): something waits and the server is not failing. `'due'` (the soon alarm): a retry is
+   * due, or something waits that the run before did not settle. `'periodic'`: unless a retry
+   * waits for a later time.
+   */
   onlyIf?: 'changed' | 'due' | 'periodic';
   /** Records per `GET /v1/records` page; `POLICY.request.maxRecordsPerPull` when omitted. */
   pageSize?: number;

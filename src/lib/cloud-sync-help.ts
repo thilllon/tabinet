@@ -2,7 +2,7 @@
  * The text behind the ? in Settings > Account. Every number comes from the constant the sync
  * really runs on, so the explanation cannot drift from the timing it explains.
  */
-import { CLOUD_IMAGE_LIMIT } from '@/constants';
+import { POLICY } from '@/constants';
 import { SYNC_FALLBACK_MS, SYNC_ITEM_MAX_KB, SYNC_PERIOD_MINUTES } from '@/lib/cloud-sync';
 import { SYNC_MAX_WAIT_MS } from '@/lib/cloud-sync-scheduler';
 import { formatNumber, t, tp } from '@/lib/i18n';
@@ -46,7 +46,7 @@ export function syncHelp(): SyncHelpText {
       {
         title: t('settingsAccountHelpWhatTitle'),
         points: [
-          tp('settingsAccountHelpWhatSynced', CLOUD_IMAGE_LIMIT),
+          tp('settingsAccountHelpWhatSynced', POLICY.account.screenshots),
           t('settingsAccountHelpWhatLocal'),
           t('settingsAccountHelpWhatTooLarge', formatNumber(SYNC_ITEM_MAX_KB)),
         ],
