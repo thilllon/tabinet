@@ -135,7 +135,7 @@ describe('notesRepo', () => {
     expect(await notesRepo.removeEntry(A, second.id)).toBeUndefined();
   });
 
-  it('puts a deleted note back as it was, also when it was the last one', async () => {
+  it('puts a deleted note back with a new stamp, also when it was the last one', async () => {
     const entry = await notesRepo.addEntry({ videoId: A, title: 'T' }, { at: 7, text: 'x' }, 1000);
     const removed = await notesRepo.removeEntry(A, entry.id);
     if (removed === undefined) {
@@ -145,7 +145,7 @@ describe('notesRepo', () => {
     await notesRepo.restoreEntry({ videoId: A, title: 'T' }, removed, 2000);
 
     const notes = await notesRepo.get(A);
-    expect(notes?.entries).toEqual([entry]);
+    expect(notes?.entries).toEqual([{ ...entry, updatedAt: 2000 }]);
     expect(notes?.title).toBe('T');
     expect(index()?.notes).toHaveLength(1);
   });
@@ -159,7 +159,7 @@ describe('notesRepo', () => {
   });
 
   describe('screenshots', () => {
-    it('stores the image before the note that references it, under one id', async () => {
+    it('stores the image, the note and the index in one write, under one id', async () => {
       const writes: string[][] = [];
       const local = chrome.storage.local;
       const set = local.set.bind(local);
@@ -174,7 +174,7 @@ describe('notesRepo', () => {
       );
 
       const imageId = imageIdOf(entry);
-      expect(writes).toEqual([[noteImageKey(imageId)], [notesKey(A)], [NOTES_INDEX_KEY]]);
+      expect(writes).toEqual([[noteImageKey(imageId), notesKey(A), NOTES_INDEX_KEY]]);
       expect(await notesRepo.getImage(imageId)).toBe(PNG);
       expect(entry).toMatchObject({ at: 12, text: '' });
     });
@@ -201,7 +201,9 @@ describe('notesRepo', () => {
 
       await notesRepo.restoreEntry({ videoId: A, title: 'T' }, removed);
 
-      expect((await notesRepo.get(A))?.entries).toEqual([entry]);
+      expect((await notesRepo.get(A))?.entries).toEqual([
+        { ...entry, updatedAt: expect.any(Number) as number },
+      ]);
       expect(await notesRepo.getImage(imageIdOf(entry))).toBe(PNG);
       expect((await notesRepo.reconcile()).images).toBe(0);
     });

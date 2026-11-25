@@ -1,9 +1,16 @@
-import { isCloudSyncEnabled } from '@/lib/cloud-config';
-import { readSyncMeta } from '@/lib/cloud-sync-state';
+import {
+  type DocCollection,
+  type DocStore,
+  type DocTx,
+  type LocalDoc,
+  trackLocalDocChange,
+} from '@/lib/cloud-docs';
+import { allLocalKeys, runDocTransaction } from '@/lib/doc-store-tx';
 import { isRecord } from '@/lib/import-guards';
 import { MalformedRecordError, UnknownSchemaVersionError } from '@/lib/session-migrate';
 import { canonicalVideoUrl, isImageDataUrl } from '@/lib/youtube-video';
 import {
+  type CloudSyncMeta,
   NOTES_SCHEMA_VERSION,
   type NoteEntry,
   type NotesIndex,
@@ -14,19 +21,18 @@ import {
 /**
  * YouTube notes in `chrome.storage.local`: the ONLY writer of the notes keys, in the same shape as
  * `sessionRepo` (src/lib/session-repo.ts), under a Web Lock of its own so a notes write never
- * waits on a session write or the other way round.
+ * waits on a session write; while sync is configured it then takes the sessions lock, where the
+ * sync bookkeeping lives (never the other way round).
  *
- * - `notes:<videoId>`: one `VideoNotes` body per video.
+ * - `notes:<videoId>`: one `VideoNotes` body per video (storage schema 1, unchanged by v10).
  * - `notesIndex`: `NotesSummary[]`, newest `updatedAt` first, the list of videos with notes.
  * - `noteImage:<imageId>`: a screenshot (a WebP data URL), referenced by one entry's `imageId`.
  *
- * Write order is image, then body, then index; deletion is body, then index, then images. An
- * interruption leaves an orphan body or image, which `reconcile()` re-indexes or removes, never an
- * index entry or a reference to something that is not there.
- *
- * Cloud sync v2 does not sync notes from this file yet: the per-entry doc store of spec 11.3
- * (`youtubeNoteStore`) replaces protocol v1's per-video records here. Until then nothing in it is
- * tracked, and `reconcile()` only spares screenshots the bookkeeping holds live.
+ * Every change is one `set` (spec 10.6, invariant 12): the bodies (or `null`), the index, the
+ * screenshots and the sync bookkeeping together; a crash before the cleanup `remove` of the
+ * `null` keys changes nothing a reader sees. Synced one doc per entry (spec 11.3,
+ * `youtubeNoteStore`, `lastWriter`): a change writes only that entry's doc, deleting a video's
+ * notes is one tombstone per entry, and a screenshot syncs as an `image` record.
  */
 
 export const NOTES_INDEX_KEY = 'notesIndex';
@@ -34,6 +40,8 @@ export const NOTES_LOCK_NAME = 'tabinet:notes';
 
 const NOTES_KEY_PREFIX = 'notes:';
 const IMAGE_KEY_PREFIX = 'noteImage:';
+const ID = /^[A-Za-z0-9_-]{1,64}$/;
+const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 
 export function notesKey(videoId: string): string {
   return `${NOTES_KEY_PREFIX}${videoId}`;
@@ -41,29 +49,6 @@ export function notesKey(videoId: string): string {
 
 export function noteImageKey(imageId: string): string {
   return `${IMAGE_KEY_PREFIX}${imageId}`;
-}
-
-// Fallback serialization for runtimes without Web Locks (page-local only).
-let fallbackChain: Promise<unknown> = Promise.resolve();
-
-function withNotesLock<T>(fn: () => Promise<T>): Promise<T> {
-  const locks = typeof navigator === 'undefined' ? undefined : navigator.locks;
-  if (locks === undefined) {
-    const run = fallbackChain.then(fn, fn);
-    fallbackChain = run.catch(() => undefined);
-    return run;
-  }
-  return new Promise<T>((resolve, reject) => {
-    locks
-      .request(NOTES_LOCK_NAME, async () => {
-        try {
-          resolve(await fn());
-        } catch (err) {
-          reject(err);
-        }
-      })
-      .catch(reject);
-  });
 }
 
 // ---------------------------------------------------------------------------
@@ -141,10 +126,6 @@ function parseIndex(value: unknown): NotesIndex {
   return { schemaVersion: NOTES_SCHEMA_VERSION, notes: value.notes };
 }
 
-// ---------------------------------------------------------------------------
-// Storage helpers (call inside the lock)
-// ---------------------------------------------------------------------------
-
 export function toNotesSummary(notes: VideoNotes): NotesSummary {
   return {
     videoId: notes.videoId,
@@ -156,17 +137,13 @@ export function toNotesSummary(notes: VideoNotes): NotesSummary {
   };
 }
 
+function sortedSummaries(notes: readonly NotesSummary[]): NotesSummary[] {
+  return [...notes].sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
 async function readIndex(): Promise<NotesIndex> {
   const raw: Record<string, unknown> = await chrome.storage.local.get(NOTES_INDEX_KEY);
   return parseIndex(raw[NOTES_INDEX_KEY]);
-}
-
-async function writeIndex(notes: NotesSummary[]): Promise<void> {
-  const index: NotesIndex = {
-    schemaVersion: NOTES_SCHEMA_VERSION,
-    notes: [...notes].sort((a, b) => b.updatedAt - a.updatedAt),
-  };
-  await chrome.storage.local.set({ [NOTES_INDEX_KEY]: index });
 }
 
 async function readBody(videoId: string): Promise<VideoNotes | undefined> {
@@ -174,25 +151,6 @@ async function readBody(videoId: string): Promise<VideoNotes | undefined> {
   const raw: Record<string, unknown> = await chrome.storage.local.get(key);
   const value = raw[key];
   return value === undefined || value === null ? undefined : parseVideoNotes(value);
-}
-
-/** Body first, then index. The index is read (and so validated) before anything is written. */
-async function writeBodyAndIndex(notes: VideoNotes): Promise<void> {
-  const index = await readIndex();
-  await chrome.storage.local.set({ [notesKey(notes.videoId)]: notes });
-  const others = index.notes.filter((summary) => summary.videoId !== notes.videoId);
-  await writeIndex([...others, toNotesSummary(notes)]);
-}
-
-/** Body, then index, then the images it referenced. */
-async function removeBodyAndIndex(notes: VideoNotes): Promise<void> {
-  const index = await readIndex();
-  await chrome.storage.local.remove(notesKey(notes.videoId));
-  await writeIndex(index.notes.filter((summary) => summary.videoId !== notes.videoId));
-  const images = imageIdsOf(notes.entries);
-  if (images.length > 0) {
-    await chrome.storage.local.remove(images.map(noteImageKey));
-  }
 }
 
 async function readImage(imageId: string): Promise<string | undefined> {
@@ -206,56 +164,352 @@ function imageIdsOf(entries: readonly NoteEntry[]): string[] {
   return entries.flatMap((entry) => (entry.imageId === undefined ? [] : [entry.imageId]));
 }
 
-/** What a write changed, as v1 recorded it for sync; no longer recorded (see the header). */
-interface NoteChanges {
-  notesChanged?: readonly (readonly [string, number])[];
-  notesDeleted?: readonly (readonly [string, number])[];
-  imagesStored?: readonly string[];
-  imagesDeleted?: readonly string[];
-}
-
-/** Nothing is tracked until the doc store of spec 11.3 lands (see the header). */
-async function track(_changes: NoteChanges): Promise<void> {
-  return undefined;
-}
-
-/**
- * The storage keys of screenshots cloud sync received or sent and still holds live (known, with no
- * deletion pending): one no note references yet may be waiting for its note, which a pull cut
- * short (or one still running) has not written. Empty while sync does not track notes.
- */
-async function awaitedImageKeys(): Promise<Set<string>> {
-  if (!isCloudSyncEnabled()) {
-    return new Set();
-  }
-  const images = (await readSyncMeta())?.images;
-  if (images === undefined) {
-    return new Set();
-  }
-  return new Set(
-    Object.keys(images.known)
-      .filter((imageId) => images.deleted[imageId] === undefined)
-      .map(noteImageKey),
-  );
-}
-
-async function allKeys(): Promise<string[]> {
-  const area = chrome.storage.local;
-  // `getKeys()` is Chrome 130+; older Chrome reads every value instead.
-  if (typeof area.getKeys === 'function') {
-    return area.getKeys();
-  }
-  return Object.keys(await area.get(null));
-}
-
 /** Seconds into the video, never negative, never NaN. */
 function cleanTime(at: number): number {
   return Number.isFinite(at) && at > 0 ? at : 0;
 }
 
-/** A timestamp strictly after `previous`, so every edit moves `updatedAt` forward. */
-function after(previous: number, now: number): number {
-  return now > previous ? now : previous + 1;
+// ---------------------------------------------------------------------------
+// The synced collection (11.3)
+// ---------------------------------------------------------------------------
+
+/** One note as it is synced; the record's `updatedAt` is the entry's. */
+export interface NoteLive {
+  id: string;
+  videoId: string;
+  /** The video's title when the note was written. */
+  title: string;
+  at: number;
+  text: string;
+  imageId?: string;
+  createdAt: number;
+}
+
+export interface NoteDeleted {
+  id: string;
+  videoId: string;
+}
+
+function exactKeys(value: Record<string, unknown>, keys: string[], optional: string[]): boolean {
+  const own = Object.keys(value);
+  return (
+    keys.every((key) => own.includes(key)) &&
+    own.every((key) => keys.includes(key) || optional.includes(key))
+  );
+}
+
+export const youtubeNoteCollection: DocCollection<NoteLive, NoteDeleted> = {
+  type: 'youtubeNote',
+  version: 1,
+  conflict: 'lastWriter',
+  parseLive(data) {
+    if (
+      !isRecord(data) ||
+      !exactKeys(data, ['id', 'videoId', 'title', 'at', 'text', 'createdAt'], ['imageId']) ||
+      typeof data.id !== 'string' ||
+      !ID.test(data.id) ||
+      typeof data.videoId !== 'string' ||
+      !VIDEO_ID.test(data.videoId) ||
+      typeof data.title !== 'string' ||
+      typeof data.at !== 'number' ||
+      !Number.isFinite(data.at) ||
+      data.at < 0 ||
+      typeof data.text !== 'string' ||
+      typeof data.createdAt !== 'number' ||
+      !Number.isFinite(data.createdAt) ||
+      (data.imageId !== undefined && (typeof data.imageId !== 'string' || !ID.test(data.imageId)))
+    ) {
+      return null;
+    }
+    const live: NoteLive = {
+      id: data.id,
+      videoId: data.videoId,
+      title: data.title,
+      at: data.at,
+      text: data.text,
+      createdAt: data.createdAt,
+    };
+    if (data.imageId !== undefined) {
+      live.imageId = data.imageId;
+    }
+    return live;
+  },
+  parseDeleted(data) {
+    return isRecord(data) &&
+      exactKeys(data, ['id', 'videoId'], []) &&
+      typeof data.id === 'string' &&
+      ID.test(data.id) &&
+      typeof data.videoId === 'string' &&
+      VIDEO_ID.test(data.videoId)
+      ? { id: data.id, videoId: data.videoId }
+      : null;
+  },
+  deletedOf: (id, parent) => ({ id, videoId: parent ?? '' }),
+  parentOf: (data) => data.videoId,
+  imageOf: (data) => ('imageId' in data ? data.imageId : undefined),
+  fingerprint: (data) => [data.videoId, data.title, data.at, data.text, data.imageId ?? null],
+};
+
+/** An entry of `notes` as it is synced. */
+function liveOf(notes: VideoNotes, entry: NoteEntry): NoteLive {
+  const live: NoteLive = {
+    id: entry.id,
+    videoId: notes.videoId,
+    title: notes.title,
+    at: entry.at,
+    text: entry.text,
+    createdAt: entry.createdAt,
+  };
+  if (entry.imageId !== undefined) {
+    live.imageId = entry.imageId;
+  }
+  return live;
+}
+
+// ---------------------------------------------------------------------------
+// The transaction
+// ---------------------------------------------------------------------------
+
+type Body = VideoNotes | null | 'unreadable';
+
+interface NotesTx extends DocTx<NoteLive, NoteDeleted> {
+  /** A video's notes (staged changes included), `null` when it has none; throws when unreadable. */
+  video(videoId: string): Promise<VideoNotes | null>;
+  readImage(id: string): Promise<string | null | 'unreadable'>;
+  putImage(id: string, dataUrl: string): void;
+  removeImage(id: string): void;
+  imageReferenced(id: string): Promise<boolean>;
+}
+
+function parseBody(value: unknown): Body {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  try {
+    return parseVideoNotes(value);
+  } catch {
+    return 'unreadable';
+  }
+}
+
+function transact<T>(run: (tx: NotesTx) => Promise<T>): Promise<T> {
+  return runDocTransaction(NOTES_LOCK_NAME, async (meta: CloudSyncMeta) => {
+    const staged = new Map<string, unknown>();
+    const bodies = new Map<string, Body>();
+    let everything: Map<string, Body> | undefined;
+
+    const dirty = new Set<string>();
+    /** A body already read in this transaction; reads always come before a staged write. */
+    const current = (videoId: string): Body => {
+      if (bodies.has(videoId)) {
+        return bodies.get(videoId) ?? null;
+      }
+      if (everything !== undefined) {
+        return everything.get(videoId) ?? null;
+      }
+      throw new Error('A notes body was written before it was read');
+    };
+    const body = async (videoId: string): Promise<Body> => {
+      if (bodies.has(videoId) || everything !== undefined) {
+        return current(videoId);
+      }
+      const key = notesKey(videoId);
+      const loaded = parseBody((await chrome.storage.local.get(key))[key]);
+      bodies.set(videoId, loaded);
+      return loaded;
+    };
+    /** Every video's body, the staged ones included. */
+    const allBodies = async (): Promise<Map<string, Body>> => {
+      if (everything === undefined) {
+        const keys = (await allLocalKeys()).filter((key) => key.startsWith(NOTES_KEY_PREFIX));
+        const raw: Record<string, unknown> =
+          keys.length === 0 ? {} : await chrome.storage.local.get(keys);
+        everything = new Map(
+          keys.map((key) => [key.slice(NOTES_KEY_PREFIX.length), parseBody(raw[key])]),
+        );
+      }
+      const merged = new Map(everything);
+      for (const [videoId, value] of bodies) {
+        merged.set(videoId, value);
+      }
+      return merged;
+    };
+    const setBody = (videoId: string, value: VideoNotes | null): void => {
+      bodies.set(videoId, value);
+      dirty.add(videoId);
+    };
+    const video = async (videoId: string): Promise<VideoNotes | null> => {
+      const found = await body(videoId);
+      if (found === 'unreadable') {
+        // Read again to throw the precise reason (a newer version, or a malformed body).
+        const key = notesKey(videoId);
+        parseVideoNotes((await chrome.storage.local.get(key))[key]);
+        throw new MalformedRecordError('Notes body is malformed');
+      }
+      return found;
+    };
+    const read = async (entryId: string): Promise<LocalDoc<NoteLive>> => {
+      let unreadable = false;
+      for (const found of (await allBodies()).values()) {
+        if (found === 'unreadable') {
+          unreadable = true;
+          continue;
+        }
+        const entry = found?.entries.find((candidate) => candidate.id === entryId);
+        if (found !== null && entry !== undefined) {
+          return { state: 'live', data: liveOf(found, entry), at: entry.updatedAt };
+        }
+      }
+      // An entry not found may be in a body this build cannot read: never written over then.
+      return unreadable ? { state: 'unreadable' } : { state: 'none' };
+    };
+    const imageValue = async (id: string): Promise<string | null | 'unreadable'> => {
+      const key = noteImageKey(id);
+      const value = staged.has(key) ? staged.get(key) : (await chrome.storage.local.get(key))[key];
+      if (value === undefined || value === null) {
+        return null;
+      }
+      return typeof value === 'string' && isImageDataUrl(value) ? value : 'unreadable';
+    };
+
+    const tx: NotesTx = {
+      meta,
+      video,
+      read,
+      async listLive() {
+        const out: { data: NoteLive; at: number; imageAt?: number }[] = [];
+        for (const found of (await allBodies()).values()) {
+          if (found === null || found === 'unreadable') {
+            continue;
+          }
+          for (const entry of found.entries) {
+            const data = youtubeNoteCollection.parseLive(liveOf(found, entry));
+            if (data !== null) {
+              out.push({ data, at: entry.updatedAt, imageAt: entry.createdAt });
+            }
+          }
+        }
+        return out;
+      },
+      put(data, at) {
+        const known = current(data.videoId);
+        if (known === 'unreadable') {
+          return;
+        }
+        const entry: NoteEntry = {
+          id: data.id,
+          at: cleanTime(data.at),
+          text: data.text,
+          createdAt: data.createdAt,
+          updatedAt: at,
+        };
+        if (data.imageId !== undefined) {
+          entry.imageId = data.imageId;
+        }
+        const base: VideoNotes = known ?? {
+          schemaVersion: NOTES_SCHEMA_VERSION,
+          videoId: data.videoId,
+          url: canonicalVideoUrl(data.videoId),
+          title: data.title,
+          createdAt: data.createdAt,
+          updatedAt: at,
+          entries: [],
+        };
+        const others = base.entries.filter((other) => other.id !== data.id);
+        const newest = others.every((other) => other.updatedAt <= at);
+        setBody(data.videoId, {
+          ...base,
+          url: canonicalVideoUrl(data.videoId),
+          title: data.title !== '' && newest ? data.title : base.title,
+          createdAt: Math.min(base.createdAt, data.createdAt),
+          updatedAt: known === null ? at : Math.max(base.updatedAt + 1, at),
+          entries: [...base.entries.filter((other) => other.id !== data.id), entry].sort(
+            (a, b) => a.createdAt - b.createdAt,
+          ),
+        });
+      },
+      remove(deleted, at) {
+        const known = current(deleted.videoId);
+        if (known === null || known === 'unreadable') {
+          return;
+        }
+        const rest = known.entries.filter((entry) => entry.id !== deleted.id);
+        if (rest.length === known.entries.length) {
+          return;
+        }
+        setBody(
+          deleted.videoId,
+          rest.length === 0
+            ? null
+            : { ...known, updatedAt: Math.max(known.updatedAt + 1, at), entries: rest },
+        );
+      },
+      readImage: imageValue,
+      putImage(id, dataUrl) {
+        staged.set(noteImageKey(id), dataUrl);
+      },
+      removeImage(id) {
+        staged.set(noteImageKey(id), null);
+      },
+      async imageReferenced(id) {
+        for (const found of (await allBodies()).values()) {
+          if (
+            found !== null &&
+            found !== 'unreadable' &&
+            found.entries.some((entry) => entry.imageId === id)
+          ) {
+            return true;
+          }
+        }
+        return false;
+      },
+      stage(key, value) {
+        staged.set(key, value);
+      },
+    };
+
+    const result = await run(tx);
+    const entries: Record<string, unknown> = Object.fromEntries(staged);
+    const changed: [string, VideoNotes | null][] = [...dirty].map((videoId) => [
+      videoId,
+      (bodies.get(videoId) ?? null) as VideoNotes | null,
+    ]);
+    if (changed.length > 0) {
+      for (const [videoId, value] of changed) {
+        entries[notesKey(videoId)] = value;
+      }
+      if (!staged.has(NOTES_INDEX_KEY)) {
+        const index = await readIndex();
+        const touched = new Set(changed.map(([videoId]) => videoId));
+        const summaries = index.notes.filter((summary) => !touched.has(summary.videoId));
+        for (const [, value] of changed) {
+          if (value !== null) {
+            summaries.push(toNotesSummary(value));
+          }
+        }
+        entries[NOTES_INDEX_KEY] = {
+          schemaVersion: NOTES_SCHEMA_VERSION,
+          notes: sortedSummaries(summaries),
+        } satisfies NotesIndex;
+      }
+    }
+    return { result, entries };
+  });
+}
+
+/** Removes one entry, tracked, with its screenshot (its tombstone recorded by the tracking). */
+function removeIn(tx: NotesTx, notes: VideoNotes, entry: NoteEntry, now: number): void {
+  const at = trackLocalDocChange(tx, youtubeNoteCollection, {
+    localId: entry.id,
+    before: liveOf(notes, entry),
+    after: { deleted: { id: entry.id, videoId: notes.videoId } },
+    previousAt: entry.updatedAt,
+    now,
+  });
+  tx.remove({ id: entry.id, videoId: notes.videoId }, at);
+  if (entry.imageId !== undefined) {
+    tx.removeImage(entry.imageId);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -287,6 +541,21 @@ export interface NoteEdit {
   at?: number;
 }
 
+/** The entry as it is stored after `put(data, at)`. */
+function entryOf(data: NoteLive, at: number): NoteEntry {
+  const entry: NoteEntry = {
+    id: data.id,
+    at: data.at,
+    text: data.text,
+    createdAt: data.createdAt,
+    updatedAt: at,
+  };
+  if (data.imageId !== undefined) {
+    entry.imageId = data.imageId;
+  }
+  return entry;
+}
+
 export const notesRepo = {
   /** Every video with notes, newest first. */
   async listSummaries(): Promise<NotesSummary[]> {
@@ -300,89 +569,78 @@ export const notesRepo = {
 
   /**
    * Adds one note to a video, creating the video's notes on the first one, and returns the stored
-   * entry. The title is refreshed from `video` when it carries one (YouTube titles change).
-   * A screenshot is stored first, in the same lock, so `reconcile()` can never find it between
-   * its write and the note that references it. Rejects an image that is not an image data URL.
+   * entry. The title is refreshed from `video` when it carries one (YouTube titles change); only
+   * this entry's doc is marked to sync. A screenshot is stored in the same write as the note that
+   * references it. Rejects an image that is not an image data URL.
    */
   addEntry(video: NoteVideo, note: NewNote, now: number = Date.now()): Promise<NoteEntry> {
-    return withNotesLock(async () => {
+    return transact(async (tx) => {
       if (note.image !== undefined && !isImageDataUrl(note.image)) {
         throw new MalformedRecordError('A note screenshot must be an image data URL');
       }
-      const existing = await readBody(video.videoId);
-      const entry: NoteEntry = {
+      const existing = await tx.video(video.videoId);
+      const data: NoteLive = {
         id: crypto.randomUUID(),
+        videoId: video.videoId,
+        title: video.title === '' ? (existing?.title ?? '') : video.title,
         at: cleanTime(note.at),
         text: note.text,
         createdAt: now,
-        updatedAt: now,
       };
       if (note.image !== undefined) {
-        const imageId = crypto.randomUUID();
-        await chrome.storage.local.set({ [noteImageKey(imageId)]: note.image });
-        entry.imageId = imageId;
+        data.imageId = crypto.randomUUID();
+        tx.putImage(data.imageId, note.image);
       }
-      const notes: VideoNotes = existing ?? {
-        schemaVersion: NOTES_SCHEMA_VERSION,
-        videoId: video.videoId,
-        url: canonicalVideoUrl(video.videoId),
-        title: video.title,
-        createdAt: now,
-        updatedAt: now,
-        entries: [],
-      };
-      const written: VideoNotes = {
-        ...notes,
-        title: video.title === '' ? notes.title : video.title,
-        updatedAt: after(existing?.updatedAt ?? now - 1, now),
-        entries: [...notes.entries, entry],
-      };
-      await writeBodyAndIndex(written);
-      await track({
-        notesChanged: [[written.videoId, written.updatedAt]],
-        imagesStored: imageIdsOf([entry]),
+      const at = trackLocalDocChange(tx, youtubeNoteCollection, {
+        localId: data.id,
+        before: null,
+        after: { live: data },
+        previousAt: 0,
+        now,
       });
-      return entry;
+      tx.put(data, at);
+      return entryOf(data, at);
     });
   },
 
   /**
-   * Puts back a deleted note exactly as it was (the Undo of a deletion), with its screenshot,
-   * creating the video's notes again if that was its last one. An entry with the same id is
-   * replaced. Without the picture's data (or with data that is not an image) the reference is kept
-   * only if an image is still stored under it.
+   * Puts back a deleted note (the Undo of a deletion), with its screenshot, creating the video's
+   * notes again if that was its last one, under a new stamp above its deletion. An entry with the
+   * same id is replaced. Without the picture's data (or with data that is not an image) the
+   * reference is kept only if an image is still stored under it.
    */
   restoreEntry(video: NoteVideo, removed: RemovedNote, now: number = Date.now()): Promise<void> {
-    return withNotesLock(async () => {
+    return transact(async (tx) => {
       const { entry, image } = removed;
-      const existing = await readBody(video.videoId);
-      const restored: NoteEntry = { ...entry };
-      const stored: string[] = [];
-      if (restored.imageId !== undefined) {
-        const key = noteImageKey(restored.imageId);
+      const existing = await tx.video(video.videoId);
+      const data: NoteLive = {
+        id: entry.id,
+        videoId: video.videoId,
+        title: existing?.title ?? video.title,
+        at: cleanTime(entry.at),
+        text: entry.text,
+        createdAt: entry.createdAt,
+      };
+      if (entry.imageId !== undefined) {
         if (image !== undefined && isImageDataUrl(image)) {
-          await chrome.storage.local.set({ [key]: image });
-          stored.push(restored.imageId);
-        } else if ((await readImage(restored.imageId)) === undefined) {
-          delete restored.imageId;
+          tx.putImage(entry.imageId, image);
+          data.imageId = entry.imageId;
+        } else {
+          const stored = await tx.readImage(entry.imageId);
+          if (stored !== null && stored !== 'unreadable') {
+            data.imageId = entry.imageId;
+          }
         }
       }
-      const notes: VideoNotes = existing ?? {
-        schemaVersion: NOTES_SCHEMA_VERSION,
-        videoId: video.videoId,
-        url: canonicalVideoUrl(video.videoId),
-        title: video.title,
-        createdAt: entry.createdAt,
-        updatedAt: now,
-        entries: [],
-      };
-      const written: VideoNotes = {
-        ...notes,
-        updatedAt: after(existing?.updatedAt ?? now - 1, now),
-        entries: [...notes.entries.filter((other) => other.id !== entry.id), restored],
-      };
-      await writeBodyAndIndex(written);
-      await track({ notesChanged: [[written.videoId, written.updatedAt]], imagesStored: stored });
+      const present = existing?.entries.find((other) => other.id === entry.id);
+      const at = trackLocalDocChange(tx, youtubeNoteCollection, {
+        localId: entry.id,
+        before: present === undefined || existing === null ? null : liveOf(existing, present),
+        after: { live: data },
+        previousAt: Math.max(entry.updatedAt, present?.updatedAt ?? 0),
+        now,
+      });
+      tx.put(data, at);
     });
   },
 
@@ -393,25 +651,26 @@ export const notesRepo = {
     edit: NoteEdit,
     now: number = Date.now(),
   ): Promise<boolean> {
-    return withNotesLock(async () => {
-      const notes = await readBody(videoId);
+    return transact(async (tx) => {
+      const notes = await tx.video(videoId);
       const target = notes?.entries.find((entry) => entry.id === entryId);
-      if (notes === undefined || target === undefined) {
+      if (notes === null || target === undefined) {
         return false;
       }
-      const changed: NoteEntry = {
-        ...target,
+      const before = liveOf(notes, target);
+      const data: NoteLive = {
+        ...before,
         text: edit.text ?? target.text,
         at: edit.at === undefined ? target.at : cleanTime(edit.at),
-        updatedAt: after(target.updatedAt, now),
       };
-      const written: VideoNotes = {
-        ...notes,
-        updatedAt: after(notes.updatedAt, now),
-        entries: notes.entries.map((entry) => (entry.id === entryId ? changed : entry)),
-      };
-      await writeBodyAndIndex(written);
-      await track({ notesChanged: [[written.videoId, written.updatedAt]] });
+      const at = trackLocalDocChange(tx, youtubeNoteCollection, {
+        localId: entryId,
+        before,
+        after: { live: data },
+        previousAt: target.updatedAt,
+        now,
+      });
+      tx.put(data, at);
       return true;
     });
   },
@@ -425,60 +684,43 @@ export const notesRepo = {
     entryId: string,
     now: number = Date.now(),
   ): Promise<RemovedNote | undefined> {
-    return withNotesLock(async () => {
-      const notes = await readBody(videoId);
+    return transact(async (tx) => {
+      const notes = await tx.video(videoId);
       const target = notes?.entries.find((entry) => entry.id === entryId);
-      if (notes === undefined || target === undefined) {
+      if (notes === null || target === undefined) {
         return undefined;
       }
       const removed: RemovedNote = { entry: target };
       if (target.imageId !== undefined) {
-        const image = await readImage(target.imageId);
-        if (image !== undefined) {
+        const image = await tx.readImage(target.imageId);
+        if (typeof image === 'string' && image !== 'unreadable') {
           removed.image = image;
         }
       }
-      const rest = notes.entries.filter((entry) => entry.id !== entryId);
-      if (rest.length === 0) {
-        await removeBodyAndIndex(notes);
-        await track({
-          notesDeleted: [[notes.videoId, notes.updatedAt]],
-          imagesDeleted: imageIdsOf(notes.entries),
-        });
-        return removed;
-      }
-      const written: VideoNotes = {
-        ...notes,
-        updatedAt: after(notes.updatedAt, now),
-        entries: rest,
-      };
-      await writeBodyAndIndex(written);
-      if (target.imageId !== undefined) {
-        await chrome.storage.local.remove(noteImageKey(target.imageId));
-      }
-      await track({
-        notesChanged: [[written.videoId, written.updatedAt]],
-        imagesDeleted: imageIdsOf([target]),
-      });
+      removeIn(tx, notes, target, now);
       return removed;
     });
   },
 
-  /** Deletes every note on a video, with their images. */
-  remove(videoId: string): Promise<void> {
-    return withNotesLock(async () => {
-      const notes = await readBody(videoId);
-      if (notes !== undefined) {
-        await removeBodyAndIndex(notes);
-        await track({
-          notesDeleted: [[notes.videoId, notes.updatedAt]],
-          imagesDeleted: imageIdsOf(notes.entries),
-        });
+  /** Deletes every note on a video, with their images: one tombstone per entry when synced. */
+  remove(videoId: string, now: number = Date.now()): Promise<void> {
+    return transact(async (tx) => {
+      const notes = await tx.video(videoId);
+      if (notes !== null) {
+        for (const entry of notes.entries) {
+          const latest = await tx.video(videoId);
+          if (latest !== null) {
+            removeIn(tx, latest, entry, now);
+          }
+        }
         return;
       }
       const index = await readIndex();
       if (index.notes.some((summary) => summary.videoId === videoId)) {
-        await writeIndex(index.notes.filter((summary) => summary.videoId !== videoId));
+        tx.stage(NOTES_INDEX_KEY, {
+          schemaVersion: NOTES_SCHEMA_VERSION,
+          notes: index.notes.filter((summary) => summary.videoId !== videoId),
+        } satisfies NotesIndex);
       }
     });
   },
@@ -489,20 +731,21 @@ export const notesRepo = {
   },
 
   /**
-   * The repair pass: re-indexes bodies the index lacks, drops index entries without a body (or
-   * whose summary no longer matches it), and removes images no note references (except one cloud
-   * sync received and holds live, whose note may still be on its way). An unreadable
-   * index is rebuilt from the bodies; a body from a newer version is kept as it is and left out of
-   * the index, and the images it may reference are kept too.
+   * The repair pass: removes `null` bodies left by an interrupted cleanup, re-indexes bodies the
+   * index lacks, drops index entries without a body (or whose summary no longer matches it), and
+   * removes images no note references (except one cloud sync received and holds live, whose note
+   * may still be on its way). An unreadable index is rebuilt from the bodies; a body from a newer
+   * version is kept as it is and left out of the index, and the images it may reference are kept.
    */
   reconcile(): Promise<{ reindexed: number; dropped: number; images: number }> {
-    return withNotesLock(async () => {
-      const keys = await allKeys();
+    return transact(async (tx) => {
+      const keys = await allLocalKeys();
       const bodyKeys = keys.filter((key) => key.startsWith(NOTES_KEY_PREFIX));
       const imageKeys = keys.filter((key) => key.startsWith(IMAGE_KEY_PREFIX));
       const raw: Record<string, unknown> = await chrome.storage.local.get([
         NOTES_INDEX_KEY,
         ...bodyKeys,
+        ...imageKeys,
       ]);
       let index: NotesIndex;
       let indexBroken = false;
@@ -516,6 +759,10 @@ export const notesRepo = {
       const referenced = new Set<string>();
       let unreadable = false;
       for (const key of bodyKeys) {
+        if (raw[key] === null) {
+          tx.stage(key, null);
+          continue;
+        }
         try {
           const notes = parseVideoNotes(raw[key]);
           summaries.push(toNotesSummary(notes));
@@ -537,18 +784,36 @@ export const notesRepo = {
       }
       const dropped = index.notes.filter((summary) => !live.has(summary.videoId)).length;
       if (reindexed > 0 || dropped > 0 || indexBroken) {
-        await writeIndex(summaries);
+        tx.stage(NOTES_INDEX_KEY, {
+          schemaVersion: NOTES_SCHEMA_VERSION,
+          notes: sortedSummaries(summaries),
+        } satisfies NotesIndex);
       }
       // An unreadable body may reference images we cannot see, so none are removed then. Nor is a
       // screenshot cloud sync received and still holds live: its note may be later in the feed.
-      const awaited = await awaitedImageKeys();
+      const images = tx.meta.images;
+      const awaited = new Set(
+        Object.keys(images.known)
+          .filter((imageId) => images.deleted[imageId] === undefined)
+          .map(noteImageKey),
+      );
       const orphans = unreadable
         ? []
         : imageKeys.filter((key) => !referenced.has(key) && !awaited.has(key));
-      if (orphans.length > 0) {
-        await chrome.storage.local.remove(orphans);
+      for (const key of orphans) {
+        tx.stage(key, null);
       }
-      return { reindexed, dropped, images: orphans.length };
+      return {
+        reindexed,
+        dropped,
+        images: orphans.filter((key) => raw[key] !== null).length,
+      };
     });
   },
+};
+
+/** The YouTube notes collection's store, for the sync engine (`DOC_STORES`); it holds screenshots. */
+export const youtubeNoteStore: DocStore<NoteLive, NoteDeleted> = {
+  collection: youtubeNoteCollection,
+  transact: (run) => transact(run),
 };
