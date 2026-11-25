@@ -364,7 +364,7 @@
     "description": "Explanation under the Backup heading in Settings."
   },
   "settingsBackupDescriptionSynced": {
-    "message": "ログインすると保存したセッション、自由メモとメモが同期され、スナップショットはこの端末にのみ残ります。ここでのエクスポートはセッションとスナップショットを保存します。",
+    "message": "ログインすると保存したセッション、自由メモと YouTube メモが同期され、スナップショットはこの端末にのみ残ります。ここでのエクスポートはセッションとスナップショットを保存します。",
     "description": "Settings > Backup, section description shown instead of settingsBackupDescription when cloud sync is available in this build."
   },
   "settingsExportEverything": {
@@ -1844,7 +1844,7 @@
     "description": "Button in Settings that signs out of cloud sync on this device. Keep it short."
   },
   "settingsAccountSignedOut": {
-    "message": "ログアウトしました。この端末のセッション、自由メモとメモはそのまま残っています。",
+    "message": "ログアウトしました。この端末のセッション、自由メモと YouTube メモはそのまま残っています。",
     "description": "Toast after signing out of cloud sync."
   },
   "settingsAccountDelete": {
@@ -1856,7 +1856,7 @@
     "description": "Title of the dialog that asks before deleting the cloud sync account."
   },
   "settingsAccountDeleteBody": {
-    "message": "Chrome が Google アカウントを確認した後、アカウントと同期サーバーに保存されたすべてのデータを削除します。元に戻せません。この端末のセッション、自由メモとメモは残ります。",
+    "message": "Chrome が Google アカウントを確認した後、アカウントと同期サーバーに保存されたすべてのデータを削除します。元に戻せません。この端末のセッション、自由メモと YouTube メモは残ります。",
     "description": "Body of the dialog that asks before deleting the cloud sync account."
   },
   "settingsAccountDeleted": {

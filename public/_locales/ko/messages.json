@@ -356,7 +356,7 @@
     "description": "Explanation under the Backup heading in Settings."
   },
   "settingsBackupDescriptionSynced": {
-    "message": "로그인하면 저장한 세션, 자유 메모와 메모가 동기화되고, 스냅샷은 이 기기에만 남습니다. 여기서 내보내면 세션과 스냅샷이 저장됩니다.",
+    "message": "로그인하면 저장한 세션, 자유 메모와 YouTube 메모가 동기화되고, 스냅샷은 이 기기에만 남습니다. 여기서 내보내면 세션과 스냅샷이 저장됩니다.",
     "description": "Settings > Backup, section description shown instead of settingsBackupDescription when cloud sync is available in this build."
   },
   "settingsExportEverything": {
@@ -1836,7 +1836,7 @@
     "description": "Button in Settings that signs out of cloud sync on this device. Keep it short."
   },
   "settingsAccountSignedOut": {
-    "message": "로그아웃했습니다. 이 기기의 세션, 자유 메모와 메모는 그대로 있습니다.",
+    "message": "로그아웃했습니다. 이 기기의 세션, 자유 메모와 YouTube 메모는 그대로 있습니다.",
     "description": "Toast after signing out of cloud sync."
   },
   "settingsAccountDelete": {
@@ -1848,7 +1848,7 @@
     "description": "Title of the dialog that asks before deleting the cloud sync account."
   },
   "settingsAccountDeleteBody": {
-    "message": "Chrome이 Google 계정을 확인한 뒤, 계정과 동기화 서버에 저장된 모든 데이터를 삭제합니다. 되돌릴 수 없습니다. 이 기기의 세션, 자유 메모와 메모는 남아 있습니다.",
+    "message": "Chrome이 Google 계정을 확인한 뒤, 계정과 동기화 서버에 저장된 모든 데이터를 삭제합니다. 되돌릴 수 없습니다. 이 기기의 세션, 자유 메모와 YouTube 메모는 남아 있습니다.",
     "description": "Body of the dialog that asks before deleting the cloud sync account."
   },
   "settingsAccountDeleted": {
