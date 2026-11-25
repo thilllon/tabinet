@@ -72,6 +72,12 @@ export const POLICY = {
   sync: {
     /** How often a signed-in browser syncs by itself. */
     periodMinutes: 15,
+    /** Quiet time after this device's last change before it is sent. */
+    debounceMs: 2500,
+    /** The longest a burst of changes waits before it is sent. */
+    maxWaitMs: 10_000,
+    /** The fallback alarm behind the debounce timer, and the first retry: Chrome's alarm minimum. */
+    fallbackMs: 30_000,
   },
 
   /** A screenshot in YouTube notes. */

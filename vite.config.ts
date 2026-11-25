@@ -168,6 +168,9 @@ export default defineConfig(() => {
     resolve: {
       alias: {
         '@': path.resolve(import.meta.dirname, './src'),
+        // The shadcn registry's files import `cn` from an npm package of that name. Ours is the
+        // same function (tsconfig.json has the same path), so nothing is installed for them.
+        cn: path.resolve(import.meta.dirname, './src/lib/utils.ts'),
       },
     },
     plugins: [crx({ manifest }), react(), tailwindcss()],

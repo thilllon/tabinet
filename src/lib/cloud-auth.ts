@@ -13,6 +13,7 @@ import {
   authGoogle,
   deleteAccount,
   logout,
+  me,
   putKeys,
 } from '@/lib/cloud-api';
 import { createKeySetup, keyMatchesSetup, unlockKeySetup } from '@/lib/cloud-crypto';
@@ -41,6 +42,23 @@ export function isCloudAccount(value: unknown): value is CloudAccount {
     typeof value.expiresAt === 'number' &&
     typeof value.email === 'string'
   );
+}
+
+/**
+ * Whether Settings shows the Sync row and the buttons of a signed-in device: ready, or the server
+ * not asked yet (or out of reach) with a live account and a key here, which is what the engine
+ * syncs with. Without this the row would be missing exactly when sync is failing. Pure.
+ */
+export function showsSyncRow(
+  state: AccountState | 'unknown',
+  account: CloudAccount | null,
+  hasLocalKey: boolean,
+  now: number,
+): boolean {
+  if (state === 'ready') {
+    return true;
+  }
+  return state === 'unknown' && hasLocalKey && account !== null && account.expiresAt > now;
 }
 
 /**
@@ -141,8 +159,14 @@ export async function loadSyncKey(): Promise<string | null> {
   return typeof value === 'string' && value !== '' ? value : null;
 }
 
-/** Forgets the account and the key on this device. Local sessions are untouched. */
-export async function forgetCloudAccount(): Promise<void> {
+/**
+ * Forgets the account and the key on this device. Local sessions are untouched. With `token`,
+ * only while that account is the stored one: a late 401 must not sign a newer sign-in out.
+ */
+export async function forgetCloudAccount(token?: string): Promise<void> {
+  if (token !== undefined && (await loadCloudAccount())?.token !== token) {
+    return;
+  }
   await chrome.storage.local.remove([CLOUD_ACCOUNT_KEY, CLOUD_SYNC_KEY]);
 }
 
@@ -163,14 +187,26 @@ export async function loadLiveCloudAccount(now: number): Promise<CloudAccount | 
  * Keeps the key on this device only when it opens `setup`, the account's setup on the server:
  * with no setup there, or one made with another passphrase (another account, or a passphrase
  * created again after the cloud data was deleted), the key is removed. Whether a key is kept.
+ * Only the key that was checked is removed, never one written meanwhile, and with `token` (whose
+ * setup it is) nothing once another account is the stored one.
  */
-export async function keepSyncKeyFor(setup: CloudKeySetup | null): Promise<boolean> {
+export async function keepSyncKeyFor(
+  setup: CloudKeySetup | null,
+  token?: string,
+): Promise<boolean> {
   const rawKey = await loadSyncKey();
   if (rawKey === null) {
     return false;
   }
   if (setup !== null && (await keyMatchesSetup(rawKey, setup))) {
     return true;
+  }
+  // The check takes a while: the account and the key as they are now, in one read.
+  const now = await chrome.storage.local.get([CLOUD_ACCOUNT_KEY, CLOUD_SYNC_KEY]);
+  const account: unknown = now[CLOUD_ACCOUNT_KEY];
+  const switched = token !== undefined && (!isCloudAccount(account) || account.token !== token);
+  if (switched || now[CLOUD_SYNC_KEY] !== rawKey) {
+    return now[CLOUD_SYNC_KEY] !== undefined;
   }
   await chrome.storage.local.remove(CLOUD_SYNC_KEY);
   return false;
@@ -202,11 +238,32 @@ async function requireAccount(): Promise<CloudAccount> {
  * good) and is then thrown on, so the page says so and shows "Sign in" again.
  */
 export async function withCloudAccount<T>(run: (account: CloudAccount) => Promise<T>): Promise<T> {
+  const account = await requireAccount();
   try {
-    return await run(await requireAccount());
+    return await run(account);
   } catch (err: unknown) {
     if (err instanceof CloudUnauthorizedError) {
-      await forgetCloudAccount();
+      await forgetCloudAccount(account.token);
+    }
+    throw err;
+  }
+}
+
+/**
+ * Asks the server for `account`'s passphrase setup and keeps the key only if it opens it. With that
+ * account's own token, not whatever is stored by then: one account's setup is never taken for
+ * another's. A 401 forgets that account only.
+ */
+export async function checkKeySetup(
+  account: CloudAccount,
+  options: CloudApiOptions = {},
+): Promise<{ keySetup: CloudKeySetup | null; keyKept: boolean }> {
+  try {
+    const { keySetup } = await me(account.token, options);
+    return { keySetup, keyKept: await keepSyncKeyFor(keySetup, account.token) };
+  } catch (err: unknown) {
+    if (err instanceof CloudUnauthorizedError) {
+      await forgetCloudAccount(account.token);
     }
     throw err;
   }

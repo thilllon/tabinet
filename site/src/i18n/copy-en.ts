@@ -86,7 +86,7 @@ export const en: SiteCopy = {
       points: [
         'The 20 most recent are kept by default; you choose the interval and the number',
         'Keep moves a snapshot into your saved sessions for good',
-        'On by default, off in one click, and then no timer runs at all',
+        'On by default, off in one click, and then no snapshot timer runs',
       ],
       alt: 'A recovered snapshot open in Tabinet, with three automatic snapshots listed in the left column',
     },
@@ -207,7 +207,7 @@ export const en: SiteCopy = {
       },
       {
         q: 'What do automatic snapshots record, and can I turn them off?',
-        a: 'A snapshot holds the same data as a saved session: addresses, titles, pinned tabs, tab groups and window layout. One is taken every 5 minutes (you can change that) when something changed, and when you click the icon to sort. The 20 most recent are kept by default (you choose how many), plus any you protect. Switch snapshots off in Settings and no timer runs at all.',
+        a: 'A snapshot holds the same data as a saved session: addresses, titles, pinned tabs, tab groups and window layout. One is taken every 5 minutes (you can change that) when something changed, and when you click the icon to sort. The 20 most recent are kept by default (you choose how many), plus any you protect. Switch snapshots off in Settings and no snapshot timer runs (the sync timers run only while you are signed in to sync).',
       },
       {
         q: 'How do I restore a session?',

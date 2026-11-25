@@ -2035,17 +2035,177 @@
     "message": "Sincronizar ahora",
     "description": "Button in Settings > Account that syncs saved sessions and settings with the server right away. Keep it short."
   },
-  "settingsAccountLastSync": {
-    "message": "Última sincronización: $1.",
-    "description": "Grey hint in Settings > Account once syncing is set up. $1 is the date and time of the last sync, already formatted."
-  },
   "settingsAccountNotSyncedYet": {
     "message": "Aún no se ha sincronizado.",
-    "description": "Grey hint in Settings > Account before the first sync has finished on this device."
+    "description": "Live sync status in Settings > Account before the first sync has finished on this device."
   },
   "settingsAccountSynced": {
     "message": "Sincronizado.",
     "description": "Toast after \"Sync now\" finished."
+  },
+  "settingsAccountSync": {
+    "message": "Sincronización",
+    "description": "Label of the Sync row in Settings > Account, next to a ? button. One word."
+  },
+  "settingsAccountSyncNowHint": {
+    "message": "Envía ahora los cambios de este dispositivo y recibe los de los demás",
+    "description": "Tooltip of the \"Sync now\" button."
+  },
+  "settingsAccountStatusSyncing": {
+    "message": "Sincronizando...",
+    "description": "Live sync status in Settings > Account while a sync runs. One short sentence."
+  },
+  "settingsAccountStatusSoon": {
+    "message": "Hay cambios pendientes. Se enviarán en unos segundos.",
+    "description": "Live sync status: a change on this device waits for its short timer. One short sentence."
+  },
+  "settingsAccountStatusWaiting": {
+    "message": "Hay cambios pendientes. Envío previsto: $1.",
+    "description": "Live sync status: changes wait for a scheduled sync. $1 is that time of day with seconds, already formatted."
+  },
+  "settingsAccountStatusWaitingPlain": {
+    "message": "Hay cambios pendientes de enviar.",
+    "description": "Live sync status: changes wait to be sent and the time is not known yet."
+  },
+  "settingsAccountStatusFailed": {
+    "message": "No se pudo sincronizar. Próximo intento: $1.",
+    "description": "Live sync status after a failed sync. $1 is the time of day of the next try with seconds, already formatted."
+  },
+  "settingsAccountStatusFailedPlain": {
+    "message": "No se pudo sincronizar. Se volverá a intentar.",
+    "description": "Live sync status after a failed sync, when the time of the next try is not known yet."
+  },
+  "settingsAccountStatusPartial": {
+    "message": "Algunos elementos no se sincronizaron. Próxima sincronización: $1.",
+    "description": "Live sync status when a sync finished but left some items out. $1 is the time of day of the next sync, already formatted."
+  },
+  "settingsAccountStatusPartialPlain": {
+    "message": "Algunos elementos no se sincronizaron.",
+    "description": "Live sync status when a sync finished but left some items out and the next time is not known yet."
+  },
+  "settingsAccountStatusTooLarge_one": {
+    "message": "$1 elemento es demasiado grande para sincronizarse y se queda en este dispositivo.",
+    "description": "Live sync status: items over the size limit never sync. $1 is how many. Promise no later try."
+  },
+  "settingsAccountStatusTooLarge_other": {
+    "message": "$1 elementos son demasiado grandes para sincronizarse y se quedan en este dispositivo.",
+    "description": "Live sync status: items over the size limit never sync. $1 is how many. Promise no later try."
+  },
+  "settingsAccountStatusUnreadable_one": {
+    "message": "Aquí no se pudo leer $1 elemento de la nube y se omitió.",
+    "description": "Live sync status: records from the server that did not decrypt were skipped for good. $1 is how many. Promise no later try."
+  },
+  "settingsAccountStatusUnreadable_other": {
+    "message": "Aquí no se pudieron leer $1 elementos de la nube y se omitieron.",
+    "description": "Live sync status: records from the server that did not decrypt were skipped for good. $1 is how many. Promise no later try."
+  },
+  "settingsAccountStatusUpToDate": {
+    "message": "Todo al día. Última sincronización: $1.",
+    "description": "Live sync status when nothing waits to be sent. $1 is the date and time of the last sync, already formatted."
+  },
+  "settingsAccountStatusHeld_one": {
+    "message": "Sincronizado ($2), salvo $1 captura que supera el límite.",
+    "description": "Live sync status when all but screenshots over the account limit are synced. $1 is how many stay only on this device, $2 the date and time of the last sync."
+  },
+  "settingsAccountStatusHeld_other": {
+    "message": "Sincronizado ($2), salvo $1 capturas que superan el límite.",
+    "description": "Live sync status when all but screenshots over the account limit are synced. $1 is how many stay only on this device, $2 the date and time of the last sync."
+  },
+  "settingsAccountNextCheck_other": {
+    "message": "Próxima búsqueda de cambios de otros dispositivos: $2 (cada $1 minutos)",
+    "description": "Line under the sync status, always visible. $1 is the period in minutes (15), $2 the time of day of the next check, already formatted."
+  },
+  "settingsAccountCheckEvery_other": {
+    "message": "Los cambios de otros dispositivos se buscan cada $1 minutos.",
+    "description": "Line under the sync status while the time of the next check is not known yet. $1 is the period in minutes (15)."
+  },
+  "settingsAccountHelpLabel": {
+    "message": "Cómo funciona la sincronización",
+    "description": "Label and tooltip of the ? button next to Sync, and the title of the explanation it opens."
+  },
+  "settingsAccountHelpIntro": {
+    "message": "Los dispositivos se sincronizan entre sí cuando usan la misma cuenta de Google y se desbloquean con su frase de contraseña de sincronización.",
+    "description": "First paragraph of the sync explanation: both the same Google account and the same passphrase are needed."
+  },
+  "settingsAccountHelpSendTitle": {
+    "message": "Cuándo se envían los cambios de este dispositivo",
+    "description": "Heading in the sync explanation: when this device sends."
+  },
+  "settingsAccountHelpSendChange_other": {
+    "message": "Unos segundos después de cada cambio. Si sigues editando, al menos cada $1 segundos.",
+    "description": "Sync explanation. $1 is the longest wait in seconds (10) while edits keep coming."
+  },
+  "settingsAccountHelpSendSignIn": {
+    "message": "De inmediato al crear o escribir la frase de contraseña.",
+    "description": "Sync explanation: no wait after the passphrase."
+  },
+  "settingsAccountHelpSendPaused_other": {
+    "message": "Si antes Chrome detiene Tabinet en segundo plano, en unos $1 segundos.",
+    "description": "Sync explanation: the fallback when Chrome stopped the extension in the background. $1 is seconds (30)."
+  },
+  "settingsAccountHelpReceiveTitle": {
+    "message": "Cuándo los reciben los demás dispositivos",
+    "description": "Heading in the sync explanation: when other devices receive."
+  },
+  "settingsAccountHelpReceiveEvery_other": {
+    "message": "Cada dispositivo busca cambios cada $1 minutos, así que un cambio puede tardar ese tiempo en aparecer.",
+    "description": "Sync explanation. $1 is the period in minutes (15)."
+  },
+  "settingsAccountHelpReceiveWhy": {
+    "message": "No es instantáneo porque el servidor no puede avisar a los dispositivos: cada uno tiene que preguntar. Preguntar mucho más a menudo mantendría Chrome y el servidor trabajando sin parar.",
+    "description": "Sync explanation: why receiving is not instant."
+  },
+  "settingsAccountHelpNowTitle": {
+    "message": "Si no quieres esperar",
+    "description": "Heading in the sync explanation: how not to wait."
+  },
+  "settingsAccountHelpNowButton": {
+    "message": "«Sincronizar ahora» envía y recibe al momento.",
+    "description": "Sync explanation. Quote the \"Sync now\" button by its own label."
+  },
+  "settingsAccountHelpNowOpen": {
+    "message": "Cargar o recargar la página de Tabinet hace lo mismo; cambiar a una pestaña de Tabinet ya abierta, no. En el otro dispositivo, recárgala o usa «Sincronizar ahora» para recibir tus cambios al momento.",
+    "description": "Sync explanation: the Tabinet page syncs as it loads, and only then. Quote \"Sync now\" by its own label."
+  },
+  "settingsAccountHelpAwayTitle": {
+    "message": "Sin conexión o con Chrome cerrado",
+    "description": "Heading in the sync explanation: offline or Chrome closed."
+  },
+  "settingsAccountHelpAwayOffline_other": {
+    "message": "Mientras la sincronización falla (sin conexión, por ejemplo), los cambios, también los nuevos, esperan en este dispositivo. Se reintenta a los $2 segundos y luego con menos frecuencia, hasta cada $1 minutos.",
+    "description": "Sync explanation: while failing, also for new changes, only the retries send. $1 is the longest gap between retries in minutes (15), $2 the first retry in seconds (30)."
+  },
+  "settingsAccountHelpAwayClosed": {
+    "message": "Con Chrome cerrado no se envía ni se recibe nada. Al iniciar Chrome, los cambios pendientes salen en un minuto aproximadamente y los demás llegan en la siguiente búsqueda.",
+    "description": "Sync explanation: Chrome closed or the computer asleep."
+  },
+  "settingsAccountHelpWhatTitle": {
+    "message": "Qué se sincroniza y qué no",
+    "description": "Heading in the sync explanation: what syncs."
+  },
+  "settingsAccountHelpWhatSynced_other": {
+    "message": "Se sincronizan: sesiones guardadas, notas de YouTube con sus capturas (hasta $1 por cuenta) y ajustes, incluido el idioma.",
+    "description": "Sync explanation. $1 is the screenshot limit per account (100)."
+  },
+  "settingsAccountHelpWhatLocal": {
+    "message": "No se sincronizan: instantáneas (usa «Conservar» para sincronizar una), pestañas abiertas, combinaciones de teclas y «Acceso a YouTube», que se permite en cada dispositivo.",
+    "description": "Sync explanation: what never syncs. Quote \"Keep\" and \"Access to YouTube\" by their own labels."
+  },
+  "settingsAccountHelpWhatTooLarge": {
+    "message": "Demasiado grande para sincronizarse: una sesión, las notas de un vídeo o una captura de más de unos $1 KB. Se queda en este dispositivo.",
+    "description": "Sync explanation: the size limit of one item. $1 is the limit in KB (768)."
+  },
+  "settingsAccountHelpConflictTitle": {
+    "message": "Si dos dispositivos cambian lo mismo",
+    "description": "Heading in the sync explanation: conflicting edits."
+  },
+  "settingsAccountHelpConflictNewer": {
+    "message": "Gana el cambio más reciente, según el reloj de cada dispositivo, y sustituye al otro. Eliminar también cuenta como cambio.",
+    "description": "Sync explanation: last writer wins, by each device’s clock, deletions included."
+  },
+  "settingsAccountHelpConflictWhole": {
+    "message": "Los cambios no se combinan: se sustituye entera una sesión, todas las notas de un vídeo o todos los ajustes.",
+    "description": "Sync explanation: the unit that is replaced."
   },
   "settingsAccountImagesHeld_one": {
     "message": "$1 captura no se sincronizó: tu cuenta ya guarda $2 capturas, el máximo. Se queda en este dispositivo y se sincronizará cuando elimines una captura.",

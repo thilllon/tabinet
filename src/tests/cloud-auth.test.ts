@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CloudUnauthorizedError, me } from '@/lib/cloud-api';
 import {
   accountState,
+  checkKeySetup,
   CLOUD_ACCOUNT_KEY,
   CLOUD_SYNC_KEY,
   deleteCloudData,
@@ -13,6 +14,7 @@ import {
   loadSyncKey,
   newPassphraseProblem,
   setUpPassphrase,
+  showsSyncRow,
   signIn,
   signOut,
   unlockWithPassphrase,
@@ -282,6 +284,70 @@ describe('loadLiveCloudAccount / keepSyncKeyFor', () => {
     await chrome.storage.local.set({ [CLOUD_SYNC_KEY]: 'not base64!' });
     expect(await keepSyncKeyFor(setup)).toBe(false);
     expect(await loadSyncKey()).toBeNull();
+  });
+});
+
+describe('showsSyncRow', () => {
+  it.each(['pending', 'unreachable', 'a 500'])('shows while the account check is %s', () => {
+    // All three leave the setup unknown; the engine syncs with the account and key it has.
+    const now = ACCOUNT.expiresAt - 1;
+    const known = { configured: true, account: ACCOUNT, hasLocalKey: true, now };
+    const state = accountState({ ...known, keySetup: undefined });
+    expect(showsSyncRow(state, ACCOUNT, true, now)).toBe(true);
+  });
+
+  it('not without a live account and its key', () => {
+    const now = ACCOUNT.expiresAt;
+    expect(showsSyncRow('unknown', ACCOUNT, false, now - 1)).toBe(false);
+    expect(showsSyncRow('unknown', ACCOUNT, true, now)).toBe(false);
+    expect(showsSyncRow('unknown', null, true, now - 1)).toBe(false);
+    expect(showsSyncRow('needsUnlock', ACCOUNT, true, now - 1)).toBe(false);
+    expect(showsSyncRow('ready', ACCOUNT, true, now - 1)).toBe(true);
+  });
+});
+
+describe('an answer for the account before', () => {
+  const NEXT: CloudAccount = { ...ACCOUNT, token: 'tok-next' };
+
+  it('its 401 does not sign the next account out', async () => {
+    await chrome.storage.local.set({ [CLOUD_ACCOUNT_KEY]: ACCOUNT, [CLOUD_SYNC_KEY]: 'a2V5' });
+    const refused = withCloudAccount(async () => {
+      await chrome.storage.local.set({ [CLOUD_ACCOUNT_KEY]: NEXT });
+      throw new CloudUnauthorizedError();
+    });
+    await expect(refused).rejects.toBeInstanceOf(CloudUnauthorizedError);
+    expect(await loadCloudAccount()).toEqual(NEXT);
+    expect(await loadSyncKey()).toBe('a2V5');
+  });
+
+  it('a key written while the check runs is not removed by it', async () => {
+    const { setup } = await createKeySetup('the passphrase', 1000);
+    const { rawKey: stale } = await createKeySetup('an old one', 1000);
+    await chrome.storage.local.set({ [CLOUD_ACCOUNT_KEY]: ACCOUNT, [CLOUD_SYNC_KEY]: stale });
+    const decrypt = crypto.subtle.decrypt.bind(crypto.subtle);
+    const spy = vi.spyOn(crypto.subtle, 'decrypt').mockImplementationOnce(async (...args) => {
+      await chrome.storage.local.set({ [CLOUD_SYNC_KEY]: 'just-unlocked' });
+      return decrypt(...args);
+    });
+    await keepSyncKeyFor(setup, ACCOUNT.token);
+    spy.mockRestore();
+    expect(await loadSyncKey()).toBe('just-unlocked');
+  });
+
+  it('the setup is asked for with the token of the account it is shown for', async () => {
+    await chrome.storage.local.set({ [CLOUD_ACCOUNT_KEY]: NEXT, [CLOUD_SYNC_KEY]: 'a2V5' });
+    const server = fakeFetch(jsonResponse(200, { email: ACCOUNT.email, keySetup: null }));
+    await checkKeySetup(ACCOUNT, { fetch: server.fetch });
+    expect(server.requests[0]?.headers.authorization).toBe('Bearer tok');
+    expect(await loadSyncKey()).toBe('a2V5');
+  });
+
+  it("its setup does not remove the next account's key", async () => {
+    const { setup } = await createKeySetup('the one before', 1000);
+    const { rawKey } = await createKeySetup('the next one', 1000);
+    await chrome.storage.local.set({ [CLOUD_ACCOUNT_KEY]: NEXT, [CLOUD_SYNC_KEY]: rawKey });
+    await keepSyncKeyFor(setup, ACCOUNT.token);
+    expect(await loadSyncKey()).toBe(rawKey);
   });
 });
 

@@ -44,7 +44,7 @@ it('POLICY holds these numbers', () => {
       maxSaltBytes: 64,
     },
     signIn: { tokenLifetimeMs: 7_776_000_000 },
-    sync: { periodMinutes: 15 },
+    sync: { periodMinutes: 15, debounceMs: 2500, maxWaitMs: 10_000, fallbackMs: 30_000 },
     screenshot: { maxWidth: 1280, quality: 0.8 },
     snapshots: {
       intervalMinutes: { min: 1, default: 5, max: 1440, choices: [5, 10, 30] },

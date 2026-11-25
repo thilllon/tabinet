@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CLOUD_ACCOUNT_KEY, CLOUD_SYNC_KEY } from '@/lib/cloud-auth';
 import { toBase64 } from '@/lib/cloud-crypto';
@@ -9,10 +9,12 @@ import { SESSION_SCHEMA_VERSION, type Session } from '@/types';
 import { getChromeFake } from './chrome-fake';
 import { fakeSyncServer } from './cloud-fetch';
 
+const realSetTimeout = globalThis.setTimeout;
+
 /** Lets every pending promise chain in the worker run to its end. */
 async function settle(): Promise<void> {
   for (let turn = 0; turn < 200; turn++) {
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => realSetTimeout(resolve, 0));
   }
 }
 
@@ -60,7 +62,16 @@ function session(id: string): Session {
   };
 }
 
+beforeEach(() => {
+  // The debounce must not outlive its test; cloud-sync-timing.test.ts drives it.
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+  // Becoming ready syncs at once, so a server always answers.
+  vi.stubGlobal('fetch', fakeSyncServer().fetch);
+});
+
 afterEach(() => {
+  vi.clearAllTimers();
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -97,6 +108,9 @@ describe('cloud sync in the worker', () => {
     await chrome.storage.local.set({ [CLOUD_ACCOUNT_KEY]: ACCOUNT });
     await settle();
     expect(fake.state.alarms.has(CLOUD_SYNC_ALARM)).toBe(false);
+    // The server does not answer yet: the fallback stands while the first sync runs.
+    vi.stubGlobal('fetch', () => new Promise<Response>(() => {}));
+    vi.stubGlobal('navigator', { locks: undefined });
     await chrome.storage.local.set({ [CLOUD_SYNC_KEY]: toBase64(new Uint8Array(32)) });
     await settle();
     expect(fake.state.alarms.has(CLOUD_SYNC_ALARM)).toBe(true);
@@ -107,7 +121,7 @@ describe('cloud sync in the worker', () => {
     expect(fake.state.alarms.has(CLOUD_SYNC_SOON_ALARM)).toBe(false);
   });
 
-  it('the sync alarm runs a sync, and a later change asks for one a minute out', async () => {
+  it('the sync alarm runs a sync, and a later change arms the 30-second fallback', async () => {
     signIn();
     const server = fakeSyncServer();
     vi.stubGlobal('fetch', server.fetch);
@@ -120,9 +134,12 @@ describe('cloud sync in the worker', () => {
     expect(server.record('settings', 'settings')).toBeDefined();
 
     fake.state.alarms.delete(CLOUD_SYNC_SOON_ALARM);
+    const before = Date.now();
     await sessionRepo.put(session('s2'));
     await settle();
-    expect(fake.state.alarms.get(CLOUD_SYNC_SOON_ALARM)).toMatchObject({ delayInMinutes: 1 });
+    const when = fake.state.alarms.get(CLOUD_SYNC_SOON_ALARM)?.when ?? 0;
+    expect(when).toBeGreaterThanOrEqual(before + 30_000);
+    expect(when).toBeLessThanOrEqual(Date.now() + 30_000);
     fake.fire.alarm(CLOUD_SYNC_SOON_ALARM);
     await settle();
     expect(server.record('session', 's2')).toBeDefined();

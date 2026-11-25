@@ -1,6 +1,6 @@
 # Política de privacidad - Tabinet
 
-Última actualización: 12 de noviembre de 2026
+Última actualización: 23 de noviembre de 2026
 
 ## Resumen
 
@@ -30,7 +30,7 @@ Tus preferencias de ordenación (el modo de agrupación y cómo se tratan las pe
 
 Las instantáneas automáticas están **activadas por defecto**. Cada 5 minutos (u otro intervalo que elijas, de 1 minuto a 24 horas), y cada vez que haces clic en el icono para ordenar, la extensión registra la disposición de tus ventanas abiertas tal como se describe arriba, pero solo si algo ha cambiado desde la última instantánea. Las instantáneas se guardan en el mismo almacenamiento local que las sesiones guardadas y siguen las mismas reglas.
 
-Para desactivarlas, abre Tabinet (clic con el botón derecho en el icono → Opciones) y desactiva las instantáneas automáticas en Configuración. Con las instantáneas desactivadas no existe ningún temporizador. La extensión sigue activándose brevemente cuando Chrome se inicia, cuando se instala o actualiza y cuando cambias un ajuste, para mantener en orden sus propios datos guardados; nada de eso usa la red.
+Para desactivarlas, abre Tabinet (clic con el botón derecho en el icono → Opciones) y desactiva las instantáneas automáticas en Configuración. Con las instantáneas desactivadas no existe ningún temporizador de instantáneas (si has iniciado sesión en la sincronización en la nube, los temporizadores de sincronización siguen activos). La extensión sigue activándose brevemente cuando Chrome se inicia, cuando se instala o actualiza y cuando cambias un ajuste, para mantener en orden sus propios datos guardados. Sin la sincronización en la nube, nada de eso usa la red. Si has iniciado sesión en ella, un ajuste modificado se envía en pocos segundos (salvo que la sincronización esté fallando: entonces, en el siguiente intento, hasta 15 minutos después) y los cambios pendientes se envían después de que Chrome se inicie.
 
 ### Pausar los vídeos de YouTube
 
@@ -87,7 +87,7 @@ Esta extensión necesita los siguientes permisos:
 - **contextMenus**: para agregar «¡Reunir!», «Guardar todas las ventanas como sesión», «Pausar todos los vídeos de YouTube» y «Notas de YouTube» al menú contextual del icono de la extensión. No se agrega ningún elemento de menú a las páginas web.
 - **unlimitedStorage**: permite que las sesiones grandes superen la cuota predeterminada del almacenamiento local de Chrome. No cambia dónde se guardan los datos y no envía nada a ningún sitio.
 - **favicon**: para mostrar, junto a las pestañas de la página de Tabinet, los iconos de los sitios desde la caché local de favicons de Chrome. No se descarga ningún icono de la red y la extensión no guarda datos de iconos.
-- **alarms**: se usa como temporizador de las instantáneas automáticas, con el intervalo que elijas, y, mientras tienes iniciada la sesión de sincronización en la nube, para sincronizar cada 15 minutos y poco después de cada cambio. Con las instantáneas automáticas desactivadas y sin sesión iniciada, no existe ningún temporizador.
+- **alarms**: se usa como temporizador de las instantáneas automáticas, con el intervalo que elijas, y, mientras tienes iniciada la sesión de sincronización en la nube, para buscar cambios cada 15 minutos, enviar un cambio si Chrome detuvo la extensión antes de que pudiera hacerlo y reintentar una sincronización fallida. Con las instantáneas automáticas desactivadas y sin sesión iniciada, no existe ningún temporizador.
 - **identity**: solo para la sincronización en la nube, cuando haces clic en «Iniciar sesión con Google»: pide a Chrome un token de acceso de Google con los ámbitos `openid` y `email`, como se describe en «Sincronización en la nube». Si no inicias sesión, nunca se usa.
 - **scripting**: solo en YouTube: para pausar los vídeos cuando lo pides, como se describe en «Pausar los vídeos de YouTube», y, para las notas de YouTube, para leer el tiempo y el título del vídeo, llevarlo al tiempo de una nota y hacer una captura cuando lo pides, como se describe en «Notas de YouTube». Solo funciona en los sitios que permitas a continuación.
 - **sidePanel**: para mostrar las notas de YouTube en el panel lateral de Chrome cuando lo abres desde el menú contextual, su combinación de teclas o la página de Tabinet. Hacer clic en el icono nunca lo abre.

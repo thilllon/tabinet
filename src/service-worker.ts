@@ -1,7 +1,15 @@
 import { STORE_EXTENSION_ID } from '@/constants';
 import { formatRoute } from '@/lib/app-route';
 import { assembleTabs } from '@/lib/assemble-tabs';
-import { ensureSyncAlarm, handleCloudStorageChange, isSyncAlarm, syncNow } from '@/lib/cloud-sync';
+import {
+  CLOUD_SYNC_ALARM,
+  handleCloudStorageChange,
+  isSyncAlarm,
+  rearmFallback,
+  resumeSync,
+  syncNow,
+} from '@/lib/cloud-sync';
+import { createSyncScheduler } from '@/lib/cloud-sync-scheduler';
 import {
   ensureHistoryAlarm,
   HISTORY_ALARM,
@@ -277,8 +285,8 @@ async function onInstalled(details: chrome.runtime.InstalledDetails): Promise<vo
   // Chrome drops every alarm on extension update/reload, so the periodic history alarm is
   // re-asserted for all reasons (a no-op replace when it already exists).
   await ensureHistoryAlarm();
-  // The cloud sync alarm, for the same reason (nothing at all while sync is unconfigured).
-  await ensureSyncAlarm().catch(report);
+  // The cloud sync alarms, for the same reason (nothing at all while sync is unconfigured).
+  await resumeSync().catch(report);
 }
 
 async function onStartup(): Promise<void> {
@@ -302,12 +310,13 @@ async function onStartup(): Promise<void> {
   // One-shot 'history-first' 1 min out: Chrome is still restoring tabs while onStartup runs,
   // and a capture now would record half-loaded windows.
   await scheduleFirstSnapshot(settings);
-  await ensureSyncAlarm().catch(report);
+  await resumeSync().catch(report);
 }
 
 /**
- * `alarms.onAlarm` handler. The cloud sync alarms (`cloud-sync`, `cloud-sync-soon`) run a sync,
- * which returns `'notReady'` by itself when this device is not ready. Both history alarms take an `origin: 'alarm'` snapshot;
+ * `alarms.onAlarm` handler. `cloud-sync` runs a sync unless a retry waits for a later time;
+ * `cloud-sync-soon` first puts itself back (`rearmFallback()`, as the worker can die with the run
+ * queued) and runs one only if something still waits. A sync returns `'notReady'` by itself when this device is not ready. Both history alarms take an `origin: 'alarm'` snapshot;
  * `takeHistorySnapshot` itself returns `'disabled'` (without querying windows) when the user
  * turned history off after the alarm was scheduled, so no settings read is needed here.
  */
@@ -318,7 +327,12 @@ function onAlarm(alarm: chrome.alarms.Alarm): void {
   // alarm lands inside those 2 s; a stale ✓ that never goes away is the worse failure.
   clearBadge();
   if (isSyncAlarm(alarm.name)) {
-    syncNow().catch(report);
+    if (alarm.name === CLOUD_SYNC_ALARM) {
+      syncScheduler.run('periodic');
+    } else {
+      rearmFallback().catch(report);
+      syncScheduler.run('due');
+    }
     return;
   }
   if (alarm.name !== HISTORY_ALARM && alarm.name !== HISTORY_FIRST_ALARM) {
@@ -355,14 +369,15 @@ function onActionClicked(): void {
  *   the right-click menu is recreated, so its titles follow at once.
  *
  * Every change is also handed to cloud sync first (`handleCloudStorageChange()`): the account or
- * key arms or clears its alarms, a setting marks the settings dirty, and new work in
- * `cloudSyncMeta` asks for a sync a minute later. It returns at once while sync is unconfigured.
+ * key arms or clears its alarms (and syncs at once), a setting marks the settings dirty, and a
+ * change of this device's own in `cloudSyncMeta` syncs a few seconds later. It returns at once
+ * while sync is unconfigured.
  */
 function onStorageChanged(
   changes: { [key: string]: chrome.storage.StorageChange },
   areaName: chrome.storage.AreaName,
 ): void {
-  handleCloudStorageChange(changes, areaName).catch(report);
+  handleCloudStorageChange(changes, areaName).then(syncScheduler.trigger).catch(report);
   if (areaName === 'sync' && UI_LANGUAGE_KEY in changes) {
     void applyUiLanguage(parseUiLanguage(changes[UI_LANGUAGE_KEY]?.newValue));
     registerContextMenus().catch(report);
@@ -373,6 +388,9 @@ function onStorageChanged(
   }
   ensureHistoryAlarm().catch(report);
 }
+
+// Timers and the one-run-at-a-time queue of this worker's life; the alarms outlive it.
+const syncScheduler = createSyncScheduler({ sync: syncNow, report });
 
 function report(err: unknown): void {
   console.error('[tabinet:sessions]', err);
