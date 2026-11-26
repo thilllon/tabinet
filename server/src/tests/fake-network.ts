@@ -1,18 +1,18 @@
 // Replaces fetch, so the real production deps run with no network: Neon's HTTP protocol with one
 // signed-in account that has a key, and a Google that refuses every token. Imported by
-// adaptors.test.ts and preloaded into the server it starts, where it also pins the test KEK's id
-// in place of the empty PINNED_KEK_ID (a loader hook), so the production check passes there.
+// adaptors.test.ts and preloaded into the server it starts, where it also pins the test key encryption key's id
+// in place of the empty PINNED_KEY_ENCRYPTION_KEY_ID (a loader hook), so the production check passes there.
 import { register } from 'node:module';
 
-import { kekIdOfSync } from '../envelope.js';
+import { keyEncryptionKeyIdOfSync } from '../envelope.js';
 
-const FAKE_KEK = new Uint8Array(32).fill(0x5a);
-/** The id the fake environment's KEK has, pinned in the tests in place of `PINNED_KEK_ID`. */
-export const FAKE_KEK_ID = kekIdOfSync(FAKE_KEK);
+const FAKE_KEY_ENCRYPTION_KEY = new Uint8Array(32).fill(0x5a);
+/** The id the fake environment's key encryption key has, pinned in the tests in place of `PINNED_KEY_ENCRYPTION_KEY_ID`. */
+export const FAKE_KEY_ENCRYPTION_KEY_ID = keyEncryptionKeyIdOfSync(FAKE_KEY_ENCRYPTION_KEY);
 
 export const FAKE_ENV = {
   VERCEL_ENV: 'production',
-  TABINET_KEK: Buffer.from(FAKE_KEK).toString('base64'),
+  TABINET_KEY_ENCRYPTION_KEY: Buffer.from(FAKE_KEY_ENCRYPTION_KEY).toString('base64'),
   DATABASE_URL: 'postgres://user:hunter2-password@db.invalid/tabinet',
   GOOGLE_CLIENT_IDS: 'client',
   ALLOWED_ORIGINS: 'chrome-extension://bmbpmnfhfbdjdjpblimidmbohgccmjdg',
@@ -89,12 +89,12 @@ globalThis.fetch = async (input, init) => {
   });
 };
 
-// In the server process only (vitest mocks the module itself): kek-id.js becomes the fake pin.
+// In the server process only (vitest mocks the module itself): key-encryption-key-id.js becomes the fake pin.
 if (process.env.VITEST === undefined) {
-  const pinned = `export const PINNED_KEK_ID = ${JSON.stringify(FAKE_KEK_ID)};`;
+  const pinned = `export const PINNED_KEY_ENCRYPTION_KEY_ID = ${JSON.stringify(FAKE_KEY_ENCRYPTION_KEY_ID)};`;
   const hooks = `
     export async function resolve(specifier, context, next) {
-      if (/(^|\\/)kek-id\\.(js|ts)$/.test(specifier)) {
+      if (/(^|\\/)key-encryption-key-id\\.(js|ts)$/.test(specifier)) {
         return { url: ${JSON.stringify(`data:text/javascript,${encodeURIComponent(pinned)}`)}, shortCircuit: true };
       }
       return next(specifier, context);

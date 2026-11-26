@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { runMigrations } from '../db/migrations.js';
 import { createSqlStore, type Query } from '../db/store.js';
 import { hashToken } from '../tokens.js';
-import { adapter, docId, rec, TEST_KEK, v1Database } from './helpers.js';
+import { adapter, docId, rec, TEST_KEY_ENCRYPTION_KEY, v1Database } from './helpers.js';
 import { V1_C824F443, V1_MAIN, V1_V8_3_0, V1_V9_1_0, type V1Statement } from './v1-statements.js';
 
 function queryOf(db: PGlite): Query {
@@ -53,8 +53,8 @@ describe('after migration 003', () => {
       const store = createSqlStore(queryOf(db));
       const account = await store.signIn('sub-v1', 'v1@example.com', hashToken('t'), 2e12, 1e12);
       await db.query(
-        "UPDATE accounts SET key_id = 'AAAAAAAAAAAAAAAAAAAAAA', key_generation = 1, write_verifier = repeat('a', 64), kek_id = $2, sealed_envelope = repeat('A', 168) WHERE id = $1",
-        [account.id, TEST_KEK.id],
+        "UPDATE accounts SET key_id = 'AAAAAAAAAAAAAAAAAAAAAA', key_generation = 1, write_verifier = repeat('a', 64), key_encryption_key_id = $2, sealed_envelope = repeat('A', 168) WHERE id = $1",
+        [account.id, TEST_KEY_ENCRYPTION_KEY.id],
       );
       const record = rec('doc', docId(1), 1) as Parameters<typeof store.applyRecord>[2];
       await store.applyRecord(account.id, 'AAAAAAAAAAAAAAAAAAAAAA', record, 640);
@@ -95,7 +95,7 @@ describe('before migration 003', () => {
             keyId,
             generation: 1,
             writeVerifier: 'a'.repeat(64),
-            kekId: TEST_KEK.id,
+            keyEncryptionKeyId: TEST_KEY_ENCRYPTION_KEY.id,
             sealed: 'A'.repeat(168),
           }),
       ],

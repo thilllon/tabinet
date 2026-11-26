@@ -11,7 +11,7 @@ export const me: AppHandler = (c) => {
 
 /**
  * `DELETE /v2/account`: needs a live Google token of the account, so a bearer alone deletes
- * nothing. Bearers and records go with it by cascade. No KEK use.
+ * nothing. Bearers and records go with it by cascade. No key encryption key use.
  */
 export function deleteAccount(deps: Deps): AppHandler {
   return async (c) => {

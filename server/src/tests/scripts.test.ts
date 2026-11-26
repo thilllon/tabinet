@@ -1,53 +1,62 @@
-// The owner's scripts: kek, schema:check and stream-check (against the real app on PGlite).
+// The owner's scripts: keyEncryptionKey, schema:check and stream-check (against the real app on PGlite).
 import { mkdtempSync, readFileSync, statSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { kekIdOfFile, newKek, outsideRepository, REPOSITORY } from '../../scripts/kek.js';
+import {
+  keyEncryptionKeyIdOfFile,
+  newKeyEncryptionKey,
+  outsideRepository,
+  REPOSITORY,
+} from '../../scripts/key-encryption-key.js';
 import { schemaReport } from '../../scripts/schema-check.js';
 import { runStreamCheck } from '../../scripts/stream-check.js';
 import { createApp } from '../app.js';
-import { importKek, kekIdOfSync } from '../envelope.js';
+import { importKeyEncryptionKey, keyEncryptionKeyIdOfSync } from '../envelope.js';
 import { createTestDb, createTestDeps, signUp } from './helpers.js';
 
-describe('kek', () => {
-  const dir = mkdtempSync(path.join(tmpdir(), 'tabinet-kek-'));
+describe('keyEncryptionKey', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'tabinet-key-encryption-key-'));
 
   it('writes base64 of 32 bytes, no newline, mode 0600, and prints only the id', () => {
-    const file = path.join(dir, 'a.kek');
-    const id = newKek(file);
+    const file = path.join(dir, 'a.keyEncryptionKey');
+    const id = newKeyEncryptionKey(file);
     const text = readFileSync(file, 'utf8');
     expect(text).toMatch(/^[A-Za-z0-9+/]{43}=$/);
     expect(statSync(file).mode & 0o777).toBe(0o600);
-    expect(id).toBe(kekIdOfSync(new Uint8Array(Buffer.from(text, 'base64'))));
+    expect(id).toBe(keyEncryptionKeyIdOfSync(new Uint8Array(Buffer.from(text, 'base64'))));
     expect(id).toMatch(/^[0-9a-f]{16}$/);
-    expect(kekIdOfFile(file)).toBe(id);
+    expect(keyEncryptionKeyIdOfFile(file)).toBe(id);
   });
 
   it('never overwrites a file', () => {
-    const file = path.join(dir, 'b.kek');
-    newKek(file);
+    const file = path.join(dir, 'b.keyEncryptionKey');
+    newKeyEncryptionKey(file);
     const before = readFileSync(file, 'utf8');
-    expect(() => newKek(file)).toThrow();
+    expect(() => newKeyEncryptionKey(file)).toThrow();
     expect(readFileSync(file, 'utf8')).toBe(before);
   });
 
   it('refuses a relative path and any path inside the repository, links resolved', () => {
-    expect(() => newKek('a.kek')).toThrow('absolute path');
-    expect(() => newKek(path.join(REPOSITORY, 'server', 'x.kek'))).toThrow('inside the repository');
+    expect(() => newKeyEncryptionKey('a.keyEncryptionKey')).toThrow('absolute path');
+    expect(() =>
+      newKeyEncryptionKey(path.join(REPOSITORY, 'server', 'x.keyEncryptionKey')),
+    ).toThrow('inside the repository');
     expect(() => outsideRepository(REPOSITORY)).toThrow('inside the repository');
     const link = path.join(dir, 'into-repo');
     symlinkSync(path.join(REPOSITORY, 'server'), link);
-    expect(() => newKek(path.join(link, 'y.kek'))).toThrow('inside the repository');
+    expect(() => newKeyEncryptionKey(path.join(link, 'y.keyEncryptionKey'))).toThrow(
+      'inside the repository',
+    );
   });
 
-  it('refuses a file that is not a KEK', async () => {
+  it('refuses a file that is not a key encryption key', async () => {
     const { writeFileSync } = await import('node:fs');
-    const file = path.join(dir, 'bad.kek');
+    const file = path.join(dir, 'bad.keyEncryptionKey');
     writeFileSync(file, `${Buffer.alloc(32).toString('base64')}\n`);
-    expect(() => kekIdOfFile(file)).toThrow('base64 of 32 bytes');
+    expect(() => keyEncryptionKeyIdOfFile(file)).toThrow('base64 of 32 bytes');
   });
 });
 
@@ -85,7 +94,7 @@ describe('stream-check', () => {
     close = () => test.db.close();
     deps = createTestDeps(test.store, {
       now: () => Date.now(),
-      kek: await importKek(new Uint8Array(32).fill(3)),
+      keyEncryptionKey: await importKeyEncryptionKey(new Uint8Array(32).fill(3)),
     }).deps;
   });
 

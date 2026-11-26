@@ -1,7 +1,7 @@
 import type { Context, Handler, MiddlewareHandler } from 'hono';
 
 import type { Store } from './db/store.js';
-import type { Kek } from './envelope.js';
+import type { KeyEncryptionKey } from './envelope.js';
 import type { VerifyGoogleToken } from './google-auth.js';
 import type { Account } from './types.js';
 
@@ -9,8 +9,8 @@ import type { Account } from './types.js';
 export interface Deps {
   store: Store;
   verifyGoogleToken: VerifyGoogleToken;
-  /** The one configured KEK: production's comes from `TABINET_KEK` after the production check. */
-  kek: Kek;
+  /** The one configured key encryption key: production's comes from `TABINET_KEY_ENCRYPTION_KEY` after the production check. */
+  keyEncryptionKey: KeyEncryptionKey;
   /** Milliseconds since the epoch. */
   now(): number;
   randomBytes(n: number): Uint8Array;

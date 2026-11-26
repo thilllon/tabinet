@@ -10,8 +10,8 @@
     "test": "vitest run",
     "migrate": "tsx scripts/migrate.ts",
     "schema:check": "tsx scripts/schema-check.ts",
-    "kek:new": "tsx scripts/kek.ts new",
-    "kek:id": "tsx scripts/kek.ts id",
+    "key-encryption-key:new": "tsx scripts/key-encryption-key.ts new",
+    "key-encryption-key:id": "tsx scripts/key-encryption-key.ts id",
     "stream-check": "tsx scripts/stream-check.ts"
   },
   "dependencies": {

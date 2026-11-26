@@ -17,8 +17,8 @@ import { FAKE_ENV, FAKE_KEY_ID, FAKE_TOKEN, RECORD_BYTES, RECORD_COUNT } from '.
 import { ORIGIN } from './helpers.js';
 
 // The Vercel side runs in this process: the same fake pin the server process gets from its hook.
-vi.mock('../kek-id.js', async () => ({
-  PINNED_KEK_ID: (await import('./fake-network.js')).FAKE_KEK_ID,
+vi.mock('../key-encryption-key-id.js', async () => ({
+  PINNED_KEY_ENCRYPTION_KEY_ID: (await import('./fake-network.js')).FAKE_KEY_ENCRYPTION_KEY_ID,
 }));
 
 const ROOT = path.resolve(import.meta.dirname, '../..');
@@ -238,7 +238,7 @@ describe('the Railway adaptor and the Vercel adaptor', () => {
       { method: 'POST', path: '/v2/records', headers: withKey, body: '{}'.padEnd(LARGE) },
     ],
   ])('answer %s the same', async (_name, call) => {
-    // Not the same 500 twice: both pass the production check with the fake pinned KEK.
+    // Not the same 500 twice: both pass the production check with the fake pinned key encryption key.
     expect((await viaVercel({ method: 'GET', path: '/v2/me', headers: signedIn })).status).toBe(
       200,
     );

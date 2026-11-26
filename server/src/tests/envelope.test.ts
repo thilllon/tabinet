@@ -5,22 +5,22 @@ import { describe, expect, it } from 'vitest';
 
 import {
   envelopeBytes,
-  importKek,
-  kekIdOf,
+  importKeyEncryptionKey,
+  keyEncryptionKeyIdOf,
   open,
   parseEnvelope,
   seal,
   writeVerifierOf,
 } from '../envelope.js';
-import { PINNED_KEK_ID } from '../kek-id.js';
+import { PINNED_KEY_ENCRYPTION_KEY_ID } from '../key-encryption-key-id.js';
 import type { KeyEnvelope } from '../types.js';
 
 /** The shared test vectors (spec 3.6), the same file the extension's tests read. */
 const vectors = JSON.parse(
   readFileSync(path.resolve(import.meta.dirname, '../../../src/tests/key-vectors.json'), 'utf8'),
 ) as {
-  kek: string;
-  kekId: string;
+  keyEncryptionKey: string;
+  keyEncryptionKeyId: string;
   writeProof: string;
   writeVerifier: string;
   envelope: KeyEnvelope;
@@ -30,10 +30,10 @@ const vectors = JSON.parse(
   sealed: string;
 };
 
-const kekBytes = new Uint8Array(Buffer.from(vectors.kek, 'base64'));
-const kek = await importKek(kekBytes);
+const keyEncryptionKeyBytes = new Uint8Array(Buffer.from(vectors.keyEncryptionKey, 'base64'));
+const keyEncryptionKey = await importKeyEncryptionKey(keyEncryptionKeyBytes);
 const row = {
-  kekId: vectors.kekId,
+  keyEncryptionKeyId: vectors.keyEncryptionKeyId,
   keyId: vectors.envelope.keyId,
   generation: vectors.envelope.generation,
   sealed: vectors.sealed,
@@ -47,13 +47,13 @@ function flipped(sealed: string, index: number): string {
 }
 
 describe('the test vectors, server half', () => {
-  it('derives the KEK id', async () => {
-    expect(await kekIdOf(kekBytes)).toBe(vectors.kekId);
-    expect(kek.id).toBe(vectors.kekId);
+  it('derives the key encryption key id', async () => {
+    expect(await keyEncryptionKeyIdOf(keyEncryptionKeyBytes)).toBe(vectors.keyEncryptionKeyId);
+    expect(keyEncryptionKey.id).toBe(vectors.keyEncryptionKeyId);
   });
 
-  it('never pins the vectors KEK', () => {
-    expect(PINNED_KEK_ID).not.toBe(vectors.kekId);
+  it('never pins the vectors key encryption key', () => {
+    expect(PINNED_KEY_ENCRYPTION_KEY_ID).not.toBe(vectors.keyEncryptionKeyId);
   });
 
   it('derives the write verifier from the proof', () => {
@@ -68,39 +68,45 @@ describe('the test vectors, server half', () => {
 
   it('seals byte for byte with the vector IV', async () => {
     const iv = new Uint8Array(Buffer.from(vectors.sealIv, 'base64'));
-    const sealed = await seal(kek, vectors.sub, vectors.envelope, iv);
+    const sealed = await seal(keyEncryptionKey, vectors.sub, vectors.envelope, iv);
     expect(sealed).toBe(vectors.sealed);
     expect(sealed).toHaveLength(168);
   });
 
   it('opens the vector', async () => {
-    expect(await open(kek, row, vectors.sub)).toEqual(vectors.envelope);
+    expect(await open(keyEncryptionKey, row, vectors.sub)).toEqual(vectors.envelope);
   });
 
   it('seals with a fresh IV each time, which still opens', async () => {
-    const a = await seal(kek, vectors.sub, vectors.envelope);
-    const b = await seal(kek, vectors.sub, vectors.envelope);
+    const a = await seal(keyEncryptionKey, vectors.sub, vectors.envelope);
+    const b = await seal(keyEncryptionKey, vectors.sub, vectors.envelope);
     expect(a).not.toBe(b);
-    expect(await open(kek, { ...row, sealed: a }, vectors.sub)).toEqual(vectors.envelope);
+    expect(await open(keyEncryptionKey, { ...row, sealed: a }, vectors.sub)).toEqual(
+      vectors.envelope,
+    );
   });
 });
 
 describe('open fails closed', () => {
   it('for another sub', async () => {
-    expect(await open(kek, row, '100000000000000000002')).toBeNull();
+    expect(await open(keyEncryptionKey, row, '100000000000000000002')).toBeNull();
   });
 
-  it('for another kekId on the row, and for another KEK', async () => {
-    expect(await open(kek, { ...row, kekId: '0000000000000000' }, vectors.sub)).toBeNull();
-    const other = await importKek(new Uint8Array(32).fill(9));
+  it('for another keyEncryptionKeyId on the row, and for another key encryption key', async () => {
+    expect(
+      await open(keyEncryptionKey, { ...row, keyEncryptionKeyId: '0000000000000000' }, vectors.sub),
+    ).toBeNull();
+    const other = await importKeyEncryptionKey(new Uint8Array(32).fill(9));
     expect(await open(other, row, vectors.sub)).toBeNull();
-    // Another KEK that the row claims: the id matches, the key does not open it.
-    expect(await open(other, { ...row, kekId: other.id }, vectors.sub)).toBeNull();
+    // Another key encryption key that the row claims: the id matches, the key does not open it.
+    expect(await open(other, { ...row, keyEncryptionKeyId: other.id }, vectors.sub)).toBeNull();
   });
 
   it('for another keyId or generation on the row', async () => {
-    expect(await open(kek, { ...row, keyId: 'AAAAAAAAAAAAAAAAAAAAAA' }, vectors.sub)).toBeNull();
-    expect(await open(kek, { ...row, generation: 2 }, vectors.sub)).toBeNull();
+    expect(
+      await open(keyEncryptionKey, { ...row, keyId: 'AAAAAAAAAAAAAAAAAAAAAA' }, vectors.sub),
+    ).toBeNull();
+    expect(await open(keyEncryptionKey, { ...row, generation: 2 }, vectors.sub)).toBeNull();
   });
 
   it('for a truncated or padded blob, and for one that is not base64', async () => {
@@ -111,7 +117,7 @@ describe('open fails closed', () => {
       '',
       `${vectors.sealed.slice(0, -1)}!`,
     ]) {
-      expect(await open(kek, { ...row, sealed }, vectors.sub)).toBeNull();
+      expect(await open(keyEncryptionKey, { ...row, sealed }, vectors.sub)).toBeNull();
     }
   });
 
@@ -124,16 +130,18 @@ describe('open fails closed', () => {
     ['the tag, last byte', 124],
   ])('for a flipped bit in %s', async (_name, index) => {
     expect(
-      await open(kek, { ...row, sealed: flipped(vectors.sealed, index) }, vectors.sub),
+      await open(keyEncryptionKey, { ...row, sealed: flipped(vectors.sealed, index) }, vectors.sub),
     ).toBeNull();
   });
 
   it('when the sealed bytes hold another key id or generation than the row', async () => {
     // Sealed honestly for generation 2 under the same AAD fields the row will claim.
     const other = { ...vectors.envelope, generation: 2 };
-    const sealed = await seal(kek, vectors.sub, other);
-    expect(await open(kek, { ...row, generation: 2, sealed }, vectors.sub)).toEqual(other);
-    expect(await open(kek, { ...row, generation: 1, sealed }, vectors.sub)).toBeNull();
+    const sealed = await seal(keyEncryptionKey, vectors.sub, other);
+    expect(await open(keyEncryptionKey, { ...row, generation: 2, sealed }, vectors.sub)).toEqual(
+      other,
+    );
+    expect(await open(keyEncryptionKey, { ...row, generation: 1, sealed }, vectors.sub)).toBeNull();
   });
 });
 

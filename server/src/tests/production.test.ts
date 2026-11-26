@@ -1,23 +1,23 @@
-// The production check (spec 6.2): outside Vercel Production, without the pinned KEK, or with any
-// other KEK, nothing is built, no query is made, and every request is a 500.
+// The production check (spec 6.2): outside Vercel Production, without the pinned key encryption key, or with any
+// other key encryption key, nothing is built, no query is made, and every request is a 500.
 import { randomBytes } from 'node:crypto';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { listFromEnv, readEnv } from '../env.js';
-import { kekIdOfSync } from '../envelope.js';
-import { PINNED_KEK_ID } from '../kek-id.js';
+import { keyEncryptionKeyIdOfSync } from '../envelope.js';
+import { PINNED_KEY_ENCRYPTION_KEY_ID } from '../key-encryption-key-id.js';
 import { createProductionDeps, createServer } from '../production.js';
 import { createTestDeps, ORIGIN, request } from './helpers.js';
 
 const SECRET = 'hunter2-password';
-const KEK = randomBytes(32);
-const KEK_B64 = KEK.toString('base64');
-const PIN = kekIdOfSync(KEK);
+const KEY_ENCRYPTION_KEY = randomBytes(32);
+const KEY_ENCRYPTION_KEY_B64 = KEY_ENCRYPTION_KEY.toString('base64');
+const PIN = keyEncryptionKeyIdOfSync(KEY_ENCRYPTION_KEY);
 
 const GOOD = {
   VERCEL_ENV: 'production',
-  TABINET_KEK: KEK_B64,
+  TABINET_KEY_ENCRYPTION_KEY: KEY_ENCRYPTION_KEY_B64,
   DATABASE_URL: `postgres://user:${SECRET}@db.invalid/tabinet`,
   GOOGLE_CLIENT_IDS: 'client',
   ALLOWED_ORIGINS: ORIGIN,
@@ -35,15 +35,15 @@ describe('listFromEnv', () => {
 });
 
 describe('the production check', () => {
-  it('ships with no pinned KEK, so no build runs v2 until the cutover pins one', () => {
-    expect(PINNED_KEK_ID).toBe('');
-    expect(() => readEnv(GOOD)).toThrow('no KEK id is pinned');
+  it('ships with no pinned key encryption key, so no build runs v2 until the cutover pins one', () => {
+    expect(PINNED_KEY_ENCRYPTION_KEY_ID).toBe('');
+    expect(() => readEnv(GOOD)).toThrow('no key encryption key id is pinned');
   });
 
-  it('passes for Vercel Production with the pinned KEK', async () => {
+  it('passes for Vercel Production with the pinned key encryption key', async () => {
     const createQuery = vi.fn(() => async () => []);
-    const deps = await createProductionDeps(GOOD, { createQuery, pinnedKekId: PIN });
-    expect(deps.kek.id).toBe(PIN);
+    const deps = await createProductionDeps(GOOD, { createQuery, pinnedKeyEncryptionKeyId: PIN });
+    expect(deps.keyEncryptionKey.id).toBe(PIN);
     expect(deps.allowedOrigins).toEqual([ORIGIN]);
     expect(createQuery).toHaveBeenCalledOnce();
   });
@@ -53,32 +53,62 @@ describe('the production check', () => {
     ['no VERCEL_ENV', { VERCEL_ENV: undefined }, PIN, 'VERCEL_ENV is not production'],
     ['VERCEL_ENV=preview', { VERCEL_ENV: 'preview' }, PIN, 'VERCEL_ENV is not production'],
     ['VERCEL_ENV=development', { VERCEL_ENV: 'development' }, PIN, 'VERCEL_ENV is not production'],
-    ['an empty pin', {}, '', 'no KEK id is pinned'],
-    ['no KEK', { TABINET_KEK: undefined }, PIN, 'Missing environment variable TABINET_KEK'],
-    ['an empty KEK', { TABINET_KEK: '' }, PIN, 'Missing environment variable TABINET_KEK'],
+    ['an empty pin', {}, '', 'no key encryption key id is pinned'],
     [
-      'a KEK of 31 bytes',
-      { TABINET_KEK: randomBytes(31).toString('base64') },
+      'no key encryption key',
+      { TABINET_KEY_ENCRYPTION_KEY: undefined },
+      PIN,
+      'Missing environment variable TABINET_KEY_ENCRYPTION_KEY',
+    ],
+    [
+      'an empty key encryption key',
+      { TABINET_KEY_ENCRYPTION_KEY: '' },
+      PIN,
+      'Missing environment variable TABINET_KEY_ENCRYPTION_KEY',
+    ],
+    [
+      'a key encryption key of 31 bytes',
+      { TABINET_KEY_ENCRYPTION_KEY: randomBytes(31).toString('base64') },
       PIN,
       'not base64 of 32',
     ],
     [
-      'a KEK that is not base64',
-      { TABINET_KEK: `${KEK_B64.slice(0, -2)}!=` },
+      'a key encryption key that is not base64',
+      { TABINET_KEY_ENCRYPTION_KEY: `${KEY_ENCRYPTION_KEY_B64.slice(0, -2)}!=` },
       PIN,
       'not base64 of 32',
     ],
-    ['a KEK with a newline', { TABINET_KEK: `${KEK_B64}\n` }, PIN, 'not base64 of 32'],
-    ['a KEK in base64url', { TABINET_KEK: KEK.toString('base64url') }, PIN, 'not base64 of 32'],
-    ['another KEK', { TABINET_KEK: other.toString('base64') }, PIN, 'not the pinned KEK'],
-    ['the vectors KEK id pinned for another', {}, '2e8440d4467793dd', 'not the pinned KEK'],
+    [
+      'a key encryption key with a newline',
+      { TABINET_KEY_ENCRYPTION_KEY: `${KEY_ENCRYPTION_KEY_B64}\n` },
+      PIN,
+      'not base64 of 32',
+    ],
+    [
+      'a key encryption key in base64url',
+      { TABINET_KEY_ENCRYPTION_KEY: KEY_ENCRYPTION_KEY.toString('base64url') },
+      PIN,
+      'not base64 of 32',
+    ],
+    [
+      'another key encryption key',
+      { TABINET_KEY_ENCRYPTION_KEY: other.toString('base64') },
+      PIN,
+      'not the pinned key encryption key',
+    ],
+    [
+      'the vectors key encryption key id pinned for another',
+      {},
+      '2e8440d4467793dd',
+      'not the pinned key encryption key',
+    ],
   ])('refuses %s, before any client exists', async (_name, change, pin, message) => {
     const createQuery = vi.fn(() => async () => []);
     const env = { ...GOOD, ...change };
-    const build = createProductionDeps(env, { createQuery, pinnedKekId: pin });
+    const build = createProductionDeps(env, { createQuery, pinnedKeyEncryptionKeyId: pin });
     await expect(build).rejects.toThrow(message);
     await expect(build).rejects.not.toThrow(SECRET);
-    await expect(build).rejects.not.toThrow(KEK_B64);
+    await expect(build).rejects.not.toThrow(KEY_ENCRYPTION_KEY_B64);
     expect(createQuery).not.toHaveBeenCalled();
   });
 
@@ -99,7 +129,7 @@ describe('the production check', () => {
 describe('createServer', () => {
   it.each([
     ['no VERCEL_ENV', { VERCEL_ENV: undefined }],
-    ['a preview with a valid pinned KEK', { VERCEL_ENV: 'preview' }],
+    ['a preview with a valid pinned key encryption key', { VERCEL_ENV: 'preview' }],
   ])(
     'with %s answers 500 on every route, OPTIONS and /v1 too, and queries nothing',
     async (_name, change) => {
@@ -107,7 +137,7 @@ describe('createServer', () => {
       const createQuery = vi.fn(() => async () => []);
       const env = { ...GOOD, ...change };
       const serve = createServer(
-        () => createProductionDeps(env, { createQuery, pinnedKekId: PIN }),
+        () => createProductionDeps(env, { createQuery, pinnedKeyEncryptionKeyId: PIN }),
         env,
       );
       for (const [method, path] of [

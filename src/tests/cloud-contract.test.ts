@@ -2,7 +2,7 @@
  * The contract suite (spec 13.7): the real client (`cloud-api.ts`, `cloud-auth.ts` and
  * `syncNow()` with the test doc collections) against the real server app (`createApp()` over
  * PGlite with the real migrations), in process. Only Google is injected (a verifier that reads
- * `google:<sub>` tokens, which the chrome fake's `getAuthToken` hands out) and the KEK is a test
+ * `google:<sub>` tokens, which the chrome fake's `getAuthToken` hands out) and the key encryption key is a test
  * one. Each simulated device is its own chrome fake.
  */
 import { PGlite } from '@electric-sql/pglite';
@@ -37,7 +37,7 @@ import {
 import { createApp } from '../../server/src/app';
 import { runMigrations } from '../../server/src/db/migrations';
 import { createSqlStore, type Query } from '../../server/src/db/store';
-import { importKek } from '../../server/src/envelope';
+import { importKeyEncryptionKey } from '../../server/src/envelope';
 import { createChromeFake } from './chrome-fake';
 import {
   clipCollection,
@@ -104,7 +104,7 @@ beforeAll(async () => {
     },
     query,
   });
-  const kek = await importKek(new Uint8Array(32).fill(9));
+  const keyEncryptionKey = await importKeyEncryptionKey(new Uint8Array(32).fill(9));
   app = createApp({
     store: createSqlStore(query),
     // The injected Google: `google:<sub>` is that account, anything else is refused.
@@ -112,7 +112,7 @@ beforeAll(async () => {
       const match = /^google:([a-z0-9-]+)$/.exec(accessToken);
       return match === null ? null : { sub: match[1]!, email: `${match[1]}@example.com` };
     },
-    kek,
+    keyEncryptionKey,
     now: () => Date.now() - serverBehindMs,
     randomBytes: (n) => crypto.getRandomValues(new Uint8Array(n)),
     allowedOrigins: ['chrome-extension://bmbpmnfhfbdjdjpblimidmbohgccmjdg'],

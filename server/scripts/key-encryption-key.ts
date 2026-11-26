@@ -1,11 +1,11 @@
 /**
- * The KEK, kept outside the repository and outside any build:
+ * The key encryption key, kept outside the repository and outside any build:
  *
- *   pnpm --filter tabinet-server kek:new <absolute path>   writes a new KEK, prints only its id
- *   pnpm --filter tabinet-server kek:id <absolute path>    prints the id of the KEK in a file
+ *   pnpm --filter tabinet-server key-encryption-key:new <absolute path>   writes a new key encryption key, prints only its id
+ *   pnpm --filter tabinet-server key-encryption-key:id <absolute path>    prints the id of the key encryption key in a file
  *
  * The file holds base64 of 32 random bytes, no newline, mode 0600, and is never overwritten. Both
- * refuse a relative path and any path inside the repository, so a KEK cannot be committed by
+ * refuse a relative path and any path inside the repository, so a key encryption key cannot be committed by
  * accident. The key itself is never printed.
  */
 import { randomBytes } from 'node:crypto';
@@ -13,7 +13,7 @@ import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { KEK_BYTES, kekIdOfSync } from '../src/envelope.js';
+import { KEY_ENCRYPTION_KEY_BYTES, keyEncryptionKeyIdOfSync } from '../src/envelope.js';
 import { decodeBase64 } from '../src/validation.js';
 
 /** The repository this script belongs to. */
@@ -33,39 +33,41 @@ export function outsideRepository(file: string, repository = REPOSITORY): string
   return resolved;
 }
 
-/** Writes a new KEK to `file` (which must not exist) and returns its id. */
-export function newKek(file: string, repository = REPOSITORY): string {
+/** Writes a new key encryption key to `file` (which must not exist) and returns its id. */
+export function newKeyEncryptionKey(file: string, repository = REPOSITORY): string {
   const target = outsideRepository(file, repository);
-  const kek = randomBytes(KEK_BYTES);
+  const keyEncryptionKey = randomBytes(KEY_ENCRYPTION_KEY_BYTES);
   try {
-    writeFileSync(target, kek.toString('base64'), { flag: 'wx', mode: 0o600 });
-    return kekIdOfSync(kek);
+    writeFileSync(target, keyEncryptionKey.toString('base64'), { flag: 'wx', mode: 0o600 });
+    return keyEncryptionKeyIdOfSync(keyEncryptionKey);
   } finally {
-    kek.fill(0);
+    keyEncryptionKey.fill(0);
   }
 }
 
-/** The id of the KEK in `file`. */
-export function kekIdOfFile(file: string, repository = REPOSITORY): string {
-  const kek = decodeBase64(readFileSync(outsideRepository(file, repository), 'utf8'));
-  if (kek === null || kek.length !== KEK_BYTES) {
+/** The id of the key encryption key in `file`. */
+export function keyEncryptionKeyIdOfFile(file: string, repository = REPOSITORY): string {
+  const keyEncryptionKey = decodeBase64(readFileSync(outsideRepository(file, repository), 'utf8'));
+  if (keyEncryptionKey === null || keyEncryptionKey.length !== KEY_ENCRYPTION_KEY_BYTES) {
     throw new Error('The file does not hold base64 of 32 bytes');
   }
   try {
-    return kekIdOfSync(kek);
+    return keyEncryptionKeyIdOfSync(keyEncryptionKey);
   } finally {
-    kek.fill(0);
+    keyEncryptionKey.fill(0);
   }
 }
 
 function main(argv: string[]): void {
   const [command, file] = argv;
   if ((command !== 'new' && command !== 'id') || file === undefined || argv.length !== 2) {
-    console.error('Usage: kek:new <absolute path> | kek:id <absolute path>');
+    console.error(
+      'Usage: key-encryption-key:new <absolute path> | key-encryption-key:id <absolute path>',
+    );
     process.exit(2);
   }
   try {
-    console.log(command === 'new' ? newKek(file) : kekIdOfFile(file));
+    console.log(command === 'new' ? newKeyEncryptionKey(file) : keyEncryptionKeyIdOfFile(file));
   } catch (err) {
     // The message only: it never holds the key.
     console.error(err instanceof Error ? err.message : 'Failed');

@@ -9,7 +9,7 @@ import { createApp } from '../app.js';
 import type { Deps } from '../context.js';
 import { type MigrationDb, runMigrations } from '../db/migrations.js';
 import { createSqlStore, type Query, type Store } from '../db/store.js';
-import { importKek, type Kek } from '../envelope.js';
+import { importKeyEncryptionKey, type KeyEncryptionKey } from '../envelope.js';
 import { GoogleUnavailableError } from '../google-auth.js';
 import type { KeyEnvelope, RecordKind, RecordOut, Usage, WireKey, WriteResult } from '../types.js';
 
@@ -18,9 +18,11 @@ const BASE = 'https://sync.example.test';
 /** The access token the fake Google cannot answer for: a 503. */
 export const GOOGLE_DOWN = 'google-down';
 
-/** A test KEK. Never the vectors' one, and never pinned anywhere. */
-export const TEST_KEK_BYTES = new Uint8Array(32).fill(7);
-export const TEST_KEK: Kek = await importKek(TEST_KEK_BYTES);
+/** A test key encryption key. Never the vectors' one, and never pinned anywhere. */
+export const TEST_KEY_ENCRYPTION_KEY_BYTES = new Uint8Array(32).fill(7);
+export const TEST_KEY_ENCRYPTION_KEY: KeyEncryptionKey = await importKeyEncryptionKey(
+  TEST_KEY_ENCRYPTION_KEY_BYTES,
+);
 
 /** A real Postgres (PGlite) with the real migrations applied. */
 export async function createTestDb(): Promise<{ db: PGlite; query: Query; store: Store }> {
@@ -42,7 +44,7 @@ export async function resetDb(db: PGlite): Promise<void> {
 
 /**
  * Test deps: a fake Google that accepts `google:<sub>:<email>` and cannot be reached for
- * `GOOGLE_DOWN`, the test KEK, a settable clock, counting bytes.
+ * `GOOGLE_DOWN`, the test key encryption key, a settable clock, counting bytes.
  */
 export function createTestDeps(store: Store, overrides: Partial<Deps> = {}) {
   const clock = { now: 1_800_000_000_000 };
@@ -56,7 +58,7 @@ export function createTestDeps(store: Store, overrides: Partial<Deps> = {}) {
       const match = /^google:([^:]+):(.+)$/.exec(accessToken);
       return match ? { sub: match[1], email: match[2] } : null;
     },
-    kek: TEST_KEK,
+    keyEncryptionKey: TEST_KEY_ENCRYPTION_KEY,
     now: () => clock.now,
     randomBytes: (size) => {
       counter += 1;

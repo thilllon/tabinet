@@ -17,7 +17,7 @@ export interface KeyWrite {
   keyId: string;
   generation: number;
   writeVerifier: string;
-  kekId: string;
+  keyEncryptionKeyId: string;
   sealed: string;
 }
 
@@ -108,7 +108,7 @@ UPDATE accounts a SET
   key_id = $3,
   key_generation = $4::integer,
   write_verifier = $5,
-  kek_id = $6,
+  key_encryption_key_id = $6,
   sealed_envelope = $7
 WHERE a.id = $1 AND a.google_sub = $2 AND (
   (a.key_id IS NULL AND $4::integer = 1
@@ -260,7 +260,7 @@ export function createSqlStore(query: Query): Store {
 
     async readSealed(accountId) {
       const rows = await run(
-        'SELECT key_id, key_generation, kek_id, sealed_envelope FROM accounts WHERE id = $1',
+        'SELECT key_id, key_generation, key_encryption_key_id, sealed_envelope FROM accounts WHERE id = $1',
         [accountId],
       );
       if (rows.length === 0) {
@@ -275,7 +275,7 @@ export function createSqlStore(query: Query): Store {
         row: {
           keyId: String(row.key_id),
           generation: toNumber(row.key_generation),
-          kekId: String(row.kek_id),
+          keyEncryptionKeyId: String(row.key_encryption_key_id),
           sealed: String(row.sealed_envelope),
         },
       };
@@ -288,7 +288,7 @@ export function createSqlStore(query: Query): Store {
         write.keyId,
         write.generation,
         write.writeVerifier,
-        write.kekId,
+        write.keyEncryptionKeyId,
         write.sealed,
       ]);
       return rows.length === 0 ? null : toKey(rows[0].key_id, rows[0].key_generation);

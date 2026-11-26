@@ -27,7 +27,7 @@ CREATE TABLE accounts (
   key_generation integer CHECK (key_generation >= 1),
   -- sha256 of the write proof, lowercase hex. The proof itself is never stored.
   write_verifier text CHECK (write_verifier ~ '^[0-9a-f]{64}$'),
-  kek_id text CHECK (kek_id ~ '^[0-9a-f]{16}$'),
+  key_encryption_key_id text CHECK (key_encryption_key_id ~ '^[0-9a-f]{16}$'),
   -- base64 of iv(12) || AES-256-GCM(envelope(97)) || tag(16): 125 bytes.
   sealed_envelope text CHECK (length(sealed_envelope) = 168),
   storage_bytes bigint NOT NULL DEFAULT 0 CHECK (storage_bytes >= 0),
@@ -35,7 +35,7 @@ CREATE TABLE accounts (
   last_seq bigint NOT NULL DEFAULT 0,
   created_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT accounts_key_whole CHECK (
-    num_nonnulls(key_id, key_generation, write_verifier, kek_id, sealed_envelope) IN (0, 5)
+    num_nonnulls(key_id, key_generation, write_verifier, key_encryption_key_id, sealed_envelope) IN (0, 5)
   )
 );
 

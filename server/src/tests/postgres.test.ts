@@ -65,7 +65,7 @@ describe.skipIf(URL_TEXT === undefined || URL_TEXT === '')('real Postgres, two c
   beforeEach(async () => {
     await admin.query('TRUNCATE accounts CASCADE');
     const { rows } = await admin.query(
-      `INSERT INTO accounts (google_sub, email, key_id, key_generation, write_verifier, kek_id, sealed_envelope)
+      `INSERT INTO accounts (google_sub, email, key_id, key_generation, write_verifier, key_encryption_key_id, sealed_envelope)
        VALUES ('sub', 'e', $1, 1, repeat('a', 64), repeat('b', 16), repeat('A', 168)) RETURNING id`,
       [KEY_ID],
     );

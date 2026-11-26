@@ -58,9 +58,9 @@ describe('the Vercel adaptor', () => {
     });
   });
 
-  it('runs the production check: the pinned KEK id is part of what it loads', () => {
+  it('runs the production check: the pinned key encryption key id is part of what it loads', () => {
     const { files } = importsOf('api/vercel.adaptor.ts');
-    expect(files).toContain('src/kek-id.ts');
+    expect(files).toContain('src/key-encryption-key-id.ts');
     expect(files).toContain('src/env.ts');
   });
 
@@ -161,6 +161,8 @@ describe('dev', () => {
     const source = readFileSync(path.join(ROOT, 'src/dev.ts'), 'utf8');
     expect(source).toContain("new PGlite('memory://')");
     expect(source).toContain("const HOST = '127.0.0.1'");
-    expect(source).not.toMatch(/DATABASE_URL|TABINET_KEK|loadEnvFile|dotenv|readEnv/);
+    expect(source).not.toMatch(
+      /DATABASE_URL|TABINET_KEY_ENCRYPTION_KEY|loadEnvFile|dotenv|readEnv/,
+    );
   });
 });

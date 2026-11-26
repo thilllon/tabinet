@@ -48,9 +48,9 @@ export function openKey(deps: Deps): AppHandler {
     if (state.status === 'no_key') {
       return error(409, 'key_missing');
     }
-    const envelope = await open(deps.kek, state.row, identity.sub);
+    const envelope = await open(deps.keyEncryptionKey, state.row, identity.sub);
     if (envelope === null) {
-      // Another KEK, another sub, or an edited row: never regenerated, never written.
+      // Another key encryption key, another sub, or an edited row: never regenerated, never written.
       console.error('tabinet-server: an envelope did not open');
       return error(500, 'key_unavailable');
     }
@@ -84,7 +84,7 @@ function keyWriteRefusal(state: KeyState, envelope: KeyEnvelope, verifier: strin
  * `PUT /v2/keys`: creates the key (201) or replaces its envelope (200) with one conditional
  * UPDATE. A replace needs the same key id, the write proof only the data key gives, and the
  * generation one above the stored one, so a Google token without the data key cannot replace it.
- * Opening is not needed, so a lost or rotated KEK is repaired by an ordinary change.
+ * Opening is not needed, so a lost or rotated key encryption key is repaired by an ordinary change.
  */
 export function putKey(deps: Deps): AppHandler {
   return async (c) => {
@@ -104,8 +104,8 @@ export function putKey(deps: Deps): AppHandler {
       keyId: envelope.keyId,
       generation: envelope.generation,
       writeVerifier,
-      kekId: deps.kek.id,
-      sealed: await seal(deps.kek, identity.sub, envelope),
+      keyEncryptionKeyId: deps.keyEncryptionKey.id,
+      sealed: await seal(deps.keyEncryptionKey, identity.sub, envelope),
     });
     if (key !== null) {
       return json(envelope.generation === 1 ? 201 : 200, { key });

@@ -4,7 +4,7 @@ import { error, json, noContent } from '../responses.js';
 import { hashToken, mintToken } from '../tokens.js';
 import { parseAccessToken } from '../validation.js';
 
-/** `POST /v2/auth/google`: a bearer for the Google account. Never an envelope, never the KEK. */
+/** `POST /v2/auth/google`: a bearer for the Google account. Never an envelope, never the key encryption key. */
 export function signInWithGoogle(deps: Deps): AppHandler {
   return async (c) => {
     const accessToken = parseAccessToken(c.get('body'));

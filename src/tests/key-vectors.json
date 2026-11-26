@@ -1,6 +1,6 @@
 {
-  "kek": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
-  "kekId": "2e8440d4467793dd",
+  "keyEncryptionKey": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+  "keyEncryptionKeyId": "2e8440d4467793dd",
   "dek": "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8=",
   "docIdKey": "29bb56db37f7ada74a712ad4d7a914b900b604e291db7f3f6320ac54116acb0d",
   "keyId": "t5Je7_rzOWLofjmcQnKr6g",

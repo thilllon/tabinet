@@ -2,15 +2,15 @@
 
 ## Entry points
 
-| To           | File                      | Started by                                                                                     |
-| ------------ | ------------------------- | ---------------------------------------------------------------------------------------------- |
-| Production   | `api/vercel.adaptor.ts`   | Vercel: `vercel.json` rewrites `/v1/*` and `/v2/*` to it, and it calls the app in `src/app.ts` |
-| Railway      | `src/railway.adaptor.ts`  | Code only: it refuses to run (see "Deploy to Railway")                                         |
-| Local        | `src/dev.ts`              | `pnpm --filter tabinet-server dev`: 127.0.0.1:8787, an empty in-memory database                |
-| Migrate      | `scripts/migrate.ts`      | `DATABASE_URL=... pnpm --filter tabinet-server migrate` (003 also needs `WIPE_V1=yes`)         |
-| KEK          | `scripts/kek.ts`          | `pnpm --filter tabinet-server kek:new <path>` / `kek:id <path>`                                |
-| Schema check | `scripts/schema-check.ts` | `DATABASE_URL=... pnpm --filter tabinet-server schema:check`                                   |
-| Stream check | `scripts/stream-check.ts` | `pnpm --filter tabinet-server stream-check`, once, at the cutover                              |
+| To                 | File                            | Started by                                                                                     |
+| ------------------ | ------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Production         | `api/vercel.adaptor.ts`         | Vercel: `vercel.json` rewrites `/v1/*` and `/v2/*` to it, and it calls the app in `src/app.ts` |
+| Railway            | `src/railway.adaptor.ts`        | Code only: it refuses to run (see "Deploy to Railway")                                         |
+| Local              | `src/dev.ts`                    | `pnpm --filter tabinet-server dev`: 127.0.0.1:8787, an empty in-memory database                |
+| Migrate            | `scripts/migrate.ts`            | `DATABASE_URL=... pnpm --filter tabinet-server migrate` (003 also needs `WIPE_V1=yes`)         |
+| key encryption key | `scripts/key-encryption-key.ts` | `pnpm --filter tabinet-server key-encryption-key:new <path>` / `key-encryption-key:id <path>`  |
+| Schema check       | `scripts/schema-check.ts`       | `DATABASE_URL=... pnpm --filter tabinet-server schema:check`                                   |
+| Stream check       | `scripts/stream-check.ts`       | `pnpm --filter tabinet-server stream-check`, once, at the cutover                              |
 
 The Vercel adaptor has to be in `api/`: that is the only folder Vercel builds functions from with
 the "Other" preset. It is the only Vercel-specific code. For the same reason the Railway adaptor
@@ -22,7 +22,7 @@ and settings in step across devices. It stores them **end-to-end encrypted**: a 
 each record with its data key (DEK) before it is sent, so the server holds `{kind, id, updatedAt,
 deleted, iv, ciphertext}` and never a session name, url, title, note, memo or picture. The DEK
 travels only wrapped under the passphrase (the key envelope), and the server keeps even that only
-sealed under its own key, the KEK, bound to the Google account. Sign-in is with Google; the server
+sealed under its own key, the key encryption key, bound to the Google account. Sign-in is with Google; the server
 keeps the Google account id (`sub`) and the email, nothing else about the person.
 
 The extension calls it at `CLOUD_SYNC.apiBase` in `src/constants.ts`, set to
@@ -44,11 +44,11 @@ A Hono app, kept thin: a route handler calls the store directly. No services, cl
 | `src/app.ts`                       | `createApp(deps)`: the whole API, top to bottom, in the order the checks run                                               |
 | `src/production.ts`                | The real dependencies and `createServer()`, which builds the app on first use                                              |
 | `src/env.ts`                       | The production check, then environment parsing; an error names a variable, never a value                                   |
-| `src/kek-id.ts`                    | `PINNED_KEK_ID`: the one KEK id production may run with (empty until the cutover)                                          |
-| `src/envelope.ts`                  | The key envelope: parse, the 97 bytes, seal and open under the KEK, the write verifier                                     |
+| `src/key-encryption-key-id.ts`     | `PINNED_KEY_ENCRYPTION_KEY_ID`: the one key encryption key id production may run with (empty until the cutover)            |
+| `src/envelope.ts`                  | The key envelope: parse, the 97 bytes, seal and open under the key encryption key, the write verifier                      |
 | `src/stream.ts`                    | The NDJSON body of a pull, one database batch per read                                                                     |
 | `src/railway.adaptor.ts`           | The Railway server: `PORT`, graceful shutdown; imported by nothing                                                         |
-| `src/dev.ts`                       | The local server, with a random in-memory KEK; never imported by what is deployed                                          |
+| `src/dev.ts`                       | The local server, with a random in-memory key encryption key; never imported by what is deployed                           |
 | `src/context.ts`                   | `Deps`, and what middleware leaves on the request's context                                                                |
 | `src/responses.ts`                 | JSON, error, no content and NDJSON answers with their exact headers                                                        |
 | `src/types.ts`                     | The wire shapes (`RecordOut`, `WriteResult`, `PullLine`, `ErrorCode`, ...)                                                 |
@@ -71,7 +71,7 @@ A Hono app, kept thin: a route handler calls the store directly. No services, cl
 | `src/tokens.ts`                    | Bearer tokens: 32 random bytes, stored only as their sha256                                                                |
 | `migrations/001_init.sql`, `002_*` | Protocol v1, kept as they ran                                                                                              |
 | `migrations/003_sync_v2.sql`       | Protocol v2: drops every v1 table and creates `accounts`, `account_tokens`, `account_records` and `apply_account_record()` |
-| `scripts/`                         | `migrate`, `kek`, `schema-check`, `stream-check`                                                                           |
+| `scripts/`                         | `migrate`, `keyEncryptionKey`, `schema-check`, `stream-check`                                                              |
 | `public/`                          | The only static files Vercel serves (`robots.txt`); never delete it                                                        |
 | `vercel.json`                      | Preset "Other", the region, the install command, the function's limits, the rewrites                                       |
 | `src/tests/`                       | vitest: PGlite with the real migrations, and a real Postgres when `TEST_DATABASE_URL` is set                               |
@@ -118,15 +118,15 @@ non-empty `email` and `sub`, and `expires_in` above 0. A 400 or 401 from Google 
 `google_refused`; a timeout, a network failure, 408, 429, a 5xx or an answer that is not JSON is
 503 `google_unavailable`. The bearer is 32 random bytes, kept only as its sha256, valid for
 `POLICY.signIn.tokenLifetimeMs`; a sign-in also drops the account's expired bearers. Sign-in never
-answers an envelope and never uses the KEK.
+answers an envelope and never uses the key encryption key.
 
 **Keys.** Opening, replacing and deleting the account each need, besides the bearer, a live Google
 token of the same account in the body: a bearer alone opens and deletes nothing, and another
 account's token is 403 `google_account_mismatch`. The envelope is sealed (AES-256-GCM, a fresh IV)
-under the KEK with the associated data `["tabinet-envelope-v2", sub, kekId, keyId, generation]`,
+under the key encryption key with the associated data `["tabinet-envelope-v2", sub, keyEncryptionKeyId, keyId, generation]`,
 where `sub` is the one Google verified in that request, never one read from the database; so a
 sealed envelope moved to another row, or a `sub` rewritten in the database, opens nothing. Any
-failure to open, or a row sealed under another KEK, is 500 `key_unavailable`, and nothing is
+failure to open, or a row sealed under another key encryption key, is 500 `key_unavailable`, and nothing is
 rewritten. A create needs no key and no record yet; a replace (a passphrase change) needs the same
 key id, the write proof (the server keeps only its sha256, `write_verifier`) and the generation one
 above the stored one, in one conditional UPDATE, so of two concurrent changes one wins and a Google
@@ -197,27 +197,27 @@ them against a `postgres:17` service); they refuse any host but localhost and wo
 their own.
 
 `dev` cannot touch production: it always uses an empty in-memory PGlite with the real migrations and
-a random in-memory KEK, never reads a `.env` file, `DATABASE_URL` or `TABINET_KEK`, never runs the
+a random in-memory key encryption key, never reads a `.env` file, `DATABASE_URL` or `TABINET_KEY_ENCRYPTION_KEY`, never runs the
 production check, and listens on 127.0.0.1 only. It has no way around sign-in either: without
 `GOOGLE_CLIENT_IDS` in the shell every sign-in is refused, and with it tokens are checked with Google
 as in production. `PORT` and `ALLOWED_ORIGINS` are read from the shell too.
 
 ## Environment and the production check
 
-| Variable            | Production                  | Preview                | Development |
-| ------------------- | --------------------------- | ---------------------- | ----------- |
-| `DATABASE_URL`      | yes                         | yes, the same database | as needed   |
-| `GOOGLE_CLIENT_IDS` | the one store client        | the same               | as needed   |
-| `ALLOWED_ORIGINS`   | the store origin            | the same               | as needed   |
-| `TABINET_KEK`       | one base64 KEK, type secret | **never**              | **never**   |
-| `VERCEL_ENV`        | `production`, set by Vercel | `preview`              | absent      |
+| Variable                     | Production                                 | Preview                | Development |
+| ---------------------------- | ------------------------------------------ | ---------------------- | ----------- |
+| `DATABASE_URL`               | yes                                        | yes, the same database | as needed   |
+| `GOOGLE_CLIENT_IDS`          | the one store client                       | the same               | as needed   |
+| `ALLOWED_ORIGINS`            | the store origin                           | the same               | as needed   |
+| `TABINET_KEY_ENCRYPTION_KEY` | one base64 key encryption key, type secret | **never**              | **never**   |
+| `VERCEL_ENV`                 | `production`, set by Vercel                | `preview`              | absent      |
 
 Before anything else, on every start and with no "only on Vercel" branch, `readEnv()` requires
-`VERCEL_ENV=production`, a non-empty `PINNED_KEK_ID` in `src/kek-id.ts`, and `TABINET_KEK` being
+`VERCEL_ENV=production`, a non-empty `PINNED_KEY_ENCRYPTION_KEY_ID` in `src/key-encryption-key-id.ts`, and `TABINET_KEY_ENCRYPTION_KEY` being
 canonical base64 of 32 bytes whose id is that pin. Otherwise it throws before a database client, a
 Google verifier or the app exists, and `createServer()` answers every request (`OPTIONS` and `/v1`
 too) 500 `{"error":"internal"}` with CORS, with no query at all. So a preview, a local run, the
-Railway adaptor, a production deployment with another KEK, and every build before the cutover pins
+Railway adaptor, a production deployment with another key encryption key, and every build before the cutover pins
 an id all refuse to run.
 
 Only `GOOGLE_CLIENT_IDS` of the store build belongs in production. Do not add a development OAuth
@@ -225,26 +225,26 @@ client there.
 
 What the preview check does not cover, accepted: a preview holds `DATABASE_URL`, so code pushed to
 any branch (or a bad dependency in it) could delete, withhold or roll back rows. It cannot open an
-envelope, having no KEK. Dependency updates are therefore merged by hand, never automatically.
+envelope, having no key encryption key. Dependency updates are therefore merged by hand, never automatically.
 
-## The KEK
+## The key encryption key
 
-The KEK is created on the owner's machine, never in the repository, and backed up offline:
+The key encryption key is created on the owner's machine, never in the repository, and backed up offline:
 
 ```bash
-pnpm --filter tabinet-server kek:new /absolute/path/outside/the/repository/production.kek
-pnpm --filter tabinet-server kek:id /absolute/path/outside/the/repository/production.kek
+pnpm --filter tabinet-server key-encryption-key:new /absolute/path/outside/the/repository/production.keyEncryptionKey
+pnpm --filter tabinet-server key-encryption-key:id /absolute/path/outside/the/repository/production.keyEncryptionKey
 ```
 
-`kek:new` writes base64 of 32 random bytes (no newline, mode 0600, never over an existing file) and
-prints only the id; `kek:id` prints the id of a file. Both refuse a relative path and any path
-inside the repository. Then add the file's content to Vercel as `TABINET_KEK`, type secret, in
-Production only, put the printed id in `PINNED_KEK_ID` and deploy.
+`key-encryption-key:new` writes base64 of 32 random bytes (no newline, mode 0600, never over an existing file) and
+prints only the id; `key-encryption-key:id` prints the id of a file. Both refuse a relative path and any path
+inside the repository. Then add the file's content to Vercel as `TABINET_KEY_ENCRYPTION_KEY`, type secret, in
+Production only, put the printed id in `PINNED_KEY_ENCRYPTION_KEY_ID` and deploy.
 
-**Rotation and loss** are the same procedure, with a short gap: write a new KEK, replace
-`TABINET_KEK` and `PINNED_KEK_ID` together, deploy, then change the passphrase on a device that is
-ready (its `PUT /v2/keys` needs no opening and reseals under the new KEK). Until then a new device's
-unlock gets `key_unavailable`. Delete the old production deployments afterwards: each keeps the KEK
+**Rotation and loss** are the same procedure, with a short gap: write a new key encryption key, replace
+`TABINET_KEY_ENCRYPTION_KEY` and `PINNED_KEY_ENCRYPTION_KEY_ID` together, deploy, then change the passphrase on a device that is
+ready (its `PUT /v2/keys` needs no opening and reseals under the new KEY_ENCRYPTION_KEY). Until then a new device's
+unlock gets `key_unavailable`. Delete the old production deployments afterwards: each keeps the key encryption key
 it was built with. There is no keyring and no reseal script.
 
 ## Migrations
@@ -283,14 +283,14 @@ counts, never a row or the connection string. No migration runs on a build or a 
 4. **Tables**, with the direct connection string, as in "Migrations".
 5. **The Google OAuth client.** "Chrome extension", item ID `bmbpmnfhfbdjdjpblimidmbohgccmjdg`,
    scopes `openid` and `email` only; its id is `GOOGLE_CLIENT_IDS`.
-6. **The KEK**, as in "The KEK".
+6. **The key encryption key**, as in "The key encryption key".
 
 Check it: `curl https://<project>.vercel.app/v2/me` answers 401 `{"error":"unauthorized"}` (a 500
 means the production check refused, or the database is not migrated) and `/v1/me` 410.
 
 ## Deploy to Railway
 
-Code only, never deployed, never given the KEK, and not a failover: the same app on a long-running
+Code only, never deployed, never given the key encryption key, and not a failover: the same app on a long-running
 Node server, which refuses to run because the production check fails there (there is no
 `VERCEL_ENV=production`), so every request is a 500. Enabling it is a deliberate code change. The
 settings below follow Railway's and Railpack's documentation and have not been tried on Railway

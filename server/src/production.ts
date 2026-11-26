@@ -5,7 +5,7 @@ import type { Deps } from './context.js';
 import { createNeonQuery } from './db/client.js';
 import { createSqlStore, type Query } from './db/store.js';
 import { listFromEnv, readEnv } from './env.js';
-import { importKek } from './envelope.js';
+import { importKeyEncryptionKey } from './envelope.js';
 import { createGoogleVerifier } from './google-auth.js';
 import { withCors } from './middleware/cors.js';
 import { error } from './responses.js';
@@ -13,29 +13,31 @@ import { error } from './responses.js';
 /** What tests replace; production uses the defaults. */
 export interface ProductionOptions {
   createQuery?: (databaseUrl: string) => Query;
-  /** The id the KEK must have; `PINNED_KEK_ID` by default. */
-  pinnedKekId?: string;
+  /** The id the key encryption key must have; `PINNED_KEY_ENCRYPTION_KEY_ID` by default. */
+  pinnedKeyEncryptionKeyId?: string;
 }
 
 /**
- * The real dependencies: Neon over HTTP, Google's tokeninfo, the KEK, the clock and the system's
+ * The real dependencies: Neon over HTTP, Google's tokeninfo, the key encryption key, the clock and the system's
  * random bytes. The production check (`readEnv()`) runs first, before any client exists, so a
- * preview or an unpinned KEK never reaches the database.
+ * preview or an unpinned key encryption key never reaches the database.
  */
 export async function createProductionDeps(
   env: NodeJS.ProcessEnv = process.env,
   options: ProductionOptions = {},
 ): Promise<Deps> {
   const config =
-    options.pinnedKekId === undefined ? readEnv(env) : readEnv(env, options.pinnedKekId);
-  const kek = await importKek(config.kek);
-  config.kek.fill(0);
+    options.pinnedKeyEncryptionKeyId === undefined
+      ? readEnv(env)
+      : readEnv(env, options.pinnedKeyEncryptionKeyId);
+  const keyEncryptionKey = await importKeyEncryptionKey(config.keyEncryptionKey);
+  config.keyEncryptionKey.fill(0);
   const verifyGoogleToken = createGoogleVerifier({ clientIds: config.googleClientIds });
   const createQuery = options.createQuery ?? createNeonQuery;
   return {
     store: createSqlStore(createQuery(config.databaseUrl)),
     verifyGoogleToken,
-    kek,
+    keyEncryptionKey,
     now: () => Date.now(),
     randomBytes: (size) => new Uint8Array(randomBytes(size)),
     allowedOrigins: config.allowedOrigins,

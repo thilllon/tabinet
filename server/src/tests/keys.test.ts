@@ -4,7 +4,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 
 import type { Deps } from '../context.js';
 import type { Query, Store } from '../db/store.js';
-import { importKek } from '../envelope.js';
+import { importKeyEncryptionKey } from '../envelope.js';
 import type { KeyEnvelope } from '../types.js';
 import {
   client,
@@ -150,7 +150,7 @@ describe('create', () => {
         accessToken: google(),
         envelope: k.envelope,
         proof: k.proof,
-        kekId: 'x',
+        keyEncryptionKeyId: 'x',
       }),
     ],
   ])('refuses %s with 400 before asking Google', async (_name, body) => {
@@ -242,10 +242,10 @@ describe('replace', () => {
   });
 });
 
-describe('a KEK replaced (rotation or loss)', () => {
+describe('a key encryption key replaced (rotation or loss)', () => {
   it('gives key_unavailable until a change on a ready device reseals', async () => {
     const a = await signUp(deps);
-    deps.kek = await importKek(new Uint8Array(32).fill(42));
+    deps.keyEncryptionKey = await importKeyEncryptionKey(new Uint8Array(32).fill(42));
     const before = await accountRow(a.accountId);
     const res = await openKey(a.token);
     expect([res.status, res.text]).toEqual([500, '{"error":"key_unavailable"}']);
@@ -253,7 +253,7 @@ describe('a KEK replaced (rotation or loss)', () => {
     // A ready device changes the passphrase: the PUT needs no opening, and reseals.
     const next = rewrapped(a.envelope);
     expect((await put(a.token, next, a.proof)).status).toBe(200);
-    expect((await accountRow(a.accountId)).kek_id).toBe(deps.kek.id);
+    expect((await accountRow(a.accountId)).key_encryption_key_id).toBe(deps.keyEncryptionKey.id);
     expect((await openKey(a.token)).body.envelope).toEqual(next);
   });
 });
@@ -270,13 +270,13 @@ describe('a hostile database', () => {
       [rowB, a.accountId],
     ] as const) {
       await query(
-        'UPDATE accounts SET key_id = $2, key_generation = $3, write_verifier = $4, kek_id = $5, sealed_envelope = $6 WHERE id = $1',
+        'UPDATE accounts SET key_id = $2, key_generation = $3, write_verifier = $4, key_encryption_key_id = $5, sealed_envelope = $6 WHERE id = $1',
         [
           to,
           from.key_id,
           from.key_generation,
           from.write_verifier,
-          from.kek_id,
+          from.key_encryption_key_id,
           from.sealed_envelope,
         ],
       );
@@ -333,7 +333,7 @@ describe('a hostile database', () => {
   it.each([
     ['key_id', "'AAAAAAAAAAAAAAAAAAAAAA'"],
     ['key_generation', 'key_generation + 1'],
-    ['kek_id', "'0123456789abcdef'"],
+    ['key_encryption_key_id', "'0123456789abcdef'"],
     [
       'sealed_envelope',
       "overlay(sealed_envelope placing CASE WHEN substr(sealed_envelope, 30, 1) = 'A' THEN 'B' ELSE 'A' END from 30 for 1)",
