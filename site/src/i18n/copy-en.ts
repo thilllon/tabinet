@@ -4,7 +4,7 @@ export const en: SiteCopy = {
   meta: {
     homeTitle: 'Tabinet - sort, group and save your Chrome tabs',
     homeDescription:
-      'A Chrome extension that sorts and groups every tab in one click, handles duplicates, saves whole windows as sessions you can restore, and keeps timestamped notes on YouTube videos. Free, no tracking, and nothing leaves your device unless you turn on the optional encrypted sync.',
+      'A Chrome extension that sorts and groups every tab in one click, handles duplicates, saves whole windows as sessions you can restore, keeps memos and keeps timestamped notes on YouTube videos. Free, no tracking, and nothing leaves your device unless you turn on the optional encrypted sync.',
     supportTitle: 'Support - Tabinet',
     supportDescription:
       'Answers to common questions about Tabinet, and how to report a problem or ask for a feature.',
@@ -31,7 +31,7 @@ export const en: SiteCopy = {
   hero: {
     eyebrow: 'Extension for Chrome',
     title: 'One click, and every tab falls into place.',
-    lead: 'Tabinet sorts and groups the tabs in your window, clears out duplicates, and saves whole windows as sessions you can bring back later. Watching a YouTube video? Take timestamped notes beside it. Everything stays on your computer unless you turn on sync.',
+    lead: 'Tabinet sorts and groups the tabs in your window, clears out duplicates, and saves whole windows as sessions you can bring back later, with a place for memos. Watching a YouTube video? Take timestamped notes beside it. Everything stays on your computer unless you turn on sync.',
     imageAlt:
       'The Tabinet page: saved sessions in the left column, and a session of two windows with its pinned tabs and tab groups on the right',
     languages:
@@ -94,7 +94,7 @@ export const en: SiteCopy = {
       shot: 'search',
       kicker: 'Search',
       title: 'Find that one tab, wherever it is',
-      body: 'One search box looks through your open windows and every saved session by title, address or site, best matches first. Snapshots are searched too when you ask.',
+      body: 'One search box looks through your open windows, saved sessions, memos and YouTube notes by title, address or site, best matches first. Snapshots are searched too when you ask.',
       points: [
         'Press / to search from anywhere on the page',
         'Arrow keys to move, Enter to open, Esc to clear',
@@ -130,6 +130,11 @@ export const en: SiteCopy = {
         body: 'JSON that imports back exactly, Markdown, plain text, CSV, or HTML bookmarks for Chrome. Import a file or paste a list of links, with a preview first.',
       },
       {
+        icon: 'transfer',
+        title: 'Memos',
+        body: 'Free-form text on the Tabinet page. It saves as you type, is searchable, exports as Markdown and syncs if you turn sync on.',
+      },
+      {
         icon: 'keyboard',
         title: 'Keyboard shortcuts',
         body: 'On a new install, sorting gets Alt+Shift+S, Assemble! Alt+Shift+A and pausing every YouTube video Alt+Shift+P (Option on a Mac); set or change any of them at chrome://extensions/shortcuts. Saving a session and opening Tabinet can have keys of their own.',
@@ -143,15 +148,15 @@ export const en: SiteCopy = {
   },
   promise: {
     title: 'Your tabs stay yours',
-    lead: 'Without sync, Tabinet sends nothing anywhere and works the same with the network unplugged. With sync, only you can read what is sent.',
+    lead: 'Without sync, Tabinet sends nothing anywhere and works the same with the network unplugged. With sync, what is sent is encrypted on your device.',
     points: [
       {
         title: 'Stays on the device',
-        body: 'Sessions, snapshots and YouTube notes live in Chrome’s local extension storage. Snapshots never leave it; saved sessions and notes do only if you turn on sync.',
+        body: 'Sessions, snapshots, memos and YouTube notes live in Chrome’s local extension storage. Snapshots never leave it; saved sessions, memos and notes leave only if you turn on sync.',
       },
       {
         title: 'No account needed',
-        body: 'Install it and click. Signing in with Google is only for the optional sync, and your sessions are encrypted on the device with a passphrase only you know before they leave it.',
+        body: 'Install it and click. Signing in with Google is only for the optional sync, and what it sends is encrypted on the device with a key your passphrase protects before it leaves.',
       },
       {
         title: 'No tracking',
@@ -199,11 +204,11 @@ export const en: SiteCopy = {
       },
       {
         q: 'Does it send my browsing data anywhere?',
-        a: 'Not unless you sign in to sync. Without it, Tabinet makes no network requests at all and everything happens inside your browser. With sync on, your saved sessions, YouTube notes and settings go to Tabinet’s sync server encrypted, so only you can read them; automatic snapshots never leave the device.',
+        a: 'Not unless you sign in to sync. Without it, Tabinet makes no network requests at all and everything happens inside your browser. With sync on, your saved sessions, memos, YouTube notes and settings are encrypted on your computer before they go to Tabinet’s sync server, so the server stores only encrypted content; automatic snapshots never leave the device.',
       },
       {
         q: 'Where are my saved sessions stored?',
-        a: 'In Chrome’s local extension storage on this device. They are never shared with web pages, and they are uploaded only if you turn on sync, end-to-end encrypted. Delete one session, or all session data, whenever you like; uninstalling removes everything. Export to JSON to keep a backup of your own.',
+        a: 'In Chrome’s local extension storage on this device. They are never shared with web pages, and they are uploaded only if you turn on sync, end-to-end encrypted. Memos and YouTube notes are kept there too. Delete one session, or all session data, whenever you like; uninstalling removes the copy on this computer, not one in the cloud. Export to JSON to keep a backup of your own.',
       },
       {
         q: 'What do automatic snapshots record, and can I turn them off?',
@@ -215,11 +220,11 @@ export const en: SiteCopy = {
       },
       {
         q: 'Can I move my sessions to another computer?',
-        a: 'Yes. Turn on sync on both computers and your saved sessions and YouTube notes follow you. Or export everything as JSON and import that file on the other computer, or export as HTML and import it into Chrome’s bookmarks.',
+        a: 'Yes. Turn on sync on both computers and your saved sessions, memos and YouTube notes follow you. Or export everything as JSON and import that file on the other computer, or export as HTML and import it into Chrome’s bookmarks.',
       },
       {
         q: 'How does sync work, and can the server read my tabs?',
-        a: 'Sync is optional and off until you click Sign in with Google in Settings, Account. You then create a sync passphrase; your saved sessions, YouTube notes (with their screenshots) and settings are encrypted with it on your computer before they are sent, and the passphrase itself is never sent, so the server stores only data it cannot read. Snapshots never sync. The server keeps up to 100 screenshots per account; any more stay on the computer where you took them. If you forget the passphrase nobody can recover the copy in the cloud, but the sessions and notes on your computers stay. Delete cloud data in the same place removes everything from the server. Sign-in uses Chrome’s own Google sign-in, so it may not work in other Chromium browsers.',
+        a: 'Sync is optional and off until you click Sign in with Google in Settings, Account. Your first computer makes a random data key that encrypts everything before it is sent, and you protect that key with a sync passphrase of at least 8 characters, a new one, not one you used with version 9. Neither is ever sent, and Google confirms your account again when you set, enter or change the passphrase. Saved sessions, memos, YouTube notes (each note on its own, with its screenshot) and settings sync; snapshots never do. An account holds up to 50 MB and 100 screenshots; anything over stays on the computer. If a memo is edited on two computers at once, both texts are kept, one as a conflict copy. Changes go out a few seconds after you make them, and other computers check every 15 minutes. Forgot the passphrase? Use Change passphrase on a computer where sync still works. Versions before 10 can no longer sync. On a slow connection the largest items sync only while the Tabinet page is open. Delete cloud data in the same place removes everything from the server. Sign-in uses Chrome’s own Google sign-in, so it may not work in other Chromium browsers.',
       },
       {
         q: 'What if I do not like the result of a sort?',
@@ -231,7 +236,11 @@ export const en: SiteCopy = {
       },
       {
         q: 'How do YouTube notes work?',
-        a: 'Open a YouTube video, then right-click the Tabinet icon and choose YouTube notes (or use the button on the Tabinet page, or a shortcut you set at chrome://extensions/shortcuts). The notes open in Chrome’s side panel. The first time, turn on Access to YouTube there. The Add note button, which shows the current time, saves a note at that moment, Screenshot keeps the frame on screen with a note, and clicking a note’s time moves the video there. Notes stay on your computer, and sync end-to-end encrypted only if you turn on sync. The Tabinet page lists every video’s notes, which you can search and export as Markdown.',
+        a: 'Open a YouTube video, then right-click the Tabinet icon and choose YouTube notes (or use the button on the Tabinet page, or a shortcut you set at chrome://extensions/shortcuts). The notes open in Chrome’s side panel. The first time, turn on Access to YouTube there. The Add note button, which shows the current time, saves a note at that moment, Screenshot keeps the frame on screen with a note, and clicking a note’s time moves the video there. Notes stay on your computer, and with sync on each note syncs on its own, end-to-end encrypted. The Tabinet page lists every video’s notes, which you can search and export as Markdown.',
+      },
+      {
+        q: 'How do memos work?',
+        a: 'Click New memo on the Tabinet page and write. It saves as you go, search finds it, and you can export it as Markdown. A deletion can be undone for a few seconds. With sync, edits made on two devices at once are both kept.',
       },
       {
         q: 'Does it work in other Chromium browsers?',

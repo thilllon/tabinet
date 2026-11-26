@@ -1,7 +1,8 @@
 /**
  * Local entry point: `pnpm --filter tabinet-server dev`. It cannot reach production: the database
- * is always an empty in-memory PGlite with the real migrations, it reads no .env file and no
- * connection string, and it listens on 127.0.0.1 only. Nothing that is deployed imports it.
+ * is always an empty in-memory PGlite with the real migrations, it reads no .env file, no
+ * connection string and no key encryption key (it makes a random one in memory each run, so nothing it seals can
+ * be opened anywhere else), and it listens on 127.0.0.1 only. Nothing that is deployed imports it.
  *
  * Optional, from the shell: PORT (8787), ALLOWED_ORIGINS, and GOOGLE_CLIENT_IDS to check sign-ins
  * with Google as production does. Without client ids every sign-in is refused.
@@ -15,6 +16,7 @@ import { createApp } from './app.js';
 import { runMigrations } from './db/migrations.js';
 import { createSqlStore, type Query } from './db/store.js';
 import { listFromEnv } from './env.js';
+import { importKeyEncryptionKey, KEY_ENCRYPTION_KEY_BYTES } from './envelope.js';
 import { createGoogleVerifier } from './google-auth.js';
 
 const HOST = '127.0.0.1';
@@ -31,6 +33,9 @@ await runMigrations({
 
 const clientIds = listFromEnv(process.env.GOOGLE_CLIENT_IDS);
 const app = createApp({
+  keyEncryptionKey: await importKeyEncryptionKey(
+    new Uint8Array(randomBytes(KEY_ENCRYPTION_KEY_BYTES)),
+  ),
   store: createSqlStore(query),
   verifyGoogleToken: clientIds.length > 0 ? createGoogleVerifier({ clientIds }) : async () => null,
   now: () => Date.now(),

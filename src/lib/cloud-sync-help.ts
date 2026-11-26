@@ -5,6 +5,7 @@
 import { POLICY } from '@/constants';
 import { SYNC_FALLBACK_MS, SYNC_ITEM_MAX_KB, SYNC_PERIOD_MINUTES } from '@/lib/cloud-sync';
 import { SYNC_MAX_WAIT_MS } from '@/lib/cloud-sync-scheduler';
+import { formatByteLimit } from '@/lib/display-format';
 import { formatNumber, t, tp } from '@/lib/i18n';
 
 export interface SyncHelpText {
@@ -47,6 +48,7 @@ export function syncHelp(): SyncHelpText {
         title: t('settingsAccountHelpWhatTitle'),
         points: [
           tp('settingsAccountHelpWhatSynced', POLICY.account.screenshots),
+          t('settingsAccountHelpWhatLimit', formatByteLimit(POLICY.account.storageBytes)),
           t('settingsAccountHelpWhatLocal'),
           t('settingsAccountHelpWhatTooLarge', formatNumber(SYNC_ITEM_MAX_KB)),
         ],

@@ -32,6 +32,20 @@ describe('parseRoute', () => {
     expect(parseRoute('#notes')).toEqual(HOME);
   });
 
+  it('reads a memo and a new memo', () => {
+    expect(parseRoute('#memo/new')).toEqual({ view: 'memo' });
+    expect(parseRoute('#memo/abc-1')).toEqual({ view: 'memo', id: 'abc-1' });
+    expect(parseRoute('#memo/')).toEqual(HOME);
+    expect(parseRoute('#memo')).toEqual(HOME);
+    expect(formatRoute({ view: 'memo' })).toBe('#memo/new');
+    expect(formatRoute({ view: 'memo', id: 'a b' })).toBe('#memo/a%20b');
+    expect(parseRoute(formatRoute({ view: 'memo', id: 'a b' }))).toEqual({
+      view: 'memo',
+      id: 'a b',
+    });
+    expect(routeSessionId({ view: 'memo', id: 'x' })).toBeUndefined();
+  });
+
   it('reads the notes view of one video', () => {
     expect(parseRoute('#notes/dQw4w9WgXcQ')).toEqual({ view: 'notes', videoId: 'dQw4w9WgXcQ' });
     expect(formatRoute({ view: 'notes', videoId: 'dQw4w9WgXcQ' })).toBe('#notes/dQw4w9WgXcQ');

@@ -368,7 +368,7 @@
     "description": "Explanation under the Backup heading in Settings."
   },
   "settingsBackupDescriptionSynced": {
-    "message": "Saved sessions sync when you are signed in; snapshots stay on this device. Export a file to keep your own copy.",
+    "message": "Saved sessions, memos and notes sync when you are signed in; snapshots stay on this device. Export here saves sessions and snapshots.",
     "description": "Settings > Backup, section description shown instead of settingsBackupDescription when cloud sync is available in this build."
   },
   "settingsExportEverything": {
@@ -1076,7 +1076,7 @@
     "description": "Notice toast when the user opens a saved session while another one is still being opened (restored)."
   },
   "appSearchNothingFound": {
-    "message": "Nothing in your open tabs or saved sessions.",
+    "message": "Nothing in your open tabs, saved sessions, notes or memos.",
     "description": "Shown in the search results when nothing matches; a button offering to search automatic snapshots follows it."
   },
   "appSearchHistoryTitle": {
@@ -1508,11 +1508,11 @@
     "description": "Accessible name of the search box at the top of the app page. One word."
   },
   "searchInputTitle": {
-    "message": "Search open tabs, saved sessions, their addresses and your notes",
+    "message": "Search open tabs, saved sessions, their addresses, your notes and your memos",
     "description": "Tooltip of the search box at the top of the app page."
   },
   "searchPlaceholder": {
-    "message": "Search tabs and sessions (press /)",
+    "message": "Search tabs, sessions and notes (press /)",
     "description": "Placeholder text inside the empty search box. The \"/\" is the keyboard key that focuses the box; keep it as is. Keep it short enough to fit a narrow box (about 40 characters)."
   },
   "searchClear": {
@@ -1932,7 +1932,7 @@
     "description": "Heading of the Settings section for signing in to cloud sync. One or two words."
   },
   "settingsAccountDescription": {
-    "message": "Sign in to keep your saved sessions, YouTube notes and settings in step across devices. They are encrypted on this device with a passphrase only you know.",
+    "message": "Sign in to keep saved sessions, memos, YouTube notes and settings in step across devices. They are encrypted on this device with a key your passphrase protects.",
     "description": "Explanation under the Account heading in Settings."
   },
   "settingsAccountGoogle": {
@@ -1956,8 +1956,8 @@
     "description": "Label of the Settings row where a new cloud sync passphrase is typed twice."
   },
   "settingsAccountCreatePassphraseHint": {
-    "message": "Everything is encrypted with this passphrase before it leaves this device. Nobody can recover it for you: if you forget it, the copy in the cloud is lost.",
-    "description": "Warning under \"Create a sync passphrase\" in Settings. It must say clearly that a forgotten passphrase cannot be recovered and the cloud copy is then lost."
+    "message": "This protects the key to your cloud data. Nobody can recover it for you. A device that is already unlocked can set a new one. Without such a device, the cloud copy is lost. Use a passphrase you never used for sync before version 10.",
+    "description": "Warning under \"Create a sync passphrase\" in Settings. It must say clearly that nobody can recover it, how to reset it, and not to reuse a passphrase from before version 10."
   },
   "settingsAccountPassphrase": {
     "message": "Passphrase",
@@ -1984,8 +1984,8 @@
     "description": "Button that saves a new sync passphrase. Keep it short."
   },
   "settingsAccountPassphraseExists": {
-    "message": "This account already has a sync passphrase, made on another device. Enter it below.",
-    "description": "Notice when the person tried to create a sync passphrase but another device had already created one."
+    "message": "A sync passphrase is already set for this account. Enter it.",
+    "description": "Notice when the person tried to create a sync passphrase but the account already has one."
   },
   "settingsAccountUnlock": {
     "message": "Enter your sync passphrase",
@@ -2012,7 +2012,7 @@
     "description": "Button in Settings that signs out of cloud sync on this device. Keep it short."
   },
   "settingsAccountSignedOut": {
-    "message": "Signed out. Your sessions and notes on this device are still here.",
+    "message": "Signed out. Your sessions, memos and notes on this device are still here.",
     "description": "Toast after signing out of cloud sync."
   },
   "settingsAccountDelete": {
@@ -2024,7 +2024,7 @@
     "description": "Title of the dialog that asks before deleting the cloud sync account."
   },
   "settingsAccountDeleteBody": {
-    "message": "This deletes your account and everything stored for it on the sync server. It cannot be undone. The sessions and notes on this device stay.",
+    "message": "Chrome confirms your Google account, then your account and everything stored for it on the sync server are deleted. It cannot be undone. Sessions, memos and notes on this device stay.",
     "description": "Body of the dialog that asks before deleting the cloud sync account."
   },
   "settingsAccountDeleted": {
@@ -2104,12 +2104,12 @@
     "description": "Live sync status when nothing waits to be sent. $1 is the date and time of the last sync, already formatted."
   },
   "settingsAccountStatusHeld_one": {
-    "message": "Synced $2, except $1 screenshot over the limit.",
-    "description": "Live sync status when all but screenshots over the account limit are synced. $1 is how many stay only on this device, $2 the date and time of the last sync."
+    "message": "Synced $2, except $1 item over a limit.",
+    "description": "Live sync status when everything but items over a limit (storage or screenshots) is synced. $1 is how many stay only on this device, $2 the date and time of the last sync."
   },
   "settingsAccountStatusHeld_other": {
-    "message": "Synced $2, except $1 screenshots over the limit.",
-    "description": "Live sync status when all but screenshots over the account limit are synced. $1 is how many stay only on this device, $2 the date and time of the last sync."
+    "message": "Synced $2, except $1 items over a limit.",
+    "description": "Live sync status when everything but items over a limit (storage or screenshots) is synced. $1 is how many stay only on this device, $2 the date and time of the last sync."
   },
   "settingsAccountNextCheck_other": {
     "message": "Next check for changes from other devices: $2 (every $1 minutes)",
@@ -2184,7 +2184,7 @@
     "description": "Heading in the sync explanation: what syncs."
   },
   "settingsAccountHelpWhatSynced_other": {
-    "message": "Synced: saved sessions, YouTube notes with their screenshots (up to $1 per account) and settings, including the language.",
+    "message": "Synced: saved sessions, memos, YouTube notes with screenshots (up to $1 screenshots per account) and settings, including the language.",
     "description": "Sync explanation. $1 is the screenshot limit per account (100)."
   },
   "settingsAccountHelpWhatLocal": {
@@ -2200,12 +2200,12 @@
     "description": "Heading in the sync explanation: conflicting edits."
   },
   "settingsAccountHelpConflictNewer": {
-    "message": "The later change wins, by each device’s clock, and replaces the other. A deletion counts as a change.",
-    "description": "Sync explanation: last writer wins, by each device’s clock, deletions included."
+    "message": "Sessions, settings and each YouTube note: the later change wins, by each device’s clock. A deletion counts as a change.",
+    "description": "Sync explanation: last writer wins for sessions, settings and each YouTube note, by each device’s clock, deletions included."
   },
   "settingsAccountHelpConflictWhole": {
-    "message": "Changes are not merged: a session, all notes of one video, or all settings are replaced as a whole.",
-    "description": "Sync explanation: the unit that is replaced."
+    "message": "Memos: if both were edited, both texts are kept, one as a “Conflict copy”. An edit also wins over a deletion.",
+    "description": "Sync explanation: memos edited in two places keep both texts. Quotes the conflict badge (memoConflictBadge)."
   },
   "settingsAccountImagesHeld_one": {
     "message": "$1 screenshot did not sync: your account already holds $2 screenshots, the most it keeps. It stays on this device and syncs once you delete a screenshot.",
@@ -2242,14 +2242,6 @@
   "errorCloudBadResponse": {
     "message": "The sync server sent an answer this version cannot read.",
     "description": "Error when the sync server's answer has an unexpected shape."
-  },
-  "errorCloudRecordTooLarge": {
-    "message": "A session is too large to sync. It stays on this device only.",
-    "description": "Error when a saved session is too large for the sync server; it stays on this device only."
-  },
-  "errorCloudNoteTooLarge": {
-    "message": "A video's notes or a screenshot is too large to sync. It stays on this device only.",
-    "description": "Error when one video's notes, or one note screenshot, is too large for the sync server; it stays on this device only."
   },
   "commonTryAgain": {
     "message": "Try again",
@@ -2400,12 +2392,112 @@
     "description": "Error toast when a screenshot of the video failed for any other reason."
   },
   "appNavNotes": {
-    "message": "Notes",
-    "description": "Sidebar section heading above the list of YouTube videos with notes. Shown in uppercase. Keep short."
+    "message": "YouTube notes",
+    "description": "Sidebar section heading over the videos that have YouTube notes. Keep it distinct from the Memos section."
   },
   "appNavNoNotes": {
     "message": "Notes you take on YouTube videos show here.",
     "description": "Shown in the sidebar's Notes section when no YouTube video has notes yet."
+  },
+  "appNavMemos": {
+    "message": "Memos",
+    "description": "Sidebar section heading over the free-form memos the person writes on the Tabinet page. Not the YouTube notes: Korean and Japanese call those 메모 / メモ, so memos are 자유 메모 / 自由メモ."
+  },
+  "appNavNoMemos": {
+    "message": "Free-form memos you write show here.",
+    "description": "Shown in the sidebar's Memos section when there is no memo yet."
+  },
+  "memoNew": {
+    "message": "New memo",
+    "description": "Button on the sidebar's Memos heading that opens an empty memo. Button text, short."
+  },
+  "memoNewTitle": {
+    "message": "Write a new memo",
+    "description": "Tooltip of the New memo button."
+  },
+  "memoUntitled": {
+    "message": "Untitled memo",
+    "description": "The title shown for a memo whose text is empty or blank (a memo's title is its first line)."
+  },
+  "memoLabel": {
+    "message": "Memo text",
+    "description": "Accessible label of the memo's text box."
+  },
+  "memoPlaceholder": {
+    "message": "Write anything. It saves as you go.",
+    "description": "Placeholder of an empty memo's text box."
+  },
+  "memoTextTitle": {
+    "message": "Saves as you write. $1 saves now.",
+    "description": "Tooltip of the memo's text box. $1 is the key that saves at once, such as Ctrl+Enter or ⌘+Enter."
+  },
+  "memoUpdatedAt": {
+    "message": "Updated $1",
+    "description": "Under a memo's title and in the sidebar: when it last changed. $1 is a date and time."
+  },
+  "memoExport": {
+    "message": "Export Markdown",
+    "description": "Button on a memo's page that saves the memo as a Markdown file. Button text, short; the same wording as the notes page's export button."
+  },
+  "memoExportTitle": {
+    "message": "Save this memo as a Markdown file",
+    "description": "Tooltip of the memo's Export Markdown button."
+  },
+  "memoDelete": {
+    "message": "Delete",
+    "description": "Button on a memo's page that deletes it (undo is offered in a toast). Button text, short."
+  },
+  "memoDeleteTitle": {
+    "message": "Delete this memo. You can undo it for a few seconds.",
+    "description": "Tooltip of the memo's Delete button."
+  },
+  "memoDeleted": {
+    "message": "Memo deleted.",
+    "description": "Toast after a memo was deleted; it carries an Undo button."
+  },
+  "memoUndo": {
+    "message": "Undo",
+    "description": "Button in the toast after a memo was deleted. Button text, short."
+  },
+  "memoUndoTitle": {
+    "message": "Bring the deleted memo back",
+    "description": "Tooltip of the Undo button in the toast after a memo was deleted."
+  },
+  "memoConflictBadge": {
+    "message": "Conflict copy",
+    "description": "Badge on a memo kept as a copy because it was changed in two places at once. Short."
+  },
+  "memoConflictTitle": {
+    "message": "This memo was changed in two places, so both versions were kept",
+    "description": "Tooltip of the Conflict copy badge."
+  },
+  "memoConflictHint": {
+    "message": "This is a copy kept from a conflict. Merge it into the other memo if you need to, then delete it.",
+    "description": "One line above a conflict copy's text."
+  },
+  "memoConflictNotice": {
+    "message": "A memo was changed in two places. Both versions were kept.",
+    "description": "Toast when a memo conflict made a copy (from sync, or from an edit of a memo changed elsewhere)."
+  },
+  "memoSaveFailed": {
+    "message": "The memo was not saved.",
+    "description": "Error toast when saving a memo failed; the text stays in the box."
+  },
+  "memoCopyText": {
+    "message": "Copy text",
+    "description": "Button in the error toast shown when leaving a memo whose last save failed. Button text, short."
+  },
+  "memoCopyTextTitle": {
+    "message": "Copy the memo’s text to the clipboard",
+    "description": "Tooltip of the Copy text button."
+  },
+  "memoTextCopied": {
+    "message": "Text copied.",
+    "description": "Toast after Copy text put a memo's text on the clipboard."
+  },
+  "memoUnreadable": {
+    "message": "This memo was saved by a newer version of Tabinet and cannot be shown here.",
+    "description": "Shown in place of a memo's text when its stored body cannot be read by this version."
   },
   "notesEntryCount_one": {
     "message": "$1 note",
@@ -2424,8 +2516,12 @@
     "description": "Stands in for the title of a YouTube video whose title was not known when its notes were taken."
   },
   "searchGroupNotes": {
-    "message": "Notes",
-    "description": "Heading of the search results group listing matching YouTube notes. Shown in small capitals; short."
+    "message": "YouTube notes",
+    "description": "Heading of the search results that are YouTube notes."
+  },
+  "searchGroupMemos": {
+    "message": "Memos",
+    "description": "Heading of the search results that are memos (the sidebar's Memos section)."
   },
   "notesOpenAt": {
     "message": "Open the video at $1",
@@ -2467,9 +2563,17 @@
     "message": "$1 note on “$2” will be removed from this device, with its screenshot. This cannot be undone.",
     "description": "Text of the dialog that asks before every note on a video is deleted. $1 is how many notes, $2 the video's title."
   },
+  "notesDeleteAllBodySynced_one": {
+    "message": "$1 note on “$2” will be removed from this device, with its screenshot, and from your other devices if you use sync. This cannot be undone.",
+    "description": "Body of the dialog that deletes every note on a video, in a build with cloud sync. $1 is the number of notes, $2 the video's title."
+  },
   "notesDeleteAllBody_other": {
     "message": "All $1 notes on “$2” will be removed from this device, with their screenshots. This cannot be undone.",
     "description": "Text of the dialog that asks before every note on a video is deleted. $1 is how many notes, $2 the video's title."
+  },
+  "notesDeleteAllBodySynced_other": {
+    "message": "All $1 notes on “$2” will be removed from this device, with their screenshots, and from your other devices if you use sync. This cannot be undone.",
+    "description": "Body of the dialog that deletes every note on a video, in a build with cloud sync. $1 is the number of notes, $2 the video's title."
   },
   "notesPageHint": {
     "message": "Notes are written in the YouTube notes side panel while the video plays. A note's time opens the video at that moment.",
@@ -2506,5 +2610,185 @@
   "treeShowMoreTabsTitle_other": {
     "message": "$1 tabs hidden in this window",
     "description": "Tooltip of the \"Show N more tabs\" button under a long window. $1 is how many tabs are still hidden in that window, formatted."
+  },
+  "settingsAccountUpgradeHint": {
+    "message": "Sync was rebuilt in version 10. Sign in and create your sync passphrase again. Everything on this device is still here.",
+    "description": "Settings > Account, signed out, on a device that used sync before version 10."
+  },
+  "settingsAccountExpired": {
+    "message": "Your sign-in ended. Sign in again to resume sync. The key is still on this device.",
+    "description": "Settings > Account when the sign-in ran out but the key is still on this device."
+  },
+  "settingsAccountSignInTitle": {
+    "message": "Choose or confirm your Google account in Chrome’s window",
+    "description": "Tooltip of the Sign in with Google button."
+  },
+  "settingsAccountConfirm": {
+    "message": "Add this device’s data to this account?",
+    "description": "Question shown after signing in to another account than the one this device last synced with."
+  },
+  "settingsAccountConfirmBody": {
+    "message": "This device last synced with $1 or an earlier copy of its cloud data. If you add it to $2, saved sessions, memos, YouTube notes and settings here are uploaded to that account after you set or enter its passphrase.",
+    "description": "Explains the account question. $1 is the email this device last synced with, $2 the email just signed in."
+  },
+  "settingsAccountKeepHere": {
+    "message": "No, keep it here",
+    "description": "Default button of the account question: cancel the sign-in and upload nothing."
+  },
+  "settingsAccountKeepHereTitle": {
+    "message": "Cancel this sign-in and upload nothing",
+    "description": "Tooltip of the \"No, keep it here\" button."
+  },
+  "settingsAccountAddData": {
+    "message": "Add to this account",
+    "description": "Button of the account question: allow uploading this device’s data to the account just signed in."
+  },
+  "settingsAccountAddDataTitle": {
+    "message": "Allow this device’s data to be uploaded to this account",
+    "description": "Tooltip of the \"Add to this account\" button."
+  },
+  "settingsAccountCheckFailed": {
+    "message": "The account could not be checked.",
+    "description": "Settings > Account when the sync server could not be asked about the account."
+  },
+  "settingsAccountCreateTitle": {
+    "message": "Set the passphrase. Chrome confirms your Google account first.",
+    "description": "Tooltip of the Create passphrase button."
+  },
+  "settingsAccountPassphraseEmpty": {
+    "message": "Enter the passphrase.",
+    "description": "Field error when the passphrase field was left empty."
+  },
+  "settingsAccountUnlockTitle": {
+    "message": "Unlock sync on this device. Chrome confirms your Google account first.",
+    "description": "Tooltip of the Unlock button."
+  },
+  "settingsAccountForgotHint": {
+    "message": "Forgot it? On a device where sync works, use “Change passphrase”. Without one, use “Delete cloud data” and start again.",
+    "description": "Hint under the passphrase field when unlocking. Quotes the labels of the Change passphrase and Delete cloud data buttons."
+  },
+  "settingsAccountChangePassphrase": {
+    "message": "Change passphrase",
+    "description": "Button in Settings > Account that sets a new sync passphrase from this device."
+  },
+  "settingsAccountChangeHint": {
+    "message": "Also the way to reset a forgotten passphrase.",
+    "description": "Grey hint beside the Change passphrase button."
+  },
+  "settingsAccountChangeTitle": {
+    "message": "Set a new sync passphrase from this device",
+    "description": "Tooltip of the Change passphrase button."
+  },
+  "settingsAccountChangeDialogTitle": {
+    "message": "Change the sync passphrase?",
+    "description": "Title of the dialog that changes the sync passphrase."
+  },
+  "settingsAccountChangeBody": {
+    "message": "Chrome confirms your Google account first. You do not need the old passphrase. Devices that are already unlocked keep working. Your data is not uploaded again.",
+    "description": "Body of the dialog that changes the sync passphrase."
+  },
+  "settingsAccountNewPassphrase": {
+    "message": "New passphrase",
+    "description": "Label of the new passphrase field in the Change passphrase dialog."
+  },
+  "settingsAccountChanged": {
+    "message": "Sync passphrase changed.",
+    "description": "Toast after the sync passphrase was changed."
+  },
+  "settingsAccountKeyMismatch": {
+    "message": "The cloud data has another key, so sync is paused. Nothing on this device was removed. Sign out and sign in again, or delete the cloud data.",
+    "description": "Settings > Account when the cloud data has another key than this device."
+  },
+  "settingsAccountRollback": {
+    "message": "The sync server returned an older passphrase record than this device saw before. An old passphrase may work again. Change the passphrase.",
+    "description": "Error toast when the sync server returned an older passphrase record than this device saw before."
+  },
+  "settingsAccountSignOutTitle": {
+    "message": "Sign out of sync?",
+    "description": "Title of the dialog that asks before signing out of sync and removing the key."
+  },
+  "settingsAccountSignOutBody": {
+    "message": "The key is removed from this device, so you will need the passphrase to sync here again. If this is your last unlocked device and you forgot it, the cloud copy cannot be recovered. Your data here stays.",
+    "description": "Body of the sign-out dialog, shown when the key will be removed."
+  },
+  "settingsAccountSignOutButtonTitle": {
+    "message": "Stop syncing and remove the key from this device",
+    "description": "Tooltip of the Sign out button."
+  },
+  "settingsAccountDeleteTooltip": {
+    "message": "Delete everything stored for this account on the sync server",
+    "description": "Tooltip of the Delete cloud data button."
+  },
+  "settingsAccountUsage": {
+    "message": "Cloud storage",
+    "description": "Label of the row in Settings > Account that shows how much cloud storage the account uses."
+  },
+  "settingsAccountUsageValue": {
+    "message": "$1 / $2",
+    "description": "Value of the Cloud storage row. $1 is the amount used, $2 the limit, both with their unit (such as 12.3 MB and 50 MB)."
+  },
+  "settingsAccountUsageTitle": {
+    "message": "Everything encrypted in your account, screenshots and deletion markers included",
+    "description": "Tooltip of the Cloud storage row."
+  },
+  "settingsAccountTryAgainTitle": {
+    "message": "Ask the sync server again",
+    "description": "Tooltip of the Try again button in Settings > Account."
+  },
+  "settingsAccountStorageHeld_one": {
+    "message": "$1 item did not sync: your cloud storage is full ($2). It stays on this device and syncs when there is room.",
+    "description": "Toast when the sync server refused items because the account storage is full. $1 is how many items, $2 the limit with its unit (such as 50 MB)."
+  },
+  "settingsAccountStorageHeld_other": {
+    "message": "$1 items did not sync: your cloud storage is full ($2). They stay on this device and sync when there is room.",
+    "description": "Toast when the sync server refused items because the account storage is full. $1 is how many items, $2 the limit with its unit (such as 50 MB)."
+  },
+  "settingsAccountHelpWhatLimit": {
+    "message": "One account holds up to $1, screenshots and deletion markers included. Anything over stays on this device, and deleting always works.",
+    "description": "Sync explanation of the account storage limit. $1 is the limit with its unit (such as 50 MB)."
+  },
+  "errorCloudGoogleRefused": {
+    "message": "Google did not confirm your account. Try again.",
+    "description": "Error when Google did not confirm the account."
+  },
+  "errorCloudGoogleAccount": {
+    "message": "Chrome chose another Google account than the one signed in to sync. Try again and choose that account.",
+    "description": "Error when Chrome picked another Google account than the one signed in to sync. Must not advise signing out."
+  },
+  "errorCloudGoogleUnavailable": {
+    "message": "Google could not be reached to confirm your account. Try again.",
+    "description": "Error when Google could not be reached to confirm the account."
+  },
+  "errorCloudKeyChanged": {
+    "message": "Sync is paused because the cloud data has another key. Open Settings > Account.",
+    "description": "Error when sync is paused because the cloud data has another key."
+  },
+  "errorCloudKeyConflict": {
+    "message": "The passphrase record changed meanwhile. Try again.",
+    "description": "Error when the passphrase record changed on the server while this device was changing it."
+  },
+  "errorCloudKeyUnavailable": {
+    "message": "The server could not open the passphrase record. Change the passphrase on a device where sync already works.",
+    "description": "Error when the server could not open the stored passphrase record."
+  },
+  "errorCloudUpgrade": {
+    "message": "This version of Tabinet can no longer sync. Update it.",
+    "description": "Error when the sync server no longer speaks this version’s protocol."
+  },
+  "errorCloudInterrupted": {
+    "message": "The download was cut off. Sync will continue where it stopped.",
+    "description": "Error when the download from the sync server was cut off before its end."
+  },
+  "errorCloudNewerData": {
+    "message": "Some items need a newer version of Tabinet. Nothing was changed.",
+    "description": "Error when some synced items need a newer version of the extension."
+  },
+  "errorCloudClock": {
+    "message": "Some items are dated more than a day ahead. Check this computer’s clock.",
+    "description": "Error when items are dated more than a day ahead, so the server refused them."
+  },
+  "errorCloudItemTooLarge": {
+    "message": "An item is too large to sync. It stays on this device only.",
+    "description": "Error when an item is too large to sync and stays on this device."
   }
 }

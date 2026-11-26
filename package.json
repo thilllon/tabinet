@@ -30,6 +30,7 @@
     "e2e:smoke": "tsx scripts/e2e/smoke.ts",
     "e2e:sort": "tsx scripts/e2e/sort.ts",
     "e2e:selection": "tsx scripts/e2e/selection.ts",
+    "e2e:memo-drafts": "tsx scripts/e2e/memo-drafts.ts",
     "e2e:assemble": "vite build --mode e2e --outDir ../node_modules/.cache/tabinet/e2e && tsx scripts/e2e/assemble.ts",
     "release": "release-it",
     "check:dashes": "tsx scripts/check-dashes.ts"
@@ -46,6 +47,7 @@
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^3.0.0",
+    "@electric-sql/pglite": "0.5.15",
     "@playwright/test": "^1.65.0",
     "@tailwindcss/vite": "^4.3.5",
     "@types/archiver": "^8.0.0",

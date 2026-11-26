@@ -1,4 +1,13 @@
-import { ChevronRight, Clock, FolderOpen, LayoutGrid, NotebookPen, Undo2 } from 'lucide-react';
+import {
+  ChevronRight,
+  Clock,
+  FolderOpen,
+  LayoutGrid,
+  NotebookPen,
+  NotepadText,
+  Plus,
+  Undo2,
+} from 'lucide-react';
 import { useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -6,11 +15,12 @@ import { Button } from '@/components/ui/button';
 import { formatRoute, type Route } from '@/lib/app-route';
 import { formatDateTime } from '@/lib/display-format';
 import { formatNumber, t, tp } from '@/lib/i18n';
+import { memoDisplayTitle } from '@/lib/memo-export';
 import { videoTitle } from '@/lib/notes-export';
 import { browserHandlesClick } from '@/lib/row-link';
 import { HISTORY_OPEN_KEY, readUiState, writeUiState } from '@/lib/ui-state';
 import { cn } from '@/lib/utils';
-import type { NotesSummary, SessionSummary } from '@/types';
+import type { MemoSummary, NotesSummary, SessionSummary } from '@/types';
 
 interface SidebarNavProps {
   route: Route;
@@ -21,6 +31,9 @@ interface SidebarNavProps {
   /** Videos with YouTube notes, newest first. */
   notes: NotesSummary[];
   notesLoading: boolean;
+  /** Memos, newest first. */
+  memos: MemoSummary[];
+  memosLoading: boolean;
   windowCount: number;
   tabCount: number;
   /** The snapshot promoted after a restart, if it is still the newest one. */
@@ -109,8 +122,36 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** The Memos heading, with New memo on it: a link to `#memo/new`. */
+function MemosLabel({ onNew }: { onNew(): void }) {
+  return (
+    <div className="flex items-center gap-1 pt-3 pr-1">
+      <h2 className="flex-1 px-2 pt-1 pb-1 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+        {t('appNavMemos')}
+      </h2>
+      <Button asChild variant="ghost" size="xs" className="text-muted-foreground">
+        <a
+          href={formatRoute({ view: 'memo' })}
+          title={t('memoNewTitle')}
+          onClick={(event) => {
+            if (browserHandlesClick(event)) {
+              return;
+            }
+            event.preventDefault();
+            onNew();
+          }}
+        >
+          <Plus />
+          {t('memoNew')}
+        </a>
+      </Button>
+    </div>
+  );
+}
+
 /**
- * The left column: what you have (open tabs, saved sessions, YouTube notes, automatic snapshots) as one list, so
+ * The left column: what you have (open tabs, saved sessions, memos, YouTube notes, automatic
+ * snapshots) as one list, so
  * the main pane only ever shows what is selected. Snapshots stay folded away - they are a safety
  * net, not something to browse - except right after a restart, when the recovered one is called
  * out here instead of in a banner over the page.
@@ -121,6 +162,8 @@ export function SidebarNav({
   history,
   notes,
   notesLoading,
+  memos,
+  memosLoading,
   windowCount,
   tabCount,
   recoveredId,
@@ -187,6 +230,34 @@ export function SidebarNav({
               current={route.view === 'saved' && route.id === summary.id}
               route={{ view: 'saved', id: summary.id }}
               onClick={() => onNavigate({ view: 'saved', id: summary.id })}
+            />
+          ))}
+        </ul>
+      )}
+
+      <MemosLabel onNew={() => onNavigate({ view: 'memo' })} />
+      {memosLoading ? (
+        <p className="px-2 text-xs text-muted-foreground">{t('commonLoading')}</p>
+      ) : memos.length === 0 ? (
+        <p className="px-2 text-xs text-muted-foreground">{t('appNavNoMemos')}</p>
+      ) : (
+        <ul className="contents">
+          {memos.map((summary) => (
+            <NavItem
+              key={summary.id}
+              icon={<NotepadText />}
+              label={memoDisplayTitle(summary.title)}
+              sub={t('memoUpdatedAt', formatDateTime(summary.updatedAt))}
+              meta={
+                summary.conflict ? (
+                  <Badge variant="secondary" title={t('memoConflictTitle')}>
+                    {t('memoConflictBadge')}
+                  </Badge>
+                ) : undefined
+              }
+              current={route.view === 'memo' && route.id === summary.id}
+              route={{ view: 'memo', id: summary.id }}
+              onClick={() => onNavigate({ view: 'memo', id: summary.id })}
             />
           ))}
         </ul>

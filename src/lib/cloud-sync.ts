@@ -1,131 +1,127 @@
 /**
- * The cloud sync engine (GitHub issue #170): moves saved sessions, the settings and YouTube notes
- * with their screenshots (#221) between this device and the sync server (#165), end-to-end
- * encrypted with the key from #166. Snapshots (`kind: 'history'`) never sync; Keep turns one into
- * a saved session, which then does.
+ * The cloud sync engine, protocol v2 (spec section 10): moves saved sessions, the settings, doc
+ * collections (`DOC_STORES`) and their screenshots between this device and the sync server, end
+ * to end encrypted with the data key. Snapshots never sync.
  *
- * Records: a saved session is `{ kind: 'session', id, updatedAt }` with the whole `Session` body
- * encrypted inside; a deleted one is its tombstone (`deleted: true`, `updatedAt` = when it was
- * deleted, `TOMBSTONE_PAYLOAD` encrypted inside); the settings are one record
- * `{ kind: 'settings', id: 'settings' }` holding the sort settings, the session settings and the
- * language; one video's notes are `{ kind: 'notes', id: <videoId> }` with the whole `VideoNotes`
- * inside, and one screenshot `{ kind: 'image', id: <imageId> }` with its data URL inside (its
- * `updatedAt` is when it was stored or deleted: a picture never changes). Last writer wins by
- * `updatedAt`, as on the server. The server keeps at most `POLICY.account.screenshots` live
- * screenshots per account and refuses one more (`rejected`); such a picture stays on this device,
- * is offered again once a screenshot is deleted, and Settings > Account says so once.
+ * One run (`syncNow()`, 10.2): the bookkeeping of this `(accountId, keyId)`, tracking started for
+ * what is not tracked yet, held items retried, received settings finished, then the pull: the
+ * NDJSON feed read batch by batch, each batch decrypted and checked outside the locks, applied
+ * store by store in one write each, and only then the cursor stored (10.3, 10.6). A pull without
+ * its end line fails the run before any push (invariant 6). Then the restamp of what is too far
+ * ahead (10.4) and the push passes, deletions first (10.7).
  *
- * The server is not trusted: every record, a tombstone included, is encrypted with its
- * `kind`/`id`/`updatedAt`/`deleted` as AES-GCM additional data (`encryptRecord()`), so a record
- * the server forged, moved to another id or kind, replayed under a newer `updatedAt` or turned
- * into a tombstone does not decrypt. It is skipped and reported, never applied.
- *
- * `syncNow()` pulls the change feed, then pushes what this device changed (the dirty sets in
- * `cloudSyncMeta`, `src/lib/cloud-sync-state.ts`). It runs under its own Web Lock, so the page and
- * the worker never sync at once; network calls happen outside the sessions lock, and every local
- * write goes through `sessionRepo` or `notesRepo` (`applyRemote()` for what the server sent).
- *
- * When it runs (#257): at once when the account and key become ready, a few seconds after a
- * change (`src/lib/cloud-sync-scheduler.ts`, with the soon alarm behind it), on retry after a
- * failure (`retryAt`: no automatic run comes earlier, whatever asked for it), and every
- * `SYNC_PERIOD_MINUTES` for what other devices changed. A run belongs to the token and key it
- * started with and stops when they are no longer the stored ones.
- *
- * The settings apply path (`writeReceivedSettings()`) is the one place sessions code writes
- * `chrome.storage.sync`: the sort settings and `uiLanguage` live there, so applying settings from
- * another device must write them there. `readLocalSettings()` is the matching read.
- *
- * Everything here is a no-op while cloud sync is unconfigured (`isCloudSyncEnabled()`), and
- * nothing touches `chrome.*` while the module body runs.
+ * The server is not trusted: every record is decrypted against its metadata, a doc's envelope and
+ * HMAC id are checked, and what cannot be read is never applied (`unreadable`), while what this
+ * build cannot apply is held with its raw record (`blocked`, 8.3). Network calls never run inside a
+ * lock (invariant 11). The settings apply path is the one place sessions code writes
+ * `chrome.storage.sync`. Everything is a no-op while cloud sync is unconfigured.
  */
 import { POLICY } from '@/constants';
 import {
   type CloudApiOptions,
+  CloudHttpError,
+  CloudTimeoutError,
   CloudUnauthorizedError,
-  getRecords,
+  inWorker,
+  isValidRecordId,
   postRecords,
+  streamRecords,
 } from '@/lib/cloud-api';
-import { CLOUD_ACCOUNT_KEY, CLOUD_SYNC_KEY, forgetCloudAccount } from '@/lib/cloud-auth';
 import { isCloudSyncEnabled } from '@/lib/cloud-config';
 import { CloudDecryptError, decryptRecord, encryptRecord } from '@/lib/cloud-crypto';
 import {
+  type AnyDocStore,
+  applyDocBatch,
+  type DocTx,
+  checkDoc,
+  type DecodedDoc,
+  docRef,
+  readOutgoingDocs,
+  StaleMetaError,
+  startDocTracking,
+} from '@/lib/cloud-docs';
+import {
+  CLOUD_ACCOUNT_KEY,
+  CLOUD_KEY_KEY,
+  cloudRawKey,
+  cloudStoredFrom,
+  removeAccountIfToken,
+  setThenClean,
+  withSessionsLock,
+} from '@/lib/cloud-storage';
+import { upgradeCloudStorage } from '@/lib/cloud-storage';
+import {
   CLOUD_SYNC_META_KEY,
   type CloudSyncMeta,
-  freshSyncMeta,
+  ensureSyncMeta,
   hasPendingWork,
+  isHeld,
   loadSyncContext,
   localChangeMade,
   readSyncMeta,
   readSyncMetaFor,
   type SyncContext,
   syncWorkGrew,
-  withKnownVersion,
-  withHeldImages,
+  withKnown,
+  withKnownImage,
   withLocalChange,
-  withReadResults,
   writeSyncMeta,
 } from '@/lib/cloud-sync-state';
+import { DOC_STORES } from '@/lib/doc-collections';
 import { errorMessage, ExplainedError } from '@/lib/error-message';
 import { uiLanguageReady } from '@/lib/i18n';
 import { isRecord, isSession } from '@/lib/import-guards';
-import { notesRepo, parseRemoteNotes } from '@/lib/notes-repo';
 import { fnv1a32 } from '@/lib/session-hash';
-import { normalizeSettings, SETTINGS_KEY, sessionRepo, withLock } from '@/lib/session-repo';
+import {
+  normalizeSettings,
+  type RemoteSessionChange,
+  SETTINGS_KEY,
+  sessionRepo,
+} from '@/lib/session-repo';
 import { parseSortSettings, SORT_SETTING_KEYS } from '@/lib/sort-settings';
 import { parseUiLanguage, UI_LANGUAGE_KEY, type UiLanguage } from '@/lib/ui-language';
 import { isImageDataUrl } from '@/lib/youtube-video';
 import type {
-  CloudRecord,
-  CloudRecordKind,
-  CloudRecordWithSeq,
+  RecordIn,
+  RecordKind,
+  RecordOut,
   Session,
   SessionSettings,
   SortSettings,
-  VideoNotes,
+  Usage,
+  WriteResult,
 } from '@/types';
 
 /** The periodic sync alarm, every `POLICY.sync.periodMinutes` while ready. */
 export const CLOUD_SYNC_ALARM = 'cloud-sync';
 /** The one-shot alarm behind the debounce timer (which dies with the worker), and for retries. */
 export const CLOUD_SYNC_SOON_ALARM = 'cloud-sync-soon';
-/**
- * The one wait that is needed: the server cannot push, so this is how often another device's
- * changes are looked for. Asking more often would also keep the serverless Postgres (idle timeout
- * 5 minutes) from ever suspending.
- */
+/** How often another device's changes are looked for. */
 export const SYNC_PERIOD_MINUTES = POLICY.sync.periodMinutes;
 /** The shortest delay Chrome accepts for an alarm (Chrome 120+). */
 export const SYNC_FALLBACK_MS = POLICY.sync.fallbackMs;
+/** The Web Lock one sync holds from start to end, shared by the page and the worker. */
+export const SYNC_LOCK_NAME = 'tabinet:cloud-sync';
+/** What the largest ciphertext the server accepts leaves for one item, in KB, for Settings. */
+export const SYNC_ITEM_MAX_KB = Math.floor((POLICY.record.maxCiphertextBytes * 3) / 4 / 1024);
+
+const SETTINGS_ID = 'settings';
+const SETTINGS_REF = 'settings:settings';
+const TOMBSTONE = { deleted: true } as const;
 
 /** The wait after the `failures`th failed run in a row: 30 seconds, doubled up to the period. Pure. */
 export function retryDelayMs(failures: number): number {
   return Math.min(SYNC_FALLBACK_MS * 2 ** (failures - 1), SYNC_PERIOD_MINUTES * 60_000);
 }
 
-/**
- * How long an automatic run still has to wait for `retryAt`; none while nothing fails. A time more
- * than a period ahead can only come from a clock set back, and holds nothing up. Pure.
- */
+/** How long an automatic run still has to wait for `retryAt`; none while nothing fails. Pure. */
 export function retryWaitMs(meta: CloudSyncMeta, now: number): number {
   if ((meta.failures ?? 0) === 0 || meta.retryAt === undefined) {
     return 0;
   }
   const wait = meta.retryAt - now;
-  // An alarm may come a moment before the time it was set for.
   return wait > 1000 && wait <= SYNC_PERIOD_MINUTES * 60_000 ? wait : 0;
 }
-
-/** The Web Lock one sync holds from start to end, shared by the page and the worker. */
-export const SYNC_LOCK_NAME = 'tabinet:cloud-sync';
-
-/** The id of the one settings record. */
-const SETTINGS_RECORD_ID = 'settings';
-
-/** What the largest ciphertext the server accepts leaves for one item, in KB, for Settings. */
-export const SYNC_ITEM_MAX_KB = Math.floor((POLICY.record.maxCiphertextBytes * 3) / 4 / 1024);
-
-/** Record ids the server accepts. */
-const RECORD_ID = /^[A-Za-z0-9_-]{1,64}$/;
 
 /** The settings as they travel inside the settings record. */
 export interface SyncedSettings {
@@ -143,23 +139,16 @@ export interface SyncResult {
 }
 
 export interface SyncOptions extends CloudApiOptions {
-  /**
-   * Run only if still called for once the sync lock is ours, so a run queued behind one that
-   * already sent everything, or one that just failed, makes no request. `'changed'` (the debounce
-   * timer): something waits and the server is not failing. `'due'` (the soon alarm): a retry is
-   * due, or something waits that the run before did not settle. `'periodic'`: unless a retry
-   * waits for a later time.
-   */
+  /** Run only if still called for once the sync lock is ours (see `stillCalledFor()`). */
   onlyIf?: 'changed' | 'due' | 'periodic';
-  /** Records per `GET /v1/records` page; `POLICY.request.maxRecordsPerPull` when omitted. */
-  pageSize?: number;
+  /** The doc stores; `DOC_STORES` when omitted (tests pass their own collections). */
+  stores?: readonly AnyDocStore[];
 }
 
 // ---------------------------------------------------------------------------
 // Pure helpers
 // ---------------------------------------------------------------------------
 
-/** The received settings, every part validated with its default as fallback; `null` if not an object. */
 export function parseSyncedSettings(value: unknown): SyncedSettings | null {
   if (!isRecord(value)) {
     return null;
@@ -197,24 +186,20 @@ function utf8Length(text: string): number {
   return new TextEncoder().encode(text).length;
 }
 
-/** The bytes `record` adds to a `POST /v1/records` body (its JSON and a comma). */
-export function recordBytes(record: CloudRecord): number {
+/** The bytes `record` adds to a `POST /v2/records` body (its JSON and a comma). */
+export function recordBytes(record: RecordIn): number {
   return utf8Length(JSON.stringify(record)) + 1;
 }
 
-/**
- * Splits `records` into request bodies of at most `maxCount` records and `maxBytes` bytes
- * (`{"records":[...]}` included), in order. A record too big for any batch on its own is left to
- * the caller, which never passes one. Pure.
- */
-export function splitIntoBatches(
-  records: readonly CloudRecord[],
+/** Splits `records` into bodies of at most `maxCount` records and `maxBytes` bytes, in order. Pure. */
+export function splitIntoBatches<T extends RecordIn>(
+  records: readonly T[],
   maxCount: number = POLICY.request.maxRecordsPerPush,
   maxBytes: number = POLICY.request.pushBatchBytes,
-): CloudRecord[][] {
+): T[][] {
   const envelope = utf8Length('{"records":[]}');
-  const batches: CloudRecord[][] = [];
-  let current: CloudRecord[] = [];
+  const batches: T[][] = [];
+  let current: T[] = [];
   let bytes = envelope;
   for (const record of records) {
     const size = recordBytes(record);
@@ -232,44 +217,15 @@ export function splitIntoBatches(
   return batches;
 }
 
-/** A record too big for the server: it stays on this device and the run reports it. */
-class RecordTooLargeError extends ExplainedError {
-  constructor(kind: CloudRecordKind, id: string) {
-    super(
-      `The ${kind} record ${id} is over the server's record size`,
-      kind === 'session' ? 'errorCloudRecordTooLarge' : 'errorCloudNoteTooLarge',
-    );
-    this.name = 'RecordTooLargeError';
-  }
-}
-
-/** A write the server refused for a reason this version does not know. */
-class RecordRejectedError extends ExplainedError {
-  constructor(kind: string, id: string, reason: string | undefined) {
-    super(
-      `The server refused the ${kind} record ${id} (${reason ?? 'no reason'})`,
-      'errorCloudRejected',
-    );
-    this.name = 'RecordRejectedError';
-  }
-}
-
-/** Why the server refuses a screenshot over the account's cap (server/src/types.ts). */
-const IMAGE_LIMIT_REASON = 'image_limit';
-
-/** What a tombstone's ciphertext holds: the deletion, authenticated like any other record. */
-const TOMBSTONE_PAYLOAD = { deleted: true } as const;
-
-/** Whether a decrypted tombstone says what its metadata says. Pure. */
 function isTombstonePayload(value: unknown): boolean {
   return isRecord(value) && Object.keys(value).length === 1 && value.deleted === true;
 }
 
-/** A record that decrypted to something this version cannot use. */
-class UnusableRecordError extends ExplainedError {
-  constructor(kind: string, id: string) {
-    super(`The ${kind} record ${id} has an unexpected shape`, 'errorCloudDecrypt');
-    this.name = 'UnusableRecordError';
+/** An item too large for the server: it stays on this device and the run reports it. */
+class ItemTooLargeError extends ExplainedError {
+  constructor(ref: string) {
+    super(`${ref} is over the server's record size`, 'errorCloudItemTooLarge');
+    this.name = 'ItemTooLargeError';
   }
 }
 
@@ -277,7 +233,6 @@ class UnusableRecordError extends ExplainedError {
 // Settings (the one chrome.storage.sync access of sessions code)
 // ---------------------------------------------------------------------------
 
-/** The settings as they are on this device. */
 export async function readLocalSettings(): Promise<SyncedSettings> {
   const stored: Record<string, unknown> = await chrome.storage.sync.get([
     ...SORT_SETTING_KEYS,
@@ -291,46 +246,8 @@ export async function readLocalSettings(): Promise<SyncedSettings> {
 }
 
 /**
- * Brings `settingsDirty` in line with the settings as they are now: clean when they equal what was
- * last exchanged with the server (also when a change was undone, or when the writes are the
- * server's own settings arriving), dirty and stamped now otherwise. Run on every change of a
- * setting once sync has started (also while not ready, like the session tracking), and before a
- * push. Being state-based, it cannot echo: settings applied from the server read back as
- * unchanged however their writes interleave.
- *
- * While settings received from the server are still being written (`pendingSettings`), nothing is
- * marked: the local settings are half old, half new, and taking them for an edit would send that
- * mix back over the other device's change. Returns whether such an apply is pending, so the
- * caller can ask for the sync that finishes it.
- */
-export async function noteSettingsChange(
-  reason: 'changed' | 'check' = 'changed',
-  now: number = Date.now(),
-): Promise<boolean> {
-  if (!isCloudSyncEnabled()) {
-    return false;
-  }
-  return withLock(async () => {
-    const meta = await readSyncMeta();
-    if (meta === undefined) {
-      return false;
-    }
-    if (meta.pendingSettings !== undefined) {
-      return true;
-    }
-    const next = settingsState(meta, settingsFingerprint(await readLocalSettings()), reason, now);
-    if (next !== meta) {
-      const edited = reason === 'changed' && next.settingsDirty;
-      await writeSyncMeta(edited ? withLocalChange(next, now) : next);
-    }
-    return false;
-  });
-}
-
-/**
  * `meta` with the settings marked clean or dirty for `currentHash`, `meta` itself when nothing
- * changes. A real change (`'changed'`) stamps the settings now; a `'check'` (before a push) only
- * marks settings that differ dirty when they were not, and leaves a pending stamp alone. Pure.
+ * changes. A real change stamps them now; a `'check'` only marks settings that differ. Pure.
  */
 export function settingsState(
   meta: CloudSyncMeta,
@@ -355,8 +272,37 @@ export function settingsState(
   };
 }
 
+/**
+ * Brings `settingsDirty` in line with the settings as they are now (state-based, so applying the
+ * server's settings cannot echo). Nothing is marked while received settings are still being
+ * written; returns whether such an apply is pending.
+ */
+export async function noteSettingsChange(
+  reason: 'changed' | 'check' = 'changed',
+  now: number = Date.now(),
+): Promise<boolean> {
+  if (!isCloudSyncEnabled()) {
+    return false;
+  }
+  return withSessionsLock(async () => {
+    const meta = await readSyncMeta();
+    if (meta === undefined) {
+      return false;
+    }
+    if (meta.pendingSettings !== undefined) {
+      return true;
+    }
+    const next = settingsState(meta, settingsFingerprint(await readLocalSettings()), reason, now);
+    if (next !== meta) {
+      const edited = reason === 'changed' && next.settingsDirty;
+      await writeSyncMeta(edited ? withLocalChange(next, now) : next);
+    }
+    return false;
+  });
+}
+
 // ---------------------------------------------------------------------------
-// The sync run
+// The run
 // ---------------------------------------------------------------------------
 
 function withSyncLock<T>(fn: () => Promise<T>): Promise<T> {
@@ -365,43 +311,6 @@ function withSyncLock<T>(fn: () => Promise<T>): Promise<T> {
     return fn();
   }
   return locks.request(SYNC_LOCK_NAME, fn);
-}
-
-/**
- * The bookkeeping for this account and key, started on the first sync: every saved session and
- * the settings marked dirty, the feed read from the start.
- */
-async function startSyncMeta(context: SyncContext): Promise<CloudSyncMeta> {
-  return withLock(async () => {
-    // Inside the lock: a run of the account before must not replace this one's bookkeeping.
-    await assertCurrent(context);
-    const existing = await readSyncMetaFor(context);
-    if (existing !== undefined) {
-      return existing;
-    }
-    const saved: Record<string, number> = {};
-    for (const summary of await sessionRepo.listSummaries()) {
-      if (summary.kind === 'saved' && summary.unreadable === undefined) {
-        saved[summary.id] = summary.updatedAt;
-      }
-    }
-    const meta = freshSyncMeta(context, saved);
-    await writeSyncMeta(meta);
-    return meta;
-  });
-}
-
-/** Read-modify-write of the bookkeeping under the sessions lock, while it is still this account's. */
-async function updateMeta(
-  context: SyncContext,
-  update: (meta: CloudSyncMeta) => CloudSyncMeta,
-): Promise<void> {
-  await withLock(async () => {
-    const meta = await readSyncMetaFor(context);
-    if (meta !== undefined) {
-      await writeSyncMeta(update(meta));
-    }
-  });
 }
 
 /** The run's account or key is no longer the stored one: it sends and applies nothing more. */
@@ -416,12 +325,13 @@ async function isCurrent(context: SyncContext): Promise<boolean> {
   const stored = await loadSyncContext();
   return (
     stored !== null &&
-    stored.keyId === context.keyId &&
-    stored.account.token === context.account.token
+    stored.account.token === context.account.token &&
+    stored.account.accountId === context.account.accountId &&
+    stored.key.keyId === context.key.keyId &&
+    stored.key.dek === context.key.dek
   );
 }
 
-/** Before every request and every write of what the server sent. */
 async function assertCurrent(context: SyncContext): Promise<void> {
   if (!(await isCurrent(context))) {
     throw new StaleRunError();
@@ -431,175 +341,377 @@ async function assertCurrent(context: SyncContext): Promise<void> {
 interface RunState {
   context: SyncContext;
   options: SyncOptions;
+  stores: readonly AnyDocStore[];
+  worker: boolean;
+  startedAt: number;
   pulled: number;
   pushed: number;
-  /** Problems that did not stop the run (a record that does not decrypt, one too large). */
   problems: unknown[];
-  startedAt: number;
   /** The bookkeeping as the push read it: work that appears after it needs another run. */
   collected?: CloudSyncMeta;
-  /** What could and could not be read, not yet in the bookkeeping (`withReadResults()`). */
-  read: Map<string, number | null>;
-  /** A screenshot tombstone reached the server in this run (pulled, or pushed and applied). */
-  imageDeletedOnServer: boolean;
+  /** Whether the run already reset the backoff on its first progress. */
+  progressed: boolean;
+  /** The latest usage the server reported. */
+  usage?: Usage;
+  /** A held item was released during this run. */
+  released: boolean;
 }
+
+const belongsTo = (run: RunState) => (meta: CloudSyncMeta) =>
+  meta.accountId === run.context.account.accountId && meta.keyId === run.context.key.keyId;
 
 /**
- * The record's content, checked against its metadata (the additional data it was encrypted with);
- * anything that does not decrypt is a `CloudDecryptError`. A tombstone is decrypted like any
- * record: one with an empty or forged ciphertext never deletes anything.
+ * Read-modify-write of the run's bookkeeping under the sessions lock. The first write that
+ * records progress also resets the backoff (10.1): `failures = 1`, a retry 30 s out.
  */
-async function decrypt(run: RunState, record: CloudRecord): Promise<unknown> {
-  const { kind, id, updatedAt, deleted } = record;
-  try {
-    return await decryptRecord(run.context.rawKey, { kind, id, updatedAt, deleted }, record);
-  } catch (err: unknown) {
-    if (err instanceof CloudDecryptError) {
-      throw err;
-    }
-    // Not base64, say: as unreadable as a ciphertext that fails its check.
-    throw new CloudDecryptError(`The ${record.kind} record ${record.id} is not a ciphertext`);
-  }
-}
-
-/** Applies one record from the server. Whether it changed anything here. */
-async function applyRecord(
+async function updateMeta(
   run: RunState,
-  record: CloudRecord,
-  serverWinsTies: boolean,
-): Promise<boolean> {
-  // Decrypted first, whatever it is: nothing the server says outside the ciphertext is trusted.
-  const content = await decrypt(run, record);
-  await assertCurrent(run.context);
-  if (record.kind === 'settings') {
-    const settings = record.deleted ? null : parseSyncedSettings(content);
-    if (settings === null || record.id !== SETTINGS_RECORD_ID) {
-      throw new UnusableRecordError(record.kind, record.id);
+  update: (meta: CloudSyncMeta) => CloudSyncMeta,
+  progress = false,
+): Promise<void> {
+  await withSessionsLock(async () => {
+    const meta = await readSyncMetaFor(run.context);
+    if (meta === undefined) {
+      throw new StaleRunError();
     }
-    return applySettingsRecord(run.context, settings, record.updatedAt, serverWinsTies);
-  }
-  if (record.deleted && !isTombstonePayload(content)) {
-    throw new UnusableRecordError(record.kind, record.id);
-  }
-  if (record.kind === 'notes' || record.kind === 'image') {
-    return applyNotesRecord(record, content, serverWinsTies);
-  }
-  if (record.deleted) {
-    const outcome = await sessionRepo.applyRemote(
-      { type: 'deleted', id: record.id, updatedAt: record.updatedAt },
-      { serverWinsTies },
-    );
-    return outcome === 'applied';
-  }
-  const session = parseSyncedSession(content, record.id);
-  if (session === null || session.updatedAt !== record.updatedAt) {
-    throw new UnusableRecordError(record.kind, record.id);
-  }
-  const outcome = await sessionRepo.applyRemote({ type: 'session', session }, { serverWinsTies });
-  return outcome === 'applied';
+    let next = update(meta);
+    if (progress && !run.progressed) {
+      run.progressed = true;
+      const retryAt = Date.now() + SYNC_FALLBACK_MS;
+      next = { ...next, failures: 1, retryAt };
+      await armNoLaterThan(retryAt);
+    }
+    if (next !== meta) {
+      await writeSyncMeta(next);
+    }
+  });
 }
 
-/** A notes or screenshot record, through `notesRepo.applyRemote()`. Its content is already decrypted. */
-async function applyNotesRecord(
-  record: CloudRecord,
-  content: unknown,
-  serverWinsTies: boolean,
-): Promise<boolean> {
-  const { id, updatedAt } = record;
-  const options = { serverWinsTies };
-  if (record.kind === 'notes') {
-    if (record.deleted) {
-      const outcome = await notesRepo.applyRemote(
-        { type: 'notesDeleted', videoId: id, updatedAt },
-        options,
-      );
-      return outcome === 'applied';
+async function readMeta(run: RunState): Promise<CloudSyncMeta> {
+  const meta = await readSyncMetaFor(run.context);
+  if (meta === undefined) {
+    throw new StaleRunError();
+  }
+  return meta;
+}
+
+// ---------------------------------------------------------------------------
+// Decoding (outside the locks)
+// ---------------------------------------------------------------------------
+
+type Decoded =
+  | { type: 'session'; record: RecordOut; session: Session | null }
+  | { type: 'settings'; record: RecordOut; settings: SyncedSettings }
+  | { type: 'image'; record: RecordOut; dataUrl: string | null }
+  | { type: 'doc'; record: RecordOut; store: AnyDocStore; data: { id: string } }
+  | { type: 'held'; record: RecordOut; ref: string; reason: 'newer' | 'unknownType' }
+  | { type: 'unreadable'; record: RecordOut; undecryptable?: true };
+
+/**
+ * Decrypts and checks one record; anything that fails is `unreadable`, never applied. Only an
+ * AES failure is `undecryptable`: a record that decrypts was written by a device holding the key,
+ * so content this build cannot check (a newer schema) is never re-based over (8.3).
+ */
+async function decode(run: RunState, record: RecordOut): Promise<Decoded> {
+  const { kind, id, updatedAt, deleted } = record;
+  let content: unknown;
+  try {
+    content = await decryptRecord(run.context.key.dek, { kind, id, updatedAt, deleted }, record);
+  } catch {
+    return { type: 'unreadable', record, undecryptable: true };
+  }
+  if (deleted && kind !== 'doc' && !isTombstonePayload(content)) {
+    return { type: 'unreadable', record };
+  }
+  switch (kind) {
+    case 'session': {
+      if (deleted) {
+        return { type: 'session', record, session: null };
+      }
+      const session = parseSyncedSession(content, id);
+      return session === null || session.updatedAt !== updatedAt
+        ? { type: 'unreadable', record }
+        : { type: 'session', record, session };
     }
-    const notes = parseRemoteNotes(content, id);
-    if (notes === null || notes.updatedAt !== updatedAt) {
-      throw new UnusableRecordError(record.kind, id);
+    case 'settings': {
+      const settings = deleted || id !== SETTINGS_ID ? null : parseSyncedSettings(content);
+      return settings === null
+        ? { type: 'unreadable', record }
+        : { type: 'settings', record, settings };
     }
-    return (await notesRepo.applyRemote({ type: 'notes', notes }, options)) === 'applied';
+    case 'image': {
+      if (deleted) {
+        return { type: 'image', record, dataUrl: null };
+      }
+      return typeof content === 'string' && isImageDataUrl(content)
+        ? { type: 'image', record, dataUrl: content }
+        : { type: 'unreadable', record };
+    }
+    case 'doc': {
+      const check = await checkDoc(run.context.key.dek, record, content, run.stores);
+      if (check.state === 'ok') {
+        return { type: 'doc', record, store: check.store, data: check.data };
+      }
+      return check.state === 'held'
+        ? { type: 'held', record, ref: check.ref, reason: check.reason }
+        : { type: 'unreadable', record };
+    }
   }
-  if (record.deleted) {
-    const outcome = await notesRepo.applyRemote(
-      { type: 'imageDeleted', imageId: id, updatedAt },
-      options,
-    );
-    return outcome === 'applied';
-  }
-  if (typeof content !== 'string' || !isImageDataUrl(content)) {
-    throw new UnusableRecordError(record.kind, id);
-  }
-  const outcome = await notesRepo.applyRemote(
-    { type: 'image', imageId: id, image: content, updatedAt },
-    options,
-  );
-  return outcome === 'applied';
+}
+
+// ---------------------------------------------------------------------------
+// Applying (10.6)
+// ---------------------------------------------------------------------------
+
+type AnyDocTx = DocTx<{ id: string }, { id: string }>;
+
+/** The store that holds screenshots, if any. */
+function imageStore(run: RunState): AnyDocStore | undefined {
+  return run.stores.find((store) => store.collection.imageOf !== undefined);
 }
 
 /**
- * Last writer wins for the settings record, against `settingsUpdatedAt`. When the server's are
- * newer they are put in use: the bookkeeping first, under the lock where the decision is made
- * (their fingerprint, and the settings themselves as `pendingSettings`, so the change listener
- * takes none of the writes below for a change of this device's own), then the writes
- * (`writeReceivedSettings()`), which clear `pendingSettings` when they are all done. A run cut
- * short in between leaves them pending, and the next sync writes them again before anything else.
+ * Applies a batch store by store, each in one write: sessions, then each doc store with its
+ * screenshots, then the settings, then the held and unreadable marks. Records of one batch are
+ * resolved in order over one state. Returns the refs it held (blocked) again.
  */
+async function applyBatch(
+  run: RunState,
+  decoded: readonly Decoded[],
+  serverWinsTies: boolean,
+): Promise<Set<string>> {
+  const belongs = belongsTo(run);
+  const sessions = decoded.filter((item) => item.type === 'session');
+  if (sessions.length > 0) {
+    const changes: RemoteSessionChange[] = sessions.map((item) =>
+      item.session === null
+        ? {
+            type: 'deleted',
+            id: item.record.id,
+            updatedAt: item.record.updatedAt,
+            raw: item.record,
+          }
+        : { type: 'session', session: item.session, raw: item.record },
+    );
+    const outcomes = await sessionRepo.applyRemoteBatch(changes, { serverWinsTies, belongs });
+    if (outcomes === null) {
+      throw new StaleRunError();
+    }
+    run.pulled += outcomes.filter((outcome) => outcome === 'applied').length;
+  }
+  const now = Date.now();
+  const heldLocal: { ref: string; record: RecordOut }[] = [];
+  const images = decoded.filter((item) => item.type === 'image');
+  const screenshots = imageStore(run);
+  if (images.length > 0 && screenshots === undefined) {
+    heldLocal.push(
+      ...images.map((item) => ({ ref: `image:${item.record.id}`, record: item.record })),
+    );
+  }
+  for (const store of run.stores) {
+    const docs: DecodedDoc[] = decoded
+      .filter((item) => item.type === 'doc' && item.store === store)
+      .map((item) => (item.type === 'doc' ? { record: item.record, data: item.data } : null))
+      .filter((item): item is DecodedDoc => item !== null);
+    // The screenshots go in the same write as their store's docs, after them (10.6).
+    const after =
+      store === screenshots && images.length > 0
+        ? (tx: AnyDocTx) => applyImagesIn(run, tx, images, serverWinsTies, now)
+        : undefined;
+    const result = await applyDocBatch(store, docs, run.context.key.dek, now, belongs, after);
+    run.pulled += result.applied;
+    heldLocal.push(...result.held);
+  }
+  const settings = decoded.filter((item) => item.type === 'settings').at(-1);
+  if (settings !== undefined) {
+    if (
+      await applySettingsRecord(run, settings.settings, settings.record.updatedAt, serverWinsTies)
+    ) {
+      run.pulled += 1;
+    }
+  }
+  const held = [
+    ...decoded
+      .filter((item) => item.type === 'held')
+      .map((item) => ({ ref: item.ref, record: item.record, reason: item.reason })),
+    ...heldLocal.map((item) => ({ ...item, reason: 'localUnreadable' as const })),
+  ];
+  const unreadable = decoded
+    .filter((item) => item.type === 'unreadable')
+    .map((item) => item.record);
+  const readable = decoded.filter((item) => item.type !== 'unreadable').map((item) => item.record);
+  if (unreadable.length > 0) {
+    run.problems.push(new CloudDecryptError(`${unreadable.length} records could not be read`));
+  }
+  if (held.some((item) => item.reason !== 'localUnreadable')) {
+    run.problems.push(new ExplainedError('Items need a newer version', 'errorCloudNewerData'));
+  }
+  await markHeldAndUnreadable(run, held, unreadable, readable);
+  return new Set(held.map((item) => item.ref));
+}
+
+/** The blocked and unreadable marks of a batch, with every raw copy, in one write (8.3). */
+async function markHeldAndUnreadable(
+  run: RunState,
+  held: readonly {
+    ref: string;
+    record: RecordOut;
+    reason: 'newer' | 'unknownType' | 'localUnreadable';
+  }[],
+  unreadable: readonly RecordOut[],
+  readable: readonly RecordOut[],
+): Promise<void> {
+  if (held.length === 0 && unreadable.length === 0 && readable.length === 0) {
+    return;
+  }
+  await withSessionsLock(async () => {
+    const meta = await readSyncMetaFor(run.context);
+    if (meta === undefined) {
+      throw new StaleRunError();
+    }
+    const entries: Record<string, unknown> = {};
+    const next: CloudSyncMeta = {
+      ...meta,
+      blocked: { ...meta.blocked },
+      unreadable: { ...meta.unreadable },
+    };
+    for (const record of readable) {
+      delete next.unreadable[`${record.kind}:${record.id}`];
+    }
+    for (const record of unreadable) {
+      next.unreadable[`${record.kind}:${record.id}`] = record.updatedAt;
+    }
+    for (const { ref, record, reason } of held) {
+      const existing = next.blocked[ref];
+      // Replay floor: only a newer record replaces the raw copy.
+      if (existing !== undefined && record.updatedAt <= existing.at) {
+        continue;
+      }
+      const raw = cloudRawKey(record.kind, record.id);
+      if (existing !== undefined && existing.raw !== raw) {
+        entries[existing.raw] = null;
+      }
+      next.blocked[ref] = { at: record.updatedAt, reason, raw };
+      entries[raw] = record;
+    }
+    entries[CLOUD_SYNC_META_KEY] = next;
+    await setThenClean(entries);
+  });
+}
+
+/**
+ * Screenshots (10.5), inside the screenshot store's transaction after its docs: immutable, the newer stamp wins; a
+ * tombstone never removes a picture a readable local item references (it is marked to send
+ * again instead); with no copy here a live picture must be newer than every floor.
+ */
+async function applyImagesIn(
+  run: RunState,
+  tx: AnyDocTx,
+  images: readonly { record: RecordOut; dataUrl: string | null }[],
+  serverWinsTies: boolean,
+  now: number,
+): Promise<number> {
+  if (!belongsTo(run)(tx.meta)) {
+    throw new StaleMetaError();
+  }
+  const meta = tx.meta;
+  let applied = 0;
+  for (const { record, dataUrl } of images) {
+    const id = record.id;
+    const at = record.updatedAt;
+    const local = (await tx.readImage?.(id)) ?? null;
+    if (local === 'unreadable') {
+      continue;
+    }
+    const dirty = meta.images.dirty[id];
+    const deleted = meta.images.deleted[id];
+    const pending = Math.max(dirty ?? 0, deleted ?? 0);
+    const wins = at > pending || (serverWinsTies && at === pending);
+    const known = meta.images.known[id];
+    meta.images.known = withKnownImage(meta.images, id, at).known;
+    delete meta.unreadable[`image:${id}`];
+    if (dataUrl === null) {
+      if (await tx.imageReferenced?.(id)) {
+        if (local !== null) {
+          meta.images.dirty[id] = Math.max(now, at + 1);
+          delete meta.images.deleted[id];
+          meta.changedAt = Math.max(now, (meta.changedAt ?? 0) + 1);
+        }
+        continue;
+      }
+      if (!wins) {
+        continue;
+      }
+      delete meta.images.dirty[id];
+      delete meta.images.deleted[id];
+      delete meta.images.owner[id];
+      if (local !== null) {
+        tx.removeImage?.(id);
+        applied += 1;
+      }
+      continue;
+    }
+    if (local === null) {
+      const floor = Math.max(deleted ?? 0, known ?? 0);
+      if (at <= floor && (deleted !== undefined || known !== undefined)) {
+        continue;
+      }
+      tx.putImage?.(id, dataUrl);
+      delete meta.images.deleted[id];
+      delete meta.images.owner[id];
+      applied += 1;
+      continue;
+    }
+    if (wins) {
+      delete meta.images.dirty[id];
+      delete meta.images.deleted[id];
+    }
+  }
+  return applied;
+}
+
+/** Last writer wins for the settings record; the writes follow (`writeReceivedSettings()`). */
 async function applySettingsRecord(
-  context: SyncContext,
+  run: RunState,
   settings: SyncedSettings,
   updatedAt: number,
   serverWinsTies: boolean,
 ): Promise<boolean> {
-  const apply = await withLock(async () => {
-    const meta = await readSyncMetaFor(context);
-    if (meta === undefined) {
-      return false;
-    }
+  let apply = false;
+  await updateMeta(run, (meta) => {
     const remoteWins =
       updatedAt > meta.settingsUpdatedAt ||
       (serverWinsTies && updatedAt === meta.settingsUpdatedAt);
     if (!remoteWins) {
       if (updatedAt < meta.settingsUpdatedAt && !meta.settingsDirty) {
-        // This device's settings are newer and yet not pending (the server lost a write): send them.
-        await writeSyncMeta({ ...meta, settingsDirty: true });
+        return { ...meta, settingsDirty: true };
       }
-      return false;
+      return meta;
     }
-    await writeSyncMeta({
+    apply = true;
+    return {
       ...meta,
       settingsHash: settingsFingerprint(settings),
       settingsSyncedAt: updatedAt,
       settingsUpdatedAt: updatedAt,
       settingsDirty: false,
       pendingSettings: { ...settings },
-    });
-    return true;
+    };
   });
-  if (!apply) {
-    return false;
+  if (apply) {
+    await writeReceivedSettings(run, settings);
   }
-  await writeReceivedSettings(context, settings);
-  return true;
+  return apply;
 }
 
-/**
- * Writes received settings on this device, then marks them written. The session settings go first
- * and the language last: in the app page a new `uiLanguage` reloads the page as soon as it lands
- * (`followUiLanguageChanges()`), and nothing after it may be needed. `pendingSettings` is cleared
- * only when it still holds these settings (a newer record may have replaced them meanwhile).
- */
-async function writeReceivedSettings(
-  context: SyncContext,
-  settings: SyncedSettings,
-): Promise<void> {
-  await assertCurrent(context);
+/** Writes received settings here (the language last), then clears `pendingSettings`. */
+async function writeReceivedSettings(run: RunState, settings: SyncedSettings): Promise<void> {
+  await assertCurrent(run.context);
   await sessionRepo.setSettings(settings.sessionSettings);
-  await assertCurrent(context);
+  await assertCurrent(run.context);
   await chrome.storage.sync.set({ ...settings.sort, [UI_LANGUAGE_KEY]: settings.uiLanguage });
   const written = settingsFingerprint(settings);
-  await updateMeta(context, (meta) => {
+  await updateMeta(run, (meta) => {
     const pending = parseSyncedSettings(meta.pendingSettings);
     if (pending === null || settingsFingerprint(pending) !== written) {
       return meta;
@@ -610,522 +722,793 @@ async function writeReceivedSettings(
   });
 }
 
-/** Finishes writing settings an earlier run received but could not write to the end. */
-async function resumeSettingsApply(context: SyncContext): Promise<void> {
-  const meta = await readSyncMetaFor(context);
-  const pending = parseSyncedSettings(meta?.pendingSettings);
+async function resumeSettingsApply(run: RunState): Promise<void> {
+  const pending = parseSyncedSettings((await readMeta(run)).pendingSettings);
   if (pending !== null) {
-    await writeReceivedSettings(context, pending);
-  }
-}
-
-function recordKey(record: { kind: CloudRecordKind; id: string }): string {
-  return `${record.kind}:${record.id}`;
-}
-
-/** Applies one record, keeping a failure to read it as a problem of the run. */
-async function applyRecordSafely(
-  run: RunState,
-  record: CloudRecord,
-  serverWinsTies: boolean,
-): Promise<boolean> {
-  try {
-    const applied = await applyRecord(run, record, serverWinsTies);
-    run.read.set(recordKey(record), null);
-    return applied;
-  } catch (err: unknown) {
-    if (err instanceof ExplainedError && err.userKey === 'errorCloudDecrypt') {
-      // Never deletes or changes anything here: the record is skipped, the local copy stays.
-      console.warn(`[tabinet:sync] skipped ${record.kind} record ${record.id}`, err.message);
-      run.problems.push(err);
-      run.read.set(recordKey(record), record.updatedAt);
-      return false;
-    }
-    throw err;
+    await writeReceivedSettings(run, pending);
   }
 }
 
 /**
- * Reads the change feed from the stored cursor to its end, storing the cursor after each page. When
- * a page asked for it (`rereadFeed`: notes that won here reference a screenshot this device had
- * already removed), the feed is read once more from the start in the same run.
+ * At the start of a run (8.3): every held ref this build can now apply (a body that reads now, a
+ * type or version it knows now) is applied from its raw copy through the normal rule, and only
+ * once that is stored do its raw copy and mark go, in one write. A run cut in between applies it
+ * again next time, which the replay floors make harmless; the other order would lose the record,
+ * since the cursor is already past it.
  */
-async function pull(run: RunState): Promise<void> {
-  const meta = await readSyncMetaFor(run.context);
-  if (meta === undefined) {
+async function retryBlocked(run: RunState): Promise<void> {
+  const meta = await readMeta(run);
+  const entries = Object.entries(meta.blocked);
+  if (entries.length === 0) {
     return;
   }
-  await pullFrom(run, meta.rereadFeed === true ? 0 : meta.cursor);
-  let reread = false;
-  await updateMeta(run.context, (current) => {
-    if (current.rereadFeed !== true) {
-      return current;
-    }
-    reread = true;
-    const next = { ...current, cursor: 0 };
-    delete next.rereadFeed;
-    return next;
-  });
-  if (reread) {
-    await pullFrom(run, 0);
-  }
-}
-
-async function pullFrom(run: RunState, start: number): Promise<void> {
-  let cursor = start;
-  for (;;) {
-    await assertCurrent(run.context);
-    const page = await getRecords(
-      run.context.account.token,
-      cursor,
-      run.options.pageSize,
-      run.options,
-    );
-    // Screenshots after everything else on the page: a picture whose note is on the same page then
-    // lands after that note, never as an orphan the repair pass could take for a leftover.
-    const ordered = [
-      ...page.records.filter((record) => record.kind !== 'image'),
-      ...page.records.filter((record) => record.kind === 'image'),
-    ];
-    for (const record of ordered) {
-      if (record.kind === 'image' && record.deleted) {
-        run.imageDeletedOnServer = true;
-      }
-      if (await applyRecordSafely(run, record, false)) {
-        run.pulled += 1;
-      }
-    }
-    cursor = Math.max(cursor, page.next);
-    // With the cursor, in one write: past it, nothing would say that a record was skipped.
-    await updateMeta(run.context, (current) => ({
-      ...withReadResults(current, run.read),
-      cursor,
-    }));
-    run.read.clear();
-    if (!page.hasMore || page.records.length === 0) {
-      return;
-    }
-  }
-}
-
-/** Which bookkeeping set a pushed record came from. */
-type OutgoingSet = 'dirty' | 'deleted' | 'settings';
-
-/** One record to push and the bookkeeping entry it settles. */
-interface Outgoing {
-  record: CloudRecord;
-  /** Which set the record came from (of its kind) and the stamp it had when read. */
-  entry: { set: OutgoingSet; stamp: number; hash?: string };
-}
-
-/** The kinds tracked in a `RecordTrack` of `cloudSyncMeta`. */
-type TrackedKind = 'notes' | 'image';
-
-function trackKey(kind: TrackedKind): 'notes' | 'images' {
-  return kind === 'notes' ? 'notes' : 'images';
-}
-
-/** Encrypts one live record, or reports it too large (it then stays pending, and local). */
-async function outgoingRecord(
-  run: RunState,
-  recordMeta: { kind: CloudRecordKind; id: string; updatedAt: number },
-  value: unknown,
-  stamp: number,
-): Promise<Outgoing | undefined> {
-  const meta = { ...recordMeta, deleted: false };
-  const payload = await encryptRecord(run.context.rawKey, meta, value);
-  if (payload.ciphertext.length > POLICY.record.maxCiphertextBytes) {
-    run.problems.push(new RecordTooLargeError(recordMeta.kind, recordMeta.id));
-    return undefined;
-  }
-  return { record: { ...meta, ...payload }, entry: { set: 'dirty', stamp } };
-}
-
-/** The tombstones of one kind\'s pending deletions. */
-async function outgoingTombstones(
-  run: RunState,
-  kind: CloudRecordKind,
-  deleted: Record<string, number>,
-): Promise<Outgoing[]> {
-  const outgoing: Outgoing[] = [];
-  for (const [id, deletedAt] of Object.entries(deleted)) {
-    if (!RECORD_ID.test(id)) {
+  const stored = await chrome.storage.local.get(entries.map(([, blocked]) => blocked.raw));
+  const decoded: Decoded[] = [];
+  const done = new Map<string, number>();
+  for (const [ref, blocked] of entries) {
+    const raw: unknown = stored[blocked.raw];
+    if (!isRecord(raw)) {
+      done.set(ref, blocked.at);
       continue;
     }
-    const recordMeta = { kind, id, updatedAt: deletedAt, deleted: true };
-    const payload = await encryptRecord(run.context.rawKey, recordMeta, TOMBSTONE_PAYLOAD);
-    outgoing.push({
-      record: { ...recordMeta, ...payload },
-      entry: { set: 'deleted', stamp: deletedAt },
-    });
-  }
-  return outgoing;
-}
-
-/** The notes (`kind: 'notes'`) and screenshots (`kind: 'image'`) this device has to send. */
-async function collectNotesOutgoing(
-  run: RunState,
-  meta: CloudSyncMeta,
-): Promise<{ notes: Outgoing[]; images: Outgoing[] }> {
-  const notes: Outgoing[] = [];
-  const images: Outgoing[] = [];
-  if (meta.notes === undefined || meta.images === undefined) {
-    return { notes, images };
-  }
-  for (const [id, stamp] of Object.entries(meta.notes.dirty)) {
-    if (!RECORD_ID.test(id)) {
+    const item = await decode(run, raw as unknown as RecordOut);
+    if (item.type === 'held' || item.type === 'unreadable') {
       continue;
     }
-    let body: VideoNotes | undefined;
-    try {
-      body = await notesRepo.get(id);
-    } catch {
-      body = undefined;
-    }
-    if (body === undefined) {
-      // Gone (its tombstone is pending instead) or unreadable here: nothing to send.
-      await updateMeta(run.context, (current) => dropEntry(current, 'notes', 'dirty', id, stamp));
+    if (blocked.reason === 'localUnreadable' && !(await localReadsNow(run, ref))) {
       continue;
     }
-    const item = await outgoingRecord(
-      run,
-      { kind: 'notes', id, updatedAt: body.updatedAt },
-      body,
-      stamp,
-    );
-    if (item !== undefined) {
-      notes.push(item);
-    }
+    decoded.push(item);
+    done.set(ref, blocked.at);
   }
-  notes.push(...(await outgoingTombstones(run, 'notes', meta.notes.deleted)));
-  for (const [id, stamp] of Object.entries(meta.images.dirty)) {
-    if (!RECORD_ID.test(id)) {
-      continue;
-    }
-    const image = await notesRepo.getImage(id);
-    if (image === undefined) {
-      await updateMeta(run.context, (current) => dropEntry(current, 'image', 'dirty', id, stamp));
-      continue;
-    }
-    // A picture has no `updatedAt` of its own: the stamp it was stored with is its version.
-    const item = await outgoingRecord(run, { kind: 'image', id, updatedAt: stamp }, image, stamp);
-    if (item !== undefined) {
-      images.push(item);
-    }
-  }
-  images.push(...(await outgoingTombstones(run, 'image', meta.images.deleted)));
-  return { notes, images };
-}
-
-async function collectOutgoing(run: RunState): Promise<Outgoing[]> {
-  // Settings first: bring the dirty flag in line with the settings as they are now.
-  await noteSettingsChange('check');
-  const meta = await readSyncMetaFor(run.context);
-  if (meta === undefined) {
-    return [];
-  }
-  run.collected = meta;
-  const outgoing: Outgoing[] = [];
-
-  const dirtyIds = Object.keys(meta.dirtySessions).filter((id) => RECORD_ID.test(id));
-  const { bodies } = await sessionRepo.getMany(dirtyIds);
-  for (const id of dirtyIds) {
-    const stamp = meta.dirtySessions[id];
-    const body = bodies.get(id);
-    if (stamp === undefined) {
-      continue;
-    }
-    if (body === undefined || body.kind !== 'saved') {
-      // Gone (its tombstone is pending instead) or not a saved session: nothing to send.
-      await updateMeta(run.context, (current) => dropEntry(current, 'session', 'dirty', id, stamp));
-      continue;
-    }
-    const item = await outgoingRecord(
-      run,
-      { kind: 'session', id, updatedAt: body.updatedAt },
-      body,
-      stamp,
-    );
-    if (item !== undefined) {
-      outgoing.push(item);
-    }
-  }
-  outgoing.push(...(await outgoingTombstones(run, 'session', meta.deletedSessions)));
-
-  // Notes before their screenshots, so another device reads a note before its picture.
-  const { notes, images } = await collectNotesOutgoing(run, meta);
-  outgoing.push(...notes);
-
-  if (meta.settingsDirty) {
-    const settings = await readLocalSettings();
-    const recordMeta = {
-      kind: 'settings',
-      id: SETTINGS_RECORD_ID,
-      updatedAt: meta.settingsUpdatedAt,
-      deleted: false,
-    } as const;
-    const payload = await encryptRecord(run.context.rawKey, recordMeta, settings);
-    outgoing.push({
-      record: { ...recordMeta, ...payload },
-      entry: {
-        set: 'settings',
-        stamp: meta.settingsUpdatedAt,
-        hash: settingsFingerprint(settings),
-      },
-    });
-  }
-  outgoing.push(...images);
-  return outgoing;
-}
-
-/**
- * `meta` without the entry `id` of `set` for `kind`, when it still has the `stamp` it was sent
- * with. Pure.
- */
-function dropEntry(
-  meta: CloudSyncMeta,
-  kind: CloudRecordKind,
-  set: 'dirty' | 'deleted',
-  id: string,
-  stamp: number,
-): CloudSyncMeta {
-  if (kind === 'notes' || kind === 'image') {
-    const key = trackKey(kind);
-    const track = meta[key];
-    if (track === undefined || track[set][id] !== stamp) {
-      return meta;
-    }
-    const entries = { ...track[set] };
-    delete entries[id];
-    return { ...meta, [key]: { ...track, [set]: entries } };
-  }
-  const key = set === 'dirty' ? 'dirtySessions' : 'deletedSessions';
-  if (meta[key][id] !== stamp) {
-    return meta;
-  }
-  const entries = { ...meta[key] };
-  delete entries[id];
-  return { ...meta, [key]: entries };
-}
-
-/** `meta` with `stamp` remembered as a version of `id` of `kind`, never lowering it. Pure. */
-function withKnown(
-  meta: CloudSyncMeta,
-  kind: CloudRecordKind,
-  id: string,
-  stamp: number,
-): CloudSyncMeta {
-  if (kind !== 'notes' && kind !== 'image') {
-    return withKnownVersion(meta, id, stamp);
-  }
-  const key = trackKey(kind);
-  const track = meta[key];
-  if (track === undefined || (track.known[id] ?? 0) >= stamp) {
-    return meta;
-  }
-  return { ...meta, [key]: { ...track, known: { ...track.known, [id]: stamp } } };
-}
-
-/**
- * `meta` after the server accepted `item`; an entry changed again since is left pending. A
- * record's stamp is remembered in `knownVersions` (or its kind's `known`) either way, so the
- * server cannot later pass off anything older as new. Pure.
- */
-export function afterApplied(
-  meta: CloudSyncMeta,
-  entry: Outgoing['entry'],
-  kind: CloudRecordKind,
-  id: string,
-): CloudSyncMeta {
-  if (entry.set === 'settings') {
-    if (!meta.settingsDirty || meta.settingsUpdatedAt !== entry.stamp) {
-      return meta;
-    }
-    return {
-      ...meta,
-      settingsDirty: false,
-      settingsHash: entry.hash,
-      settingsSyncedAt: entry.stamp,
-    };
-  }
-  return withKnown(dropEntry(meta, kind, entry.set, id, entry.stamp), kind, id, entry.stamp);
-}
-
-/**
- * `meta` after the server refused screenshot `id` over the account's cap: the picture is held back
- * (it stays here and is offered again once a screenshot is deleted somewhere). An entry changed
- * since is left pending. Pure.
- */
-export function afterImageRefused(meta: CloudSyncMeta, id: string, stamp: number): CloudSyncMeta {
-  const dropped = dropEntry(meta, 'image', 'dirty', id, stamp);
-  if (dropped === meta) {
-    return meta;
-  }
-  return withHeldImages(dropped, { ...meta.heldImages, [id]: stamp });
-}
-
-/**
- * `meta` with every held-back screenshot pending again, once a deletion made room on the server.
- * One the server still refuses is held back again by that push. Pure.
- */
-export function withHeldImagesReleased(meta: CloudSyncMeta): CloudSyncMeta {
-  const held = meta.heldImages;
-  if (held === undefined || meta.images === undefined) {
-    return meta;
-  }
-  const dirty = { ...meta.images.dirty };
-  for (const [id, stamp] of Object.entries(held)) {
-    if (meta.images.deleted[id] === undefined) {
-      dirty[id] = Math.max(dirty[id] ?? 0, stamp);
-    }
-  }
-  return { ...withHeldImages(meta, {}), images: { ...meta.images, dirty } };
-}
-
-/**
- * After a screenshot was deleted on the server in this run, the held-back ones are offered again.
- * Released before the push they go with it; released by the push itself (`'afterPush'`) they
- * count as a change of this device's, so another run follows in seconds.
- */
-async function releaseHeldImages(run: RunState, when: 'beforePush' | 'afterPush'): Promise<void> {
-  if (!run.imageDeletedOnServer) {
+  const heldAgain = decoded.length > 0 ? await applyBatch(run, decoded, false) : new Set<string>();
+  if (done.size === 0) {
     return;
   }
-  run.imageDeletedOnServer = false;
-  await updateMeta(run.context, (meta) => {
-    const next = withHeldImagesReleased(meta);
-    return next !== meta && when === 'afterPush' ? withLocalChange(next, Date.now()) : next;
-  });
-}
-
-async function push(run: RunState): Promise<void> {
-  const outgoing = await collectOutgoing(run);
-  const byKey = new Map(outgoing.map((item) => [recordKey(item.record), item]));
-  for (const batch of splitIntoBatches(outgoing.map((item) => item.record))) {
-    // Checked after collecting, so nothing edited after a sign-out goes out with it.
-    await assertCurrent(run.context);
-    const results = await postRecords(run.context.account.token, batch, run.options);
-    const applied: { kind: CloudRecordKind; id: string; entry: Outgoing['entry'] }[] = [];
-    for (const result of results) {
-      const item = byKey.get(recordKey(result));
-      if (item === undefined) {
+  await withSessionsLock(async () => {
+    const current = await readSyncMetaFor(run.context);
+    if (current === undefined) {
+      throw new StaleRunError();
+    }
+    const blocked = { ...current.blocked };
+    const cleanup: Record<string, unknown> = {};
+    for (const [ref, at] of done) {
+      const entry = blocked[ref];
+      // Held again by the apply, or replaced by a newer record: the mark stays.
+      if (entry === undefined || heldAgain.has(ref) || entry.at !== at) {
         continue;
       }
-      if (result.status === 'applied') {
-        applied.push({ kind: result.kind, id: result.id, entry: item.entry });
-        // The server now holds this device's version, which it can read.
-        run.read.set(recordKey(result), null);
-        if (result.kind === 'image' && item.record.deleted) {
-          run.imageDeletedOnServer = true;
+      cleanup[entry.raw] = null;
+      delete blocked[ref];
+    }
+    if (Object.keys(cleanup).length === 0) {
+      return;
+    }
+    await setThenClean({ ...cleanup, [CLOUD_SYNC_META_KEY]: { ...current, blocked } });
+  });
+}
+
+async function localReadsNow(run: RunState, ref: string): Promise<boolean> {
+  const at = ref.indexOf(':');
+  const kind = ref.slice(0, at);
+  const id = ref.slice(at + 1);
+  if (kind === 'session') {
+    return sessionRepo.get(id).then(
+      () => true,
+      () => false,
+    );
+  }
+  const store = run.stores.find((candidate) => candidate.collection.type === kind);
+  if (store === undefined) {
+    return kind === 'image' && imageStore(run) !== undefined;
+  }
+  return store.transact(async (tx) => (await tx.read(id)).state !== 'unreadable');
+}
+
+// ---------------------------------------------------------------------------
+// Pull (10.3)
+// ---------------------------------------------------------------------------
+
+/** Reads the feed to a complete end. `false`: stopped at `maxRequestsPerRun` with more to read. */
+async function pull(run: RunState): Promise<boolean> {
+  let rewound = false;
+  for (let requests = 0; ; requests += 1) {
+    let meta = await readMeta(run);
+    if (meta.rereadFeed === true) {
+      await updateMeta(run, (current) => {
+        const next = { ...current, cursor: 0 };
+        delete next.rereadFeed;
+        return next;
+      });
+      meta = await readMeta(run);
+    }
+    if (requests >= POLICY.pull.maxRequestsPerRun) {
+      await updateMeta(run, (current) => ({ ...current, pullIncomplete: true }));
+      return false;
+    }
+    await assertCurrent(run.context);
+    let again = false;
+    let ended: { cursor: number; complete: boolean } | undefined;
+    for await (const event of streamRecords(
+      run.context.account.token,
+      run.context.key.keyId,
+      meta.cursor,
+      { ...run.options, inWorker: run.worker },
+    )) {
+      if (event.type === 'start') {
+        run.usage = event.usage;
+        if (event.through < meta.cursor) {
+          if (rewound) {
+            // A second rewind in one run: read nothing more now.
+            continue;
+          }
+          // The database was rewound: read it again from 0, once a run.
+          rewound = true;
+          await updateMeta(run, (current) => ({ ...current, cursor: 0, usage: event.usage }));
+          again = true;
+          break;
         }
         continue;
       }
-      if (result.status === 'rejected') {
-        await applyRejected(run, item, result.reason);
+      if (event.type === 'batch') {
+        await assertCurrent(run.context);
+        const decoded = await Promise.all(event.records.map((record) => decode(run, record)));
+        await applyBatch(run, decoded, false);
+        await updateMeta(
+          run,
+          (current) => ({ ...current, cursor: event.cursor, usage: run.usage ?? current.usage }),
+          true,
+        );
         continue;
       }
-      // Stale: the server's copy is as new or newer and wins. Applying it drops the pending entry,
-      // unless this device changed the item again meanwhile (then it is sent next time).
-      if (result.current !== undefined) {
-        await applyStale(run, item, result.current);
+      ended = event;
+    }
+    if (again) {
+      continue;
+    }
+    if (ended === undefined) {
+      throw new ExplainedError('The stream ended without its end line', 'errorCloudInterrupted');
+    }
+    const end = ended;
+    await updateMeta(run, (current) => ({
+      ...current,
+      cursor: end.cursor,
+      usage: run.usage ?? current.usage,
+    }));
+    if (!end.complete) {
+      continue;
+    }
+    const after = await readMeta(run);
+    if (after.rereadFeed === true) {
+      continue;
+    }
+    if (after.pullIncomplete === true) {
+      await updateMeta(run, (current) => {
+        const next = { ...current };
+        delete next.pullIncomplete;
+        return next;
+      });
+    }
+    return true;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Restamp (10.4)
+// ---------------------------------------------------------------------------
+
+/** Every pending stamp too far ahead becomes `max(now, known + 1)`, body and bookkeeping together. */
+async function restampAhead(run: RunState): Promise<void> {
+  const now = Date.now();
+  const limit = now + POLICY.record.maxClockAheadMs;
+  const meta = await readMeta(run);
+  const sessionStamps = [
+    ...Object.entries(meta.sessions.dirty),
+    ...Object.entries(meta.sessions.deleted),
+  ]
+    .filter(([, stamp]) => stamp > limit)
+    .map(([id]) => [id, Math.max(now, (meta.sessions.known[id] ?? 0) + 1)] as const);
+  if (sessionStamps.length > 0) {
+    await sessionRepo.restampSaved(sessionStamps, belongsTo(run));
+  }
+  for (const store of run.stores) {
+    await store.transact(async (tx) => {
+      if (!belongsTo(run)(tx.meta)) {
+        throw new StaleMetaError();
+      }
+      for (const [ref, track] of Object.entries(tx.meta.docs)) {
+        if (
+          !ref.startsWith(`${store.collection.type}:`) ||
+          track.pending === null ||
+          track.pending.at <= limit
+        ) {
+          continue;
+        }
+        const at = Math.max(now, (track.known?.at ?? 0) + 1);
+        track.pending = { ...track.pending, at };
+        if (!track.pending.deleted) {
+          const local = await tx.read(ref.slice(store.collection.type.length + 1));
+          if (local.state === 'live') {
+            tx.put(local.data, at);
+          }
+        }
+      }
+    });
+  }
+  await updateMeta(run, (current) => {
+    let changed = false;
+    const images = {
+      ...current.images,
+      dirty: { ...current.images.dirty },
+      deleted: { ...current.images.deleted },
+    };
+    for (const map of [images.dirty, images.deleted]) {
+      for (const [id, stamp] of Object.entries(map)) {
+        if (stamp > limit) {
+          map[id] = Math.max(now, (current.images.known[id] ?? 0) + 1);
+          changed = true;
+        }
       }
     }
-    if (applied.length > 0 || run.read.size > 0) {
-      run.pushed += applied.length;
-      await updateMeta(run.context, (meta) =>
-        applied.reduce(
-          (current, { kind, id, entry }) => afterApplied(current, entry, kind, id),
-          withReadResults(meta, run.read),
-        ),
-      );
-      run.read.clear();
+    let next = changed ? { ...current, images } : current;
+    if (next.settingsDirty && next.settingsUpdatedAt > limit) {
+      next = { ...next, settingsUpdatedAt: Math.max(now, (next.settingsSyncedAt ?? 0) + 1) };
     }
-  }
-}
-
-/**
- * A write the server refused. A screenshot over the account's cap is held back, quietly: Settings
- * says so once. Anything else stays pending and is reported.
- */
-async function applyRejected(
-  run: RunState,
-  item: Outgoing,
-  reason: string | undefined,
-): Promise<void> {
-  const { kind, id, deleted } = item.record;
-  if (kind === 'image' && !deleted && reason === IMAGE_LIMIT_REASON) {
-    await updateMeta(run.context, (meta) => afterImageRefused(meta, id, item.entry.stamp));
-    return;
-  }
-  run.problems.push(new RecordRejectedError(kind, id, reason));
-}
-
-async function applyStale(
-  run: RunState,
-  item: Outgoing,
-  current: CloudRecordWithSeq,
-): Promise<void> {
-  if (current.kind !== item.record.kind || current.id !== item.record.id) {
-    // An answer about another record settles nothing: the entry stays pending.
-    run.problems.push(new UnusableRecordError(current.kind, current.id));
-    return;
-  }
-  try {
-    await applyRecord(run, current, true);
-    run.read.set(recordKey(current), null);
-  } catch (err: unknown) {
-    if (!(err instanceof ExplainedError && err.userKey === 'errorCloudDecrypt')) {
-      throw err;
-    }
-    console.warn(`[tabinet:sync] the server's ${current.kind} ${current.id} does not decrypt`);
-    run.problems.push(err);
-    run.read.set(recordKey(current), current.updatedAt);
-    const { set, stamp } = item.entry;
-    if (set === 'deleted') {
-      // A deletion stays pending: dropping it on the word of an unreadable record would leave
-      // nothing here to refuse a later replay of the record's old body with. It is offered again.
-      return;
-    }
-    // The server's copy cannot be read here. This device's copy is kept untouched and no longer
-    // offered, so the push does not repeat forever.
-    if (set === 'dirty') {
-      const { kind, id } = item.record;
-      await updateMeta(run.context, (meta) => dropEntry(meta, kind, set, id, stamp));
-    } else {
-      await updateMeta(run.context, (meta) =>
-        meta.settingsUpdatedAt === stamp ? { ...meta, settingsDirty: false } : meta,
-      );
-    }
-  }
-}
-
-/** Remembers that Settings said screenshots are held back, so it says so only once. */
-export async function markHeldImagesNoticed(): Promise<void> {
-  await withLock(async () => {
-    const meta = await readSyncMeta();
-    if (meta?.heldImages !== undefined && meta.heldImagesNoticed !== true) {
-      await writeSyncMeta({ ...meta, heldImagesNoticed: true });
-    }
+    return next;
   });
 }
 
+// ---------------------------------------------------------------------------
+// Push (10.7)
+// ---------------------------------------------------------------------------
+
+interface OutItem {
+  ref: string;
+  record: RecordIn;
+  stamp: number;
+  deleted: boolean;
+  /** The settings fingerprint sent, for a settings record. */
+  settingsHash?: string;
+  store?: AnyDocStore;
+}
+
+async function encryptItem(
+  run: RunState,
+  ref: string,
+  kind: RecordKind,
+  id: string,
+  stamp: number,
+  deleted: boolean,
+  content: unknown,
+  baseSeq?: number | null,
+): Promise<OutItem | null> {
+  if (!isValidRecordId(kind, id, deleted) || !Number.isSafeInteger(stamp) || stamp < 0) {
+    run.problems.push(new ExplainedError(`${ref} cannot be sent`, 'errorCloudRejected'));
+    return null;
+  }
+  const payload = await encryptRecord(
+    run.context.key.dek,
+    { kind, id, updatedAt: stamp, deleted },
+    content,
+  );
+  const limit = deleted ? POLICY.record.maxTombstoneChars : POLICY.record.maxCiphertextBytes;
+  if (payload.ciphertext.length > limit) {
+    run.problems.push(new ItemTooLargeError(ref));
+    return null;
+  }
+  const record: RecordIn = { kind, id, updatedAt: stamp, deleted, ...payload };
+  if (kind === 'doc') {
+    record.baseSeq = baseSeq ?? null;
+  }
+  return { ref, record, stamp, deleted };
+}
+
+type Pass = 'tombstones' | 'imageTombstones' | 'live' | 'liveImages';
+
+/** The items of one pass, read and encrypted now (bodies are never loaded ahead). */
+async function collectPass(
+  run: RunState,
+  pass: Pass,
+  only?: ReadonlySet<string>,
+): Promise<OutItem[]> {
+  const meta = await readMeta(run);
+  const wanted = (ref: string, stamp: number) =>
+    !isHeld(meta, ref, stamp) &&
+    meta.blocked[ref] === undefined &&
+    (only === undefined || only.has(ref));
+  const items: OutItem[] = [];
+  const push = (item: OutItem | null) => {
+    if (item !== null) {
+      items.push(item);
+    }
+  };
+  if (pass === 'tombstones' || pass === 'live') {
+    const deleted = pass === 'tombstones';
+    const sessions = deleted ? meta.sessions.deleted : meta.sessions.dirty;
+    for (const [id, stamp] of Object.entries(sessions)) {
+      const ref = `session:${id}`;
+      if (!wanted(ref, stamp)) {
+        continue;
+      }
+      if (deleted) {
+        push(await encryptItem(run, ref, 'session', id, stamp, true, TOMBSTONE));
+        continue;
+      }
+      const body = await sessionRepo.get(id).catch(() => undefined);
+      if (body === undefined || body.kind !== 'saved' || body.updatedAt !== stamp) {
+        continue;
+      }
+      push(await encryptItem(run, ref, 'session', id, stamp, false, body));
+    }
+    for (const store of run.stores) {
+      const refs = Object.entries(meta.docs)
+        .filter(
+          ([ref, track]) =>
+            ref.startsWith(`${store.collection.type}:`) &&
+            track.pending !== null &&
+            track.pending.deleted === deleted &&
+            wanted(ref, track.pending.at),
+        )
+        .map(([ref]) => ref);
+      if (refs.length === 0) {
+        continue;
+      }
+      for (const doc of await readOutgoingDocs(store, refs, run.context.key.dek, belongsTo(run))) {
+        const item = await encryptItem(
+          run,
+          doc.ref,
+          'doc',
+          doc.recordId,
+          doc.at,
+          doc.deleted,
+          doc.content,
+          doc.baseSeq,
+        );
+        if (item !== null) {
+          items.push({ ...item, store });
+        }
+      }
+    }
+    if (!deleted && meta.settingsDirty && wanted(SETTINGS_REF, meta.settingsUpdatedAt)) {
+      const settings = await readLocalSettings();
+      const item = await encryptItem(
+        run,
+        SETTINGS_REF,
+        'settings',
+        SETTINGS_ID,
+        meta.settingsUpdatedAt,
+        false,
+        settings,
+      );
+      if (item !== null) {
+        items.push({ ...item, settingsHash: settingsFingerprint(settings) });
+      }
+    }
+    return items;
+  }
+  const store = imageStore(run);
+  if (store === undefined) {
+    return items;
+  }
+  if (pass === 'imageTombstones') {
+    for (const [id, stamp] of Object.entries(meta.images.deleted)) {
+      const ref = `image:${id}`;
+      const owner = meta.images.owner[id];
+      const ownerWaiting =
+        owner !== undefined &&
+        (meta.blocked[owner] !== undefined || meta.docs[owner]?.pending?.deleted === true);
+      if (wanted(ref, stamp) && !ownerWaiting) {
+        push(await encryptItem(run, ref, 'image', id, stamp, true, TOMBSTONE));
+      }
+    }
+    return items;
+  }
+  const dirty = Object.entries(meta.images.dirty).filter(([id, stamp]) =>
+    wanted(`image:${id}`, stamp),
+  );
+  if (dirty.length === 0) {
+    return items;
+  }
+  const pictures = await store.transact(async (tx) => {
+    const found: [string, number, string][] = [];
+    for (const [id, stamp] of dirty) {
+      const picture = await tx.readImage?.(id);
+      if (typeof picture === 'string' && picture !== 'unreadable') {
+        found.push([id, stamp, picture]);
+      } else if (picture === null) {
+        delete tx.meta.images.dirty[id];
+      }
+    }
+    return found;
+  });
+  for (const [id, stamp, picture] of pictures) {
+    push(await encryptItem(run, `image:${id}`, 'image', id, stamp, false, picture));
+  }
+  return items;
+}
+
+/** The worker's batch target: the stored one after a timeout, the policy size in a page. */
+async function batchTarget(run: RunState): Promise<number> {
+  if (!run.worker) {
+    return POLICY.request.pushBatchBytes;
+  }
+  return (await readMeta(run)).pushBatchBytes ?? POLICY.request.pushBatchBytes;
+}
+
+/** Releases every held entry whose reason's usage fell since it was refused (10.7). */
+function releaseHeld(
+  meta: CloudSyncMeta,
+  usage: Usage | undefined,
+): { meta: CloudSyncMeta; released: boolean } {
+  if (usage === undefined) {
+    return { meta, released: false };
+  }
+  const held = { ...meta.held };
+  let released = false;
+  for (const [ref, entry] of Object.entries(held)) {
+    const now = entry.reason === 'storage_limit' ? usage.bytes : usage.screenshots;
+    if (now < entry.usage) {
+      delete held[ref];
+      released = true;
+    }
+  }
+  return released ? { meta: { ...meta, held }, released } : { meta, released };
+}
+
+async function releaseNow(run: RunState): Promise<void> {
+  await updateMeta(run, (meta) => {
+    const result = releaseHeld(meta, run.usage);
+    if (result.released) {
+      run.released = true;
+      return withLocalChange(result.meta, Date.now());
+    }
+    return meta;
+  });
+}
+
+/** Sends `items` in batches; resolves the refs to send once more in this run. */
+async function send(run: RunState, items: readonly OutItem[]): Promise<Set<string>> {
+  const retry = new Set<string>();
+  let target = await batchTarget(run);
+  let index = 0;
+  while (index < items.length) {
+    const [batch] = splitIntoBatches(
+      items.slice(index).map((item) => item.record),
+      POLICY.request.maxRecordsPerPush,
+      target,
+    );
+    const count = batch?.length ?? 0;
+    const sent = items.slice(index, index + count);
+    index += count;
+    await assertCurrent(run.context);
+    let answer: { results: WriteResult[]; usage: Usage };
+    try {
+      answer = await postRecords(
+        run.context.account.token,
+        run.context.key.keyId,
+        sent.map((item) => item.record),
+        { ...run.options, inWorker: run.worker },
+      );
+    } catch (err: unknown) {
+      if (err instanceof CloudTimeoutError && run.worker) {
+        const size = Math.max(Math.floor(target / 2), recordBytes(sent[0]!.record) + 32);
+        await updateMeta(run, (meta) => ({ ...meta, pushBatchBytes: size }));
+      }
+      throw err;
+    }
+    if (run.worker && target < POLICY.request.pushBatchBytes) {
+      target = Math.min(target * 2, POLICY.request.pushBatchBytes);
+      const grown = target;
+      await updateMeta(run, (meta) => {
+        const next = { ...meta };
+        if (grown >= POLICY.request.pushBatchBytes) {
+          delete next.pushBatchBytes;
+        } else {
+          next.pushBatchBytes = grown;
+        }
+        return next;
+      });
+    }
+    const { results, usage } = answer;
+    if (
+      results.length !== sent.length ||
+      results.some(
+        (result, at) => result.kind !== sent[at]!.record.kind || result.id !== sent[at]!.record.id,
+      )
+    ) {
+      throw new ExplainedError(
+        'The push results do not match the records',
+        'errorCloudBadResponse',
+      );
+    }
+    run.usage = usage;
+    for (const ref of await settle(run, sent, results)) {
+      retry.add(ref);
+    }
+    await releaseNow(run);
+  }
+  return retry;
+}
+
+/** The bookkeeping after one push answer (10.7). Resolves the refs to send again. */
+async function settle(
+  run: RunState,
+  sent: readonly OutItem[],
+  results: readonly WriteResult[],
+): Promise<string[]> {
+  const retry: string[] = [];
+  const stale: { item: OutItem; current: RecordOut }[] = [];
+  let heldNow = false;
+  await updateMeta(
+    run,
+    (found) => {
+      let meta: CloudSyncMeta = {
+        ...found,
+        sessions: {
+          ...found.sessions,
+          dirty: { ...found.sessions.dirty },
+          deleted: { ...found.sessions.deleted },
+        },
+        images: {
+          ...found.images,
+          dirty: { ...found.images.dirty },
+          deleted: { ...found.images.deleted },
+          owner: { ...found.images.owner },
+        },
+        docs: { ...found.docs },
+        held: { ...found.held },
+        unreadable: { ...found.unreadable },
+      };
+      const usage = run.usage;
+      results.forEach((result, at) => {
+        const item = sent[at]!;
+        const id = item.record.id;
+        const localId = item.ref.slice(item.ref.indexOf(':') + 1);
+        if (result.status === 'applied' || result.status === 'absent') {
+          run.pushed += result.status === 'applied' ? 1 : 0;
+          delete meta.unreadable[`${item.record.kind}:${id}`];
+          delete meta.held[item.ref];
+          if (item.record.kind === 'session') {
+            const map = item.deleted ? meta.sessions.deleted : meta.sessions.dirty;
+            if (map[localId] === item.stamp) {
+              delete map[localId];
+            }
+            meta.sessions = withKnown(meta.sessions, localId, item.stamp);
+          } else if (item.record.kind === 'image') {
+            const map = item.deleted ? meta.images.deleted : meta.images.dirty;
+            if (map[localId] === item.stamp) {
+              delete map[localId];
+              if (item.deleted) {
+                delete meta.images.owner[localId];
+              }
+            }
+            meta.images = withKnownImage(meta.images, localId, item.stamp);
+          } else if (item.record.kind === 'settings') {
+            if (meta.settingsUpdatedAt === item.stamp) {
+              meta.settingsDirty = false;
+              meta.settingsHash = item.settingsHash;
+              meta.settingsSyncedAt = item.stamp;
+            }
+          } else {
+            const track = meta.docs[item.ref];
+            if (track !== undefined) {
+              const known =
+                track.known === null || track.known.at < item.stamp
+                  ? { at: item.stamp, deleted: item.deleted }
+                  : track.known;
+              meta.docs[item.ref] = {
+                ...track,
+                seq: result.status === 'applied' ? result.seq : track.seq,
+                known,
+                sent: [],
+                pending: track.pending?.at === item.stamp ? null : track.pending,
+              };
+            }
+          }
+          return;
+        }
+        if (result.status === 'rejected') {
+          if (result.reason === 'clock_ahead') {
+            run.problems.push(new ExplainedError(`${item.ref} is dated ahead`, 'errorCloudClock'));
+            return;
+          }
+          if (Object.keys(meta.held).length === 0) {
+            delete meta.heldNoticed;
+          }
+          meta.held[item.ref] = {
+            stamp: item.stamp,
+            reason: result.reason,
+            usage:
+              result.reason === 'storage_limit' ? (usage?.bytes ?? 0) : (usage?.screenshots ?? 0),
+          };
+          heldNow = true;
+          return;
+        }
+        // stale
+        if ('withheld' in result) {
+          retry.push(item.ref);
+          return;
+        }
+        if (result.current === null) {
+          const track = meta.docs[item.ref];
+          if (track !== undefined) {
+            meta.docs[item.ref] = { ...track, seq: null };
+          }
+          retry.push(item.ref);
+          return;
+        }
+        stale.push({ item, current: result.current });
+      });
+      if (heldNow) {
+        meta = { ...meta };
+      }
+      return meta;
+    },
+    results.some((result) => result.status === 'applied' || result.status === 'absent'),
+  );
+  let rereadNoted = (await readMeta(run)).rereadFeed === true;
+  for (const { item, current } of stale) {
+    if (current.kind !== item.record.kind || current.id !== item.record.id) {
+      continue;
+    }
+    const decoded = await decode(run, current);
+    if (decoded.type === 'unreadable') {
+      if (decoded.undecryptable === true) {
+        await rebase(run, item, current);
+        retry.push(item.ref);
+      } else {
+        await keepUnderUnreadable(run, item, current);
+      }
+      continue;
+    }
+    await applyBatch(run, [decoded], true);
+    let meta = await readMeta(run);
+    if (meta.rereadFeed === true && !rereadNoted) {
+      // A winning note needs a picture gone here (10.5): during a push that moves `changedAt`,
+      // so the next run reads the feed again soon rather than at the periodic check.
+      rereadNoted = true;
+      await updateMeta(run, (found) => ({
+        ...found,
+        changedAt: Math.max(Date.now(), (found.changedAt ?? 0) + 1),
+      }));
+      meta = await readMeta(run);
+    }
+    if (item.record.kind === 'doc' && meta.docs[item.ref]?.pending != null) {
+      retry.push(item.ref);
+    }
+  }
+  return retry;
+}
+
 /**
- * Records how the run ended and sets the soon alarm to match. A failed run is retried after
- * `retryDelayMs()`, however much was changed meanwhile. After one that reached the end the alarm
- * stays only for work that appeared after the push had read what to send: whatever the server
- * would not take waits for the next change or periodic check, so it cannot become a loop. Decided
- * under the sessions lock, so a change is either seen here or arms the alarm after this.
+ * A stale answer that decrypts but this build cannot read (invariant 13): never pushed over. The
+ * pending change stays as it is, unstamped, and the stored row is marked unreadable.
  */
+async function keepUnderUnreadable(
+  run: RunState,
+  item: OutItem,
+  current: RecordOut,
+): Promise<void> {
+  run.problems.push(new CloudDecryptError(`The stored ${item.ref} could not be read`));
+  await updateMeta(run, (meta) => ({
+    ...meta,
+    unreadable: { ...meta.unreadable, [`${current.kind}:${current.id}`]: current.updatedAt },
+  }));
+}
+
+/**
+ * An undecryptable stale answer (8.3): its seq and stamp are plain metadata, so the pending local
+ * version is re-based on that seq and restamped above it, to be sent once more. Nothing is learned
+ * from its content, and the pending change is never cleared.
+ */
+async function rebase(run: RunState, item: OutItem, current: RecordOut): Promise<void> {
+  const now = Date.now();
+  const stamp = Math.max(item.stamp, current.updatedAt + 1);
+  run.problems.push(new CloudDecryptError(`The stored ${item.ref} could not be read`));
+  if (stamp > now + POLICY.record.maxClockAheadMs) {
+    return;
+  }
+  if (item.record.kind === 'session') {
+    await sessionRepo.restampSaved([[item.ref.slice('session:'.length), stamp]], belongsTo(run));
+  } else if (item.record.kind === 'doc' && item.store !== undefined) {
+    const store = item.store;
+    await store.transact(async (tx) => {
+      if (!belongsTo(run)(tx.meta)) {
+        throw new StaleMetaError();
+      }
+      const track = tx.meta.docs[item.ref];
+      if (track?.pending == null) {
+        return;
+      }
+      track.seq = current.seq;
+      track.pending = { ...track.pending, at: Math.max(track.pending.at, stamp) };
+      if (!track.pending.deleted) {
+        const local = await tx.read(item.ref.slice(store.collection.type.length + 1));
+        if (local.state === 'live') {
+          tx.put(local.data, track.pending.at);
+        }
+      }
+    });
+  }
+  await updateMeta(run, (meta) => {
+    const next = {
+      ...meta,
+      unreadable: { ...meta.unreadable, [`${current.kind}:${current.id}`]: current.updatedAt },
+    };
+    if (item.record.kind === 'image') {
+      const id = item.record.id;
+      const images = {
+        ...next.images,
+        dirty: { ...next.images.dirty },
+        deleted: { ...next.images.deleted },
+      };
+      const map = item.deleted ? images.deleted : images.dirty;
+      if (map[id] !== undefined) {
+        map[id] = Math.max(map[id], stamp);
+      }
+      return { ...next, images };
+    }
+    if (item.record.kind === 'settings' && next.settingsDirty) {
+      return { ...next, settingsUpdatedAt: Math.max(next.settingsUpdatedAt, stamp) };
+    }
+    return next;
+  });
+}
+
+/** One pass, and the retries of what its answers asked to send again (each ref once more). */
+async function runPass(run: RunState, pass: Pass, only?: ReadonlySet<string>): Promise<void> {
+  let retry = await send(run, await collectPass(run, pass, only));
+  const retried = new Set<string>();
+  for (let rounds = 0; retry.size > 0 && rounds < 10; rounds += 1) {
+    const again = new Set([...retry].filter((ref) => !retried.has(ref) || rounds > 0));
+    for (const ref of again) {
+      retried.add(ref);
+    }
+    const items = await collectPass(run, pass, again);
+    if (items.length === 0) {
+      return;
+    }
+    const before = retry.size;
+    retry = await send(run, items);
+    if (retry.size >= before && rounds > 0) {
+      // Withheld forever, or a server that keeps answering stale: the rest waits for the next run.
+      return;
+    }
+  }
+}
+
+async function push(run: RunState): Promise<void> {
+  await noteSettingsChange('check');
+  run.collected = await readMeta(run);
+  await releaseNow(run);
+  run.released = false;
+  await runPass(run, 'tombstones');
+  await runPass(run, 'imageTombstones');
+  await runPass(run, 'live');
+  await runPass(run, 'liveImages');
+  if (run.released) {
+    // Once more for what was released in this run, never a third time.
+    run.released = false;
+    await runPass(run, 'live');
+    await runPass(run, 'liveImages');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Start, finish and the alarms
+// ---------------------------------------------------------------------------
+
+/** Remembers that Settings said items are held back, so it says so once (also for stage 3). */
+export { markConflictsNoticed, markHeldNoticed, readSyncNotices } from '@/lib/cloud-sync-state';
+
 async function finish(run: RunState, failed: boolean, problem: unknown): Promise<void> {
   let lastError: string | undefined;
   if (problem !== undefined) {
-    // The worker words text only once the language chosen in Settings is known.
     await uiLanguageReady();
     lastError = errorMessage(problem);
   }
   const now = Date.now();
-  await withLock(async () => {
-    // Not after a sign-out, which cleared the alarms.
+  await withSessionsLock(async () => {
     if (!(await isCurrent(run.context))) {
       return;
     }
@@ -1139,26 +1522,26 @@ async function finish(run: RunState, failed: boolean, problem: unknown): Promise
     } else {
       next.lastError = lastError;
     }
-    // The alarm before the write: Settings reads both when the write's event reaches it.
     if (failed) {
       next.failures = Math.max(1, meta.failures ?? 0);
       next.retryAt = now + retryDelayMs(next.failures);
       await chrome.alarms.create(CLOUD_SYNC_SOON_ALARM, { when: next.retryAt });
     } else {
-      next.lastSyncAt = now;
+      next.lastSyncAt = meta.pullIncomplete === true ? meta.lastSyncAt : now;
       delete next.failures;
       delete next.retryAt;
-      const tooLarge = run.problems.filter((item) => item instanceof RecordTooLargeError).length;
+      const tooLarge = run.problems.filter((item) => item instanceof ItemTooLargeError).length;
       if (tooLarge > 0) {
         next.tooLarge = tooLarge;
       } else {
         delete next.tooLarge;
       }
-      // Compared, never ordered: a clock set back would make every change look newer than the run.
       const newWork =
         run.collected !== undefined &&
         (meta.changedAt !== run.collected.changedAt || syncWorkGrew(run.collected, meta));
-      if (hasPendingWork(meta) && newWork) {
+      if (meta.pullIncomplete === true) {
+        await armNoLaterThan(now + SYNC_FALLBACK_MS);
+      } else if (hasPendingWork(meta) && newWork) {
         await armNoLaterThan(now + SYNC_FALLBACK_MS);
       } else {
         await chrome.alarms.clear(CLOUD_SYNC_SOON_ALARM);
@@ -1168,7 +1551,6 @@ async function finish(run: RunState, failed: boolean, problem: unknown): Promise
   });
 }
 
-/** The soon alarm at `when`, unless an earlier one stands. */
 async function armNoLaterThan(when: number): Promise<void> {
   const waiting = await chrome.alarms.get(CLOUD_SYNC_SOON_ALARM);
   if (waiting === undefined || waiting.scheduledTime > when) {
@@ -1176,27 +1558,19 @@ async function armNoLaterThan(when: number): Promise<void> {
   }
 }
 
-/**
- * Whether a conditional run (`SyncOptions.onlyIf`) is still called for, decided with the sync lock
- * held, so after whatever run was ahead of it. While failing only `retryAt` counts. Otherwise the
- * soon alarm is the record of work to do: `rearmFallback()` put it back as it fired and a run
- * that settled everything it could took it down, so a `'due'` without it has nothing to do. Only
- * here and `finish()` take that alarm down while signed in, once they have seen nothing waits.
- */
+/** Whether a conditional run is still called for, decided with the sync lock held. */
 async function stillCalledFor(
   context: SyncContext,
   onlyIf: NonNullable<SyncOptions['onlyIf']>,
 ): Promise<boolean> {
-  return withLock(async () => {
+  return withSessionsLock(async () => {
     const meta = await readSyncMetaFor(context);
     if (meta === undefined) {
-      // The first sync never got as far as its bookkeeping.
       return onlyIf !== 'changed';
     }
     const now = Date.now();
     if ((meta.failures ?? 0) > 0) {
       if (onlyIf === 'changed') {
-        // A failing server is retried by the alarm, never by the timer.
         return false;
       }
       const wait = retryWaitMs(meta, now);
@@ -1216,21 +1590,14 @@ async function stillCalledFor(
   });
 }
 
-/**
- * Before the first request, while nothing can have been lost yet: the run counts as failed until
- * `finish()` says otherwise, with the retry that follows from that behind it (whatever was
- * pending: a run can make work of its own). A worker killed at any later point leaves both.
- */
+/** Before the first request: the run counts as failed until `finish()` says otherwise. */
 async function markRunStarted(run: RunState): Promise<void> {
   if ((await chrome.alarms.get(CLOUD_SYNC_ALARM)) === undefined) {
     await ensureSyncAlarm();
   }
-  await withLock(async () => {
+  await withSessionsLock(async () => {
     await assertCurrent(run.context);
-    const meta = await readSyncMetaFor(run.context);
-    if (meta === undefined) {
-      return;
-    }
+    const meta = await ensureSyncMeta(run.context);
     const failures = (meta.failures ?? 0) + 1;
     const retryAt = run.startedAt + retryDelayMs(failures);
     await chrome.alarms.create(CLOUD_SYNC_SOON_ALARM, { when: retryAt });
@@ -1238,23 +1605,37 @@ async function markRunStarted(run: RunState): Promise<void> {
   });
 }
 
+/** Tracking start for sessions, each doc collection and the screenshots (11.1). */
+async function startTracking(run: RunState): Promise<void> {
+  const belongs = belongsTo(run);
+  await sessionRepo.startSyncTracking(belongs);
+  for (const store of run.stores) {
+    await startDocTracking(store, run.context.key.dek, Date.now(), belongs);
+  }
+}
+
+/** An extension call this often keeps the worker alive while a body streams (10.1). */
+function startKeepAlive(): () => void {
+  const timer = setInterval(() => {
+    chrome.runtime.getPlatformInfo().catch(() => undefined);
+  }, POLICY.sync.keepAliveMs);
+  return () => clearInterval(timer);
+}
+
 /**
- * One sync: pull the server's changes, then push this device's. `'notReady'` while unconfigured,
- * signed out or without the key, also when that happened during the run (or another account took
- * its place); `'failed'` when the server could not be reached or refused (the
- * dirty sets stay, so the next run retries; a 401 signs this device out); `'synced'` otherwise,
- * also when single records were skipped (they are named in `lastError`); `'skipped'` when
- * `options.onlyIf` found nothing to do.
+ * One sync (10.2). `'notReady'` while unconfigured or not ready, also when that happened during
+ * the run; `'failed'` when the server could not be reached, refused, or a pull was cut (nothing is
+ * pushed then; a 401 removes that bearer's account); `'synced'` otherwise, also with single
+ * records skipped (named in `lastError`); `'skipped'` when `options.onlyIf` found nothing to do.
  */
 export async function syncNow(options: SyncOptions = {}): Promise<SyncResult> {
   if (!isCloudSyncEnabled()) {
     return { outcome: 'notReady', pulled: 0, pushed: 0 };
   }
   return withSyncLock(async () => {
+    await upgradeCloudStorage();
     const context = await loadSyncContext();
     if (context === null) {
-      // A token that expired writes nothing, so no storage change cleared the alarms: do it here,
-      // or the periodic alarm would keep waking the worker for nothing.
       await ensureSyncAlarm();
       return { outcome: 'notReady', pulled: 0, pushed: 0 };
     }
@@ -1266,40 +1647,54 @@ export async function syncNow(options: SyncOptions = {}): Promise<SyncResult> {
     }
     const run: RunState = {
       context,
-      startedAt: Date.now(),
       options,
+      stores: options.stores ?? DOC_STORES,
+      worker: options.inWorker ?? inWorker(),
+      startedAt: Date.now(),
       pulled: 0,
       pushed: 0,
       problems: [],
-      read: new Map(),
-      imageDeletedOnServer: false,
+      progressed: false,
+      released: false,
     };
+    const stopKeepAlive = startKeepAlive();
     try {
-      await startSyncMeta(context);
       await markRunStarted(run);
-      await notesRepo.startSyncTracking();
-      await resumeSettingsApply(context);
-      await pull(run);
-      await releaseHeldImages(run, 'beforePush');
-      await push(run);
-      await releaseHeldImages(run, 'afterPush');
+      await startTracking(run);
+      await retryBlocked(run);
+      await resumeSettingsApply(run);
+      if (await pull(run)) {
+        await restampAhead(run);
+        await push(run);
+      }
     } catch (err: unknown) {
-      if (err instanceof StaleRunError || !(await isCurrent(context))) {
+      if (
+        err instanceof StaleRunError ||
+        err instanceof StaleMetaError ||
+        !(await isCurrent(context))
+      ) {
         return { outcome: 'notReady', pulled: run.pulled, pushed: run.pushed };
       }
       if (err instanceof CloudUnauthorizedError) {
-        // Signed out on the server: forget the account like every other 401 (#166). The
-        // bookkeeping stays, so what was not sent yet (deletions too) goes after signing in again.
-        await forgetCloudAccount(context.account.token);
+        await removeAccountIfToken(context.account.token);
         return { outcome: 'failed', pulled: run.pulled, pushed: run.pushed };
       }
-      console.warn('[tabinet:sync] sync failed', err);
+      console.warn('[tabinet:sync] sync failed', err instanceof Error ? err.message : err);
       await finish(run, true, err);
       return { outcome: 'failed', pulled: run.pulled, pushed: run.pushed };
+    } finally {
+      stopKeepAlive();
     }
     await finish(run, false, run.problems[0]);
     return { outcome: 'synced', pulled: run.pulled, pushed: run.pushed };
   });
+}
+
+/** Whether a failed request means the cloud has another key (sync pauses until Settings acts). */
+export function isKeyChange(err: unknown): boolean {
+  return (
+    err instanceof CloudHttpError && (err.code === 'key_mismatch' || err.code === 'key_missing')
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -1310,10 +1705,7 @@ export function isSyncAlarm(name: string): boolean {
   return name === CLOUD_SYNC_ALARM || name === CLOUD_SYNC_SOON_ALARM;
 }
 
-/**
- * Arms the periodic sync while this device is ready, and clears both sync alarms otherwise. Does
- * nothing at all while cloud sync is unconfigured.
- */
+/** Arms the periodic sync while ready, clears both sync alarms otherwise; nothing while unconfigured. */
 export async function ensureSyncAlarm(): Promise<void> {
   if (!isCloudSyncEnabled()) {
     return;
@@ -1331,16 +1723,12 @@ export async function ensureSyncAlarm(): Promise<void> {
   });
 }
 
-/**
- * The fallback behind the timer: a sync no later than `SYNC_FALLBACK_MS` from now, while ready. An
- * earlier alarm is never pushed back. While failing it stands at the retry's time instead: a
- * change never shortens the backoff.
- */
+/** The fallback behind the timer: a sync no later than `SYNC_FALLBACK_MS` from now, while ready. */
 export async function scheduleSoonSync(): Promise<void> {
   if (!isCloudSyncEnabled()) {
     return;
   }
-  await withLock(async () => {
+  await withSessionsLock(async () => {
     const context = await loadSyncContext();
     if (context === null) {
       return;
@@ -1352,11 +1740,7 @@ export async function scheduleSoonSync(): Promise<void> {
   });
 }
 
-/**
- * The first thing when the soon alarm fires, before any await: a one-shot alarm is gone as it
- * fires, and the run it calls for may be queued in a worker that dies. The run, or the one ahead
- * of it, takes it down or moves it.
- */
+/** The first thing when the soon alarm fires, before any await: a one-shot alarm is gone as it fires. */
 export async function rearmFallback(): Promise<void> {
   if (!isCloudSyncEnabled()) {
     return;
@@ -1364,14 +1748,13 @@ export async function rearmFallback(): Promise<void> {
   await chrome.alarms.create(CLOUD_SYNC_SOON_ALARM, { when: Date.now() + SYNC_FALLBACK_MS });
 }
 
-/**
- * At browser start, install and update: the periodic alarm, and the soon alarm when a change or
- * a retry was left waiting (Chrome may drop alarms at both). Starting afresh, a retry that had
- * backed off is brought forward to `SYNC_FALLBACK_MS`.
- */
+/** At browser start, install and update: the periodic alarm, and the soon alarm when work waits. */
 export async function resumeSync(): Promise<void> {
   await ensureSyncAlarm();
-  await withLock(async () => {
+  if (!isCloudSyncEnabled()) {
+    return;
+  }
+  await withSessionsLock(async () => {
     const context = await loadSyncContext();
     if (context === null) {
       return;
@@ -1403,21 +1786,37 @@ function touchesSettings(
 }
 
 /**
- * The worker's `storage.onChanged` part for sync:
- *
- * - the account or the key changed: the alarms are armed and a sync runs at once (`'now'`) when
- *   this device is ready; otherwise they are cleared, any waiting timer dropped and the run on
- *   its way given up (`'stop'`). The bookkeeping stays either way: changes are still recorded,
- *   and signing in again to the same account and key resumes it;
- * - a setting changed (sort settings or the language in sync storage, `sessionSettings`): the
- *   settings are marked dirty, or clean again when they are back to what the server has; while
- *   received settings are still being written, the fallback alarm finishes them instead;
- * - a change of this device's own (`changedAt` moved): the fallback alarm, then a sync a few
- *   seconds later (`'soon'`), which makes no request if the server is failing by then. A run's own
- *   bookkeeping writes ask for nothing.
- *
- * Returns what the caller's timers should do (`src/lib/cloud-sync-scheduler.ts`); `'none'` at
- * once while cloud sync is unconfigured.
+ * Whether an account or key change is one a sync starts for: a change of token, account, keyId
+ * or data key. A generation update is not (spec 10.1). Pure.
+ */
+export function readinessChanged(changes: {
+  [key: string]: chrome.storage.StorageChange;
+}): boolean {
+  const before = cloudStoredFrom({
+    [CLOUD_ACCOUNT_KEY]: changes[CLOUD_ACCOUNT_KEY]?.oldValue,
+    [CLOUD_KEY_KEY]: changes[CLOUD_KEY_KEY]?.oldValue,
+  });
+  const after = cloudStoredFrom({
+    [CLOUD_ACCOUNT_KEY]: changes[CLOUD_ACCOUNT_KEY]?.newValue,
+    [CLOUD_KEY_KEY]: changes[CLOUD_KEY_KEY]?.newValue,
+  });
+  const accountChanged =
+    CLOUD_ACCOUNT_KEY in changes &&
+    (before.account?.token !== after.account?.token ||
+      before.account?.accountId !== after.account?.accountId ||
+      before.account?.uploadConfirmed !== after.account?.uploadConfirmed);
+  const keyChanged =
+    CLOUD_KEY_KEY in changes &&
+    (before.key?.keyId !== after.key?.keyId ||
+      before.key?.dek !== after.key?.dek ||
+      before.key?.accountId !== after.key?.accountId);
+  return accountChanged || keyChanged;
+}
+
+/**
+ * The worker's `storage.onChanged` part for sync: the account or the key became ready (`'now'`)
+ * or not (`'stop'`); a setting changed (marked dirty or clean); a change of this device's own
+ * (`'soon'`). A run's own bookkeeping writes ask for nothing. `'none'` at once while unconfigured.
  */
 export async function handleCloudStorageChange(
   changes: { [key: string]: chrome.storage.StorageChange },
@@ -1426,12 +1825,14 @@ export async function handleCloudStorageChange(
   if (!isCloudSyncEnabled()) {
     return 'none';
   }
-  if (areaName === 'local' && (CLOUD_ACCOUNT_KEY in changes || CLOUD_SYNC_KEY in changes)) {
-    const arrived = [CLOUD_ACCOUNT_KEY, CLOUD_SYNC_KEY].some(
-      (key) => changes[key]?.newValue !== undefined,
+  if (areaName === 'local' && (CLOUD_ACCOUNT_KEY in changes || CLOUD_KEY_KEY in changes)) {
+    if (!readinessChanged(changes)) {
+      return 'none';
+    }
+    const arrived = [CLOUD_ACCOUNT_KEY, CLOUD_KEY_KEY].some(
+      (key) => changes[key]?.newValue !== undefined && changes[key]?.newValue !== null,
     );
     if (arrived) {
-      // Before any await, as the event will not come again; not ready, it is cleared just below.
       await rearmFallback();
     }
     await ensureSyncAlarm();
@@ -1450,3 +1851,6 @@ export async function handleCloudStorageChange(
   await scheduleSoonSync();
   return 'soon';
 }
+
+/** The doc ref of a local item (for stores). */
+export { docRef };

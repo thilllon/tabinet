@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { type SearchEntry, search } from '@/lib/search-engine';
+import { entryFromMemo, type SearchEntry, search } from '@/lib/search-engine';
 import {
   buildSearchGroups,
   flattenSearchItems,
@@ -105,11 +105,29 @@ describe('buildSearchGroups', () => {
       'Matching sessions',
       'Open tabs',
       'Saved sessions',
-      'Notes',
+      'YouTube notes',
       'Snapshots',
     ]);
     expect(groups.map((group) => group.startIndex)).toEqual([0, 1, 2, 3, 4]);
     expect(groups.map((group) => group.count)).toEqual([1, 1, 1, 1, 1]);
+  });
+
+  it('puts memos between notes and snapshots, as memo rows keyed by the memo', () => {
+    const memo = entryFromMemo(
+      { schemaVersion: 1, id: 'm1', text: 'Docs to read\nlater', createdAt: 1, updatedAt: 2 },
+      'Docs to read',
+    );
+    const groups = buildSearchGroups(search([...corpus, memo], 'docs', { includeHistory: true }));
+    expect(groups.map((group) => group.source)).toEqual([
+      'open',
+      'saved',
+      'notes',
+      'memos',
+      'history',
+    ]);
+    const memos = groups.find((group) => group.source === 'memos');
+    expect(memos?.heading).toBe('Memos');
+    expect(memos?.items).toEqual([{ kind: 'memo', key: 'memos:m1', entry: memo }]);
   });
 
   it('makes a note a note row, keyed by its video and note', () => {

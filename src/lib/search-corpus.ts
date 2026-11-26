@@ -1,7 +1,7 @@
 import { errorDetail } from '@/lib/error-message';
 import { entriesFromSession, type SearchEntry } from '@/lib/search-engine';
 import { sessionKey, sessionRepo } from '@/lib/session-repo';
-import type { NotesSummary, SessionId, SessionSummary } from '@/types';
+import type { MemoSummary, NotesSummary, SessionId, SessionSummary } from '@/types';
 
 /**
  * How many bytes of session bodies the idle pre-warm may read: it stops after 5 MB and the rest
@@ -278,4 +278,14 @@ export function notesToLoad(
   return summaries
     .filter((summary) => loadedAt.get(summary.videoId) !== summary.updatedAt)
     .map((summary) => summary.videoId);
+}
+
+/** The memos the search must (re)read: not read yet, or read at another `updatedAt`. Pure. */
+export function memosToLoad(
+  summaries: readonly MemoSummary[],
+  loadedAt: ReadonlyMap<string, number>,
+): string[] {
+  return summaries
+    .filter((summary) => loadedAt.get(summary.id) !== summary.updatedAt)
+    .map((summary) => summary.id);
 }

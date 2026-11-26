@@ -209,6 +209,8 @@ interface FakeState {
   removedAuthTokens: string[];
   /** How many times `clearAllCachedAuthTokens` was called. */
   authTokenCacheClears: number;
+  /** How many times `runtime.getPlatformInfo` was called (sync's keepalive, spec 10.1). */
+  platformInfoCalls: number;
   /** Testing-only knob: when true, `tabs.create` leaves the tab
    * uncommitted (`url: ''`, `pendingUrl` set, `status: 'loading'`) until `commitNavigation`
    * is called for it, modelling a real browser navigation that has not finished yet. */
@@ -357,6 +359,7 @@ export function createChromeFake(): ChromeFake {
     authTokenRequests: [],
     removedAuthTokens: [],
     authTokenCacheClears: 0,
+    platformInfoCalls: 0,
     deferCommit: false,
   };
 
@@ -1156,6 +1159,10 @@ export function createChromeFake(): ChromeFake {
     lastError: undefined,
     getURL(path: string): string {
       return `chrome-extension://fakeextid/${path.replace(/^\//, '')}`;
+    },
+    async getPlatformInfo(): Promise<chrome.runtime.PlatformInfo> {
+      state.platformInfoCalls += 1;
+      return { os: 'mac', arch: 'arm', nacl_arch: 'arm' } as chrome.runtime.PlatformInfo;
     },
     getManifest(): chrome.runtime.Manifest {
       // Only `version` is read by the app; the rest of ManifestV3 is optional.

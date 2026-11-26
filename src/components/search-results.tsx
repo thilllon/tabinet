@@ -1,4 +1,4 @@
-import { NotebookPen, RotateCcw } from 'lucide-react';
+import { NotebookPen, NotepadText, RotateCcw } from 'lucide-react';
 import { useEffect } from 'react';
 
 import { Favicon } from '@/components/favicon';
@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button';
 import { formatRoute } from '@/lib/app-route';
 import { formatSessionMeta, hostnameOf } from '@/lib/display-format';
 import { formatNumber, t, tp } from '@/lib/i18n';
+import { memoDisplayTitle } from '@/lib/memo-export';
 import { videoTitle } from '@/lib/notes-export';
 import { browserHandlesClick, hrefFor } from '@/lib/row-link';
-import { resultPlace, splitOnMatches } from '@/lib/search-engine';
+import { matchExcerpt, resultPlace, splitOnMatches } from '@/lib/search-engine';
 import type { SearchGroup, SearchItem } from '@/lib/search-nav';
 import { formatTimestamp } from '@/lib/youtube-video';
 
@@ -188,6 +189,55 @@ function NoteResultRow({
   );
 }
 
+/** A memo: its title and a line of its text around the match; a link that opens the memo. */
+function MemoResultRow({
+  item,
+  tokens,
+  index,
+  highlighted,
+  onHighlight,
+  onActivate,
+}: {
+  item: Extract<SearchItem, { kind: 'memo' }>;
+  tokens: string[];
+  index: number;
+  highlighted: boolean;
+  onHighlight(index: number): void;
+  onActivate(index: number): void;
+}) {
+  const { entry } = item;
+  const title = memoDisplayTitle(entry.title);
+  const excerpt = matchExcerpt(entry.context ?? '', tokens);
+  return (
+    <li>
+      <a
+        id={rowId(index)}
+        href={formatRoute({ view: 'memo', id: entry.memoId ?? '' })}
+        title={title}
+        aria-current={highlighted ? 'true' : undefined}
+        onMouseEnter={() => onHighlight(index)}
+        onFocus={() => onHighlight(index)}
+        onClick={(event) => {
+          if (browserHandlesClick(event)) {
+            return;
+          }
+          event.preventDefault();
+          onActivate(index);
+        }}
+        className={`${ROW} w-full min-w-0 ${highlighted ? 'bg-accent' : 'hover:bg-accent'}`}
+      >
+        <NotepadText aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+        <span className="max-w-64 shrink-0 truncate font-medium">
+          <Highlighted text={title} tokens={tokens} />
+        </span>
+        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+          <Highlighted text={excerpt} tokens={tokens} />
+        </span>
+      </a>
+    </li>
+  );
+}
+
 function SessionResultRow({
   item,
   tokens,
@@ -288,6 +338,19 @@ export function SearchResults({
               <ul className="mt-1">
                 {group.items.map((item, offset) => {
                   const index = group.startIndex + offset;
+                  if (item.kind === 'memo') {
+                    return (
+                      <MemoResultRow
+                        key={item.key}
+                        item={item}
+                        tokens={tokens}
+                        index={index}
+                        highlighted={index === highlight}
+                        onHighlight={onHighlight}
+                        onActivate={onActivate}
+                      />
+                    );
+                  }
                   if (item.kind === 'note') {
                     return (
                       <NoteResultRow

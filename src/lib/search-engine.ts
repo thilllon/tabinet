@@ -1,14 +1,20 @@
 import { formatNumber, t } from '@/lib/i18n';
 import { videoUrlAt } from '@/lib/youtube-video';
-import type { Session, VideoNotes } from '@/types';
+import type { Memo, Session, VideoNotes } from '@/types';
 
-export type SearchSource = 'open' | 'saved' | 'notes' | 'history';
+export type SearchSource = 'open' | 'saved' | 'notes' | 'memos' | 'history';
 
 /**
  * Result and ranking order of the sources: live tabs, then saved sessions, then YouTube notes,
- * then history.
+ * then memos, then history.
  */
-export const SEARCH_SOURCES: readonly SearchSource[] = ['open', 'saved', 'notes', 'history'];
+export const SEARCH_SOURCES: readonly SearchSource[] = [
+  'open',
+  'saved',
+  'notes',
+  'memos',
+  'history',
+];
 
 /**
  * Where a matching tab is, shown beside it in the results. A saved or snapshot tab names its
@@ -56,6 +62,8 @@ export interface SearchEntry {
   noteId?: string;
   /** Seconds into the video. */
   at?: number;
+  /** Memos only: the memo a result opens. */
+  memoId?: string;
 }
 
 interface OpenEntriesOptions {
@@ -203,6 +211,47 @@ export function entriesFromNotes(notes: VideoNotes): SearchEntry[] {
   });
 }
 
+/**
+ * One entry per memo: its title (the first line, `memoTitle()`) is the title, the whole text the
+ * context, so a word anywhere in the memo finds it. No url: activating it opens the memo.
+ */
+export function entryFromMemo(memo: Memo, title: string): SearchEntry {
+  return {
+    source: 'memos',
+    sessionName: title,
+    sessionUpdatedAt: memo.updatedAt,
+    windowIndex: 0,
+    tabIndex: 0,
+    title,
+    url: '',
+    hostname: '',
+    context: memo.text,
+    memoId: memo.id,
+  };
+}
+
+/**
+ * A one-line excerpt of `text` around the first token found in it, at most `width` code points,
+ * with an ellipsis where it was cut; the start of the text when no token is in it. Pure.
+ */
+export function matchExcerpt(text: string, tokens: readonly string[], width = 90): string {
+  const flat = Array.from(text.replace(/\s+/g, ' ').trim());
+  if (flat.length <= width) {
+    return flat.join('');
+  }
+  const lower = flat.map((char) => char.toLowerCase());
+  let hit = -1;
+  for (const token of tokens) {
+    const at = lower.join('').indexOf(token);
+    if (at !== -1 && (hit === -1 || at < hit)) {
+      hit = Array.from(lower.join('').slice(0, at)).length;
+    }
+  }
+  const start = hit <= width / 3 ? 0 : Math.min(hit - Math.floor(width / 3), flat.length - width);
+  const body = flat.slice(start, start + width).join('');
+  return `${start > 0 ? '…' : ''}${body}${start + width < flat.length ? '…' : ''}`;
+}
+
 /** Lowercase whitespace-separated tokens, de-duplicated in first-seen order; '' → []. */
 export function tokenize(query: string): string[] {
   return [...new Set(query.toLowerCase().split(/\s+/))].filter((token) => token !== '');
@@ -257,7 +306,13 @@ export function matchSessionName(name: string, tokens: string[]): boolean {
   return tokens.every((token) => lower.includes(token));
 }
 
-const SOURCE_RANK: Record<SearchSource, number> = { open: 0, saved: 1, notes: 2, history: 3 };
+const SOURCE_RANK: Record<SearchSource, number> = {
+  open: 0,
+  saved: 1,
+  notes: 2,
+  memos: 3,
+  history: 4,
+};
 
 interface Ranked {
   entry: SearchEntry;
@@ -298,7 +353,13 @@ export function search(
   const limit = opts.limitPerSource ?? DEFAULT_LIMIT_PER_SOURCE;
   const includeHistory = opts.includeHistory ?? false;
 
-  const buckets: Record<SearchSource, Ranked[]> = { open: [], saved: [], notes: [], history: [] };
+  const buckets: Record<SearchSource, Ranked[]> = {
+    open: [],
+    saved: [],
+    notes: [],
+    memos: [],
+    history: [],
+  };
   if (tokens.length > 0) {
     for (let index = 0; index < corpus.length; index += 1) {
       const entry = corpus[index];
@@ -316,6 +377,7 @@ export function search(
     open: emptySourceResult(),
     saved: emptySourceResult(),
     notes: emptySourceResult(),
+    memos: emptySourceResult(),
     history: emptySourceResult(),
   };
   let total = 0;

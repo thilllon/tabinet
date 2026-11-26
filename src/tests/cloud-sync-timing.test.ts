@@ -1,10 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { CLOUD_ACCOUNT_KEY, CLOUD_SYNC_KEY } from '@/lib/cloud-auth';
-import { encryptRecord, toBase64 } from '@/lib/cloud-crypto';
+import { encryptRecord, keyIdOf, toBase64 } from '@/lib/cloud-crypto';
+import { CLOUD_ACCOUNT_KEY, CLOUD_KEY_KEY } from '@/lib/cloud-storage';
 import { CLOUD_SYNC_ALARM, CLOUD_SYNC_SOON_ALARM } from '@/lib/cloud-sync';
 import { CLOUD_SYNC_META_KEY, type CloudSyncMeta } from '@/lib/cloud-sync-state';
-import { SESSION_SCHEMA_VERSION, type Session } from '@/types';
+import {
+  type CloudAccountV2,
+  type CloudKeyV2,
+  type KeyEnvelope,
+  SESSION_SCHEMA_VERSION,
+  type Session,
+} from '@/types';
 
 import { createChromeFake, getChromeFake } from './chrome-fake';
 import { fakeSyncServer, type FakeSyncServer } from './cloud-fetch';
@@ -17,9 +23,33 @@ import { fakeSyncServer, type FakeSyncServer } from './cloud-fetch';
  */
 
 const START = 1_800_000_000_000;
-const ACCOUNT = { token: 'tok', expiresAt: 4_000_000_000_000, email: 'person@example.com' };
-const VIDEO = { videoId: 'dQw4w9WgXcQ', title: 'Video' };
-const IMAGE = 'data:image/webp;base64,UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==';
+let ACCOUNT: CloudAccountV2;
+let KEY: CloudKeyV2;
+/** An envelope's shape; the fake server never opens it. */
+const ENVELOPE = (keyId: string): KeyEnvelope => ({
+  v: 2,
+  generation: 1,
+  keyId,
+  salt: toBase64(new Uint8Array(16)),
+  iv: toBase64(new Uint8Array(12)),
+  wrapped: toBase64(new Uint8Array(48)),
+});
+
+/** A second account on a server of its own, with its own bearer and key. */
+async function otherAccount(token: string) {
+  const other = fakeSyncServer();
+  const { accountId } = other.seedAccount({ sub: 'other', email: 'other@example.com', token });
+  const dek = toBase64(crypto.getRandomValues(new Uint8Array(32)));
+  const keyId = await keyIdOf(dek);
+  other.seedKey({ keyId, generation: 1, envelope: ENVELOPE(keyId) });
+  return {
+    other,
+    stored: {
+      [CLOUD_ACCOUNT_KEY]: { ...ACCOUNT, accountId, token, email: 'other@example.com' },
+      [CLOUD_KEY_KEY]: { accountId, keyId, generation: 1, dek },
+    },
+  };
+}
 const realSetTimeout = globalThis.setTimeout;
 
 let server: FakeSyncServer;
@@ -64,16 +94,15 @@ async function loadWorker() {
   overrideCloudSyncConfig(() => ({ apiBase: 'https://sync.test', googleClientId: 'cid' }));
   await import('@/service-worker');
   const { sessionRepo } = await import('@/lib/session-repo');
-  const { notesRepo } = await import('@/lib/notes-repo');
   const { syncNow } = await import('@/lib/cloud-sync');
   await settle();
-  return { sessionRepo, notesRepo, syncNow };
+  return { sessionRepo, syncNow };
 }
 
 /** A worker on an account that has synced once, with the request log empty. */
 async function syncedWorker() {
   const worker = await loadWorker();
-  await chrome.storage.local.set({ [CLOUD_ACCOUNT_KEY]: ACCOUNT, [CLOUD_SYNC_KEY]: rawKey });
+  await chrome.storage.local.set({ [CLOUD_ACCOUNT_KEY]: ACCOUNT, [CLOUD_KEY_KEY]: KEY });
   await settle();
   server.requests.length = 0;
   return worker;
@@ -168,11 +197,23 @@ function ownLocks() {
   };
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.stubGlobal('navigator', { locks: ownLocks() });
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'], now: START });
   rawKey = toBase64(crypto.getRandomValues(new Uint8Array(32)));
   server = fakeSyncServer();
+  server.now = () => Date.now();
+  const { accountId } = server.seedAccount({ token: 'tok' });
+  const keyId = await keyIdOf(rawKey);
+  server.seedKey({ keyId, generation: 1, envelope: ENVELOPE(keyId) });
+  ACCOUNT = {
+    accountId,
+    token: 'tok',
+    expiresAt: 4_000_000_000_000,
+    email: 'person@example.com',
+    uploadConfirmed: true,
+  };
+  KEY = { accountId, keyId, generation: 1, dek: rawKey };
   vi.stubGlobal('fetch', server.fetch);
   countCryptoWork();
 });
@@ -192,7 +233,7 @@ describe('becoming ready', () => {
     await settle();
     expect(server.requests).toHaveLength(0);
 
-    await chrome.storage.local.set({ [CLOUD_SYNC_KEY]: rawKey });
+    await chrome.storage.local.set({ [CLOUD_KEY_KEY]: KEY });
     await settle();
     expect(server.record('session', 's1')).toBeDefined();
     expect(pulls()).toBe(1);
@@ -203,7 +244,7 @@ describe('becoming ready', () => {
   });
 
   it('signing in with the key already here syncs at once', async () => {
-    getChromeFake().state.local.set(CLOUD_SYNC_KEY, rawKey);
+    getChromeFake().state.local.set(CLOUD_KEY_KEY, KEY);
     await loadWorker();
     await chrome.storage.local.set({ [CLOUD_ACCOUNT_KEY]: ACCOUNT });
     await settle();
@@ -247,8 +288,8 @@ describe('after a local change', () => {
     expect(server.record('session', 's1')).toBeDefined();
   });
 
-  it('a deletion, a note, a screenshot and a setting each go out after the debounce', async () => {
-    const { sessionRepo, notesRepo } = await syncedWorker();
+  it('a deletion and a setting each go out after the debounce', async () => {
+    const { sessionRepo } = await syncedWorker();
     await sessionRepo.put(session('s1', START));
     await settle();
     await pass(2500);
@@ -257,16 +298,6 @@ describe('after a local change', () => {
     await settle();
     await pass(2500);
     expect(server.record('session', 's1')?.deleted).toBe(true);
-
-    await notesRepo.addEntry(VIDEO, { at: 1, text: 'note' });
-    await settle();
-    await pass(2500);
-    expect(server.record('notes', VIDEO.videoId)).toBeDefined();
-
-    await notesRepo.addEntry(VIDEO, { at: 2, text: '', image: IMAGE });
-    await settle();
-    await pass(2500);
-    expect([...server.records.keys()].some((key) => key.startsWith('image:'))).toBe(true);
 
     const before = server.record('settings', 'settings')?.seq ?? 0;
     await chrome.storage.sync.set({ sortBy: 'title' });
@@ -530,13 +561,13 @@ describe('signing out', () => {
     await sessionRepo.put(session('s1'));
     await settle();
     await pass(1000);
-    await chrome.storage.local.remove([CLOUD_ACCOUNT_KEY, CLOUD_SYNC_KEY]);
+    await chrome.storage.local.remove([CLOUD_ACCOUNT_KEY, CLOUD_KEY_KEY]);
     await settle();
     await pass(60_000);
     expect(server.requests).toHaveLength(0);
     expect(getChromeFake().state.alarms.has(CLOUD_SYNC_ALARM)).toBe(false);
     expect(soonAlarm()).toBeUndefined();
-    expect(meta().dirtySessions.s1).toBeDefined();
+    expect(meta().sessions.dirty.s1).toBeDefined();
   });
 
   it('while a run is queued sends nothing more', async () => {
@@ -548,7 +579,7 @@ describe('signing out', () => {
     await sessionRepo.put(session('s2'));
     await settle();
     await pass(2500);
-    await chrome.storage.local.remove([CLOUD_ACCOUNT_KEY, CLOUD_SYNC_KEY]);
+    await chrome.storage.local.remove([CLOUD_ACCOUNT_KEY, CLOUD_KEY_KEY]);
     await settle();
     release();
     await settle();
@@ -559,14 +590,14 @@ describe('signing out', () => {
 
   it('a change while signed out arms nothing, and signing back in sends it at once', async () => {
     const { sessionRepo } = await syncedWorker();
-    await chrome.storage.local.remove([CLOUD_ACCOUNT_KEY, CLOUD_SYNC_KEY]);
+    await chrome.storage.local.remove([CLOUD_ACCOUNT_KEY, CLOUD_KEY_KEY]);
     await settle();
     await sessionRepo.put(session('s1'));
     await settle();
     await pass(60_000);
     expect(soonAlarm()).toBeUndefined();
     expect(server.requests).toHaveLength(0);
-    await chrome.storage.local.set({ [CLOUD_ACCOUNT_KEY]: ACCOUNT, [CLOUD_SYNC_KEY]: rawKey });
+    await chrome.storage.local.set({ [CLOUD_ACCOUNT_KEY]: ACCOUNT, [CLOUD_KEY_KEY]: KEY });
     await settle();
     expect(server.record('session', 's1')).toBeDefined();
   });
@@ -629,10 +660,11 @@ describe('no loop', () => {
       if (args[1]?.method !== 'POST') {
         return server.fetch(...args);
       }
-      // Refused: the fake server never stores it.
+      // Refused (a clock ahead, a valid v2 refusal): the fake server never stores it.
       return new Response(
         JSON.stringify({
-          results: [{ kind: 'session', id: 's1', status: 'rejected', reason: 'unknown' }],
+          results: [{ kind: 'session', id: 's1', status: 'rejected', reason: 'clock_ahead' }],
+          usage: { bytes: 0, screenshots: 0 },
         }),
       );
     });
@@ -662,29 +694,6 @@ describe('no loop', () => {
     });
     await pass(2500);
     expect((await sessionRepo.get('s1'))?.updatedAt).toBe(newer.updatedAt);
-    const after = server.requests.length;
-    await pass(120_000);
-    expect(server.requests.length).toBe(after);
-    expect(soonAlarm()).toBeUndefined();
-  });
-
-  it('a held screenshot follows the deletion that made room, then it stops', async () => {
-    server.imageLimit = 1;
-    const { notesRepo } = await syncedWorker();
-    const entry = await notesRepo.addEntry(VIDEO, { at: 1, text: '', image: IMAGE });
-    await settle();
-    await pass(2500);
-    await notesRepo.addEntry(VIDEO, { at: 2, text: '', image: IMAGE });
-    await settle();
-    await pass(2500);
-    expect(Object.keys(meta().heldImages ?? {})).toHaveLength(1);
-
-    await notesRepo.removeEntry(VIDEO.videoId, entry.id);
-    await settle();
-    await pass(2500);
-    await pass(2500);
-    expect(meta().heldImages).toBeUndefined();
-    expect(Object.keys(meta().images?.dirty ?? {})).toEqual([]);
     const after = server.requests.length;
     await pass(120_000);
     expect(server.requests.length).toBe(after);
@@ -778,7 +787,8 @@ const hungFetch: Answer = (_input, init) =>
 const refusingPosts: Answer = async (...args) =>
   args[1]?.method === 'POST'
     ? Response.json({
-        results: [{ kind: 'session', id: 's1', status: 'rejected', reason: 'unknown' }],
+        results: [{ kind: 'session', id: 's1', status: 'rejected', reason: 'clock_ahead' }],
+        usage: { bytes: 0, screenshots: 0 },
       })
     : server.fetch(...args);
 
@@ -914,21 +924,21 @@ describe('a worker that dies at the wrong moment', { timeout: 60_000 }, () => {
   });
 
   it('work the run made itself has the fallback behind it', async () => {
-    await syncedWorker();
+    const { sessionRepo } = await syncedWorker();
+    await sessionRepo.put(session('s9', START));
+    await settle();
+    const stamp = meta().sessions.dirty.s9!;
+    // Held for the storage cap at a usage above what the server reports now: the run releases it.
     getChromeFake().state.local.set(CLOUD_SYNC_META_KEY, {
       ...meta(),
-      images: { dirty: {}, deleted: {}, known: {} },
-      heldImages: { held1: START },
+      held: { 'session:s9': { stamp, reason: 'storage_limit', usage: 1e12 } },
     });
-    getChromeFake().state.local.set('noteImage:held1', IMAGE);
-    const gone = { kind: 'image', id: 'gone1', updatedAt: START + 5, deleted: true } as const;
-    server.inject({ ...gone, ...(await encryptRecord(rawKey, gone, { deleted: true })) });
     vi.stubGlobal('fetch', (...args: Parameters<typeof fetch>) =>
       args[1]?.method === 'POST' ? new Promise<Response>(() => {}) : server.fetch(...args),
     );
     await fireAlarm(CLOUD_SYNC_ALARM);
     killWorker();
-    expect(meta().images?.dirty.held1).toBeDefined();
+    expect(meta().held['session:s9']).toBeUndefined();
     expect(soonAlarm()).toBeDefined();
   });
 
@@ -968,6 +978,8 @@ describe('a worker that dies at the wrong moment', { timeout: 60_000 }, () => {
       const fresh = createChromeFake();
       Object.assign(globalThis, { chrome: fresh.chrome, __chromeFake: fresh });
       server = fakeSyncServer();
+      server.seedAccount({ token: 'tok' });
+      server.seedKey({ keyId: KEY.keyId, generation: 1, envelope: ENVELOPE(KEY.keyId) });
       vi.stubGlobal('fetch', server.fetch);
       vi.setSystemTime(START);
       const { sessionRepo } = scenario === 'retry' ? await syncedWorker() : await loadWorker();
@@ -989,7 +1001,7 @@ describe('a worker that dies at the wrong moment', { timeout: 60_000 }, () => {
         getChromeFake().state.alarms.delete(CLOUD_SYNC_SOON_ALARM);
         getChromeFake().fire.alarm(CLOUD_SYNC_SOON_ALARM);
       } else {
-        await pageWrite({ [CLOUD_ACCOUNT_KEY]: ACCOUNT, [CLOUD_SYNC_KEY]: rawKey });
+        await pageWrite({ [CLOUD_ACCOUNT_KEY]: ACCOUNT, [CLOUD_KEY_KEY]: KEY });
       }
       await tick(120);
       if (!worker.died()) {
@@ -1010,7 +1022,7 @@ describe('a worker that dies at the wrong moment', { timeout: 60_000 }, () => {
 
 describe('signed out or switched during a run', () => {
   const signOutHere = async () => {
-    await chrome.storage.local.remove([CLOUD_ACCOUNT_KEY, CLOUD_SYNC_KEY]);
+    await chrome.storage.local.remove([CLOUD_ACCOUNT_KEY, CLOUD_KEY_KEY]);
     await settle();
   };
 
@@ -1021,10 +1033,11 @@ describe('signed out or switched during a run', () => {
     const { release } = holdFirstRequest();
     await pass(2500);
     await signOutHere();
-    server.token = 'tok2';
+    server.tokens.set('tok2', server.tokens.get('tok')!);
+    server.tokens.delete('tok');
     await chrome.storage.local.set({
       [CLOUD_ACCOUNT_KEY]: { ...ACCOUNT, token: 'tok2' },
-      [CLOUD_SYNC_KEY]: rawKey,
+      [CLOUD_KEY_KEY]: KEY,
     });
     release();
     await settle();
@@ -1055,7 +1068,7 @@ describe('signed out or switched during a run', () => {
       deleted: false,
     } as const;
     server.inject({ ...only, ...(await encryptRecord(rawKey, only, session(only.id, START + 9))) });
-    const other = fakeSyncServer('tok-b');
+    const { other, stored } = await otherAccount('tok-b');
     await sessionRepo.put(session('s1'));
     await settle();
     let release = () => {};
@@ -1069,10 +1082,7 @@ describe('signed out or switched during a run', () => {
     });
     await pass(2500);
     await signOutHere();
-    await chrome.storage.local.set({
-      [CLOUD_ACCOUNT_KEY]: { ...ACCOUNT, token: 'tok-b', email: 'other@example.com' },
-      [CLOUD_SYNC_KEY]: toBase64(crypto.getRandomValues(new Uint8Array(32))),
-    });
+    await chrome.storage.local.set(stored);
     await sessionRepo.put(session('made-as-b'));
     release();
     await settle();

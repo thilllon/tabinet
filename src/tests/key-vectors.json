@@ -1,0 +1,38 @@
+{
+  "keyEncryptionKey": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+  "keyEncryptionKeyId": "2e8440d4467793dd",
+  "dek": "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8=",
+  "docIdKey": "29bb56db37f7ada74a712ad4d7a914b900b604e291db7f3f6320ac54116acb0d",
+  "keyId": "t5Je7_rzOWLofjmcQnKr6g",
+  "writeProof": "hrUXTbuYPUVRqA8OM9JIEFaikBdeHaT+vmaNvb/3eDc=",
+  "writeVerifier": "a7fc12b77aeb0ac386ba08b0bb32aa46053bb262d39657a3441c999b8c0bf098",
+  "passphrase": "한글비밀번호입니다",
+  "passphraseNfcUtf8": "ed959ceab880ebb984ebb080ebb288ed98b8ec9e85eb8b88eb8ba4",
+  "passphraseNfdUtf8": "e18492e185a1e186abe18480e185b3e186afe18487e185b5e18486e185b5e186afe18487e185a5e186abe18492e185a9e1848be185b5e186b8e18482e185b5e18483e185a1",
+  "wrapKey": "020246d266504273ee641fbf45e898eff2e45ce9234075792332635b74fd6f64",
+  "wrapAad": "[\"tabinet-wrap-v2\",1,\"t5Je7_rzOWLofjmcQnKr6g\",\"QEFCQ0RFRkdISUpLTE1OTw==\"]",
+  "envelope": {
+    "v": 2,
+    "generation": 1,
+    "keyId": "t5Je7_rzOWLofjmcQnKr6g",
+    "salt": "QEFCQ0RFRkdISUpLTE1OTw==",
+    "iv": "UFFSU1RVVldYWVpb",
+    "wrapped": "kbL+5yJLYbNiEQsW0yD81CiZqMdC1uzUZ8faGsVufOZoHxSd0HFmCFvTJ8WC4rhU"
+  },
+  "envelopeBytes": "0200000001b7925eeffaf33962e87e399c4272abea404142434445464748494a4b4c4d4e4f505152535455565758595a5b91b2fee7224b61b362110b16d320fcd42899a8c742d6ecd467c7da1ac56e7ce6681f149dd07166085bd327c582e2b854",
+  "sub": "100000000000000000001",
+  "sealIv": "YGFiY2RlZmdoaWpr",
+  "sealAad": "[\"tabinet-envelope-v2\",\"100000000000000000001\",\"2e8440d4467793dd\",\"t5Je7_rzOWLofjmcQnKr6g\",1]",
+  "sealed": "YGFiY2RlZmdoaWpr6NubVbr3ETGT7AoSEGW/ero3+yJuJHOb4OXFKju6vkL51XW261tE9Gh1vqNJi8Tw3rkaQc5fuajV9K128retrG45kG7dOMwVPhWcPbbWj3HA13L03Fgzmxg02Qxe/5j+MISu1s0VlUpTLqtTwFeLILQ=",
+  "docIds": {
+    "memo": "qVpU92oEKGevYKN1dOwg5h-6QsAujPQAMe16WydaK9Q",
+    "youtubeNote": "YODVglYjDIXlGKc_AhkyJbdSPE67IuY5bzzQbgO47Fs"
+  },
+  "record": {
+    "iv": "cHFyc3R1dnd4eXp7",
+    "aad": "tabinet-record-v1|doc|qVpU92oEKGevYKN1dOwg5h-6QsAujPQAMe16WydaK9Q|1800000000001|0",
+    "plaintext": "{\"type\":\"memo\",\"version\":1,\"data\":{\"id\":\"00000000-0000-4000-8000-000000000001\",\"text\":\"hello\\n\",\"createdAt\":1800000000000}}",
+    "ciphertext": "ElwWEqfN5WQKdkUtB9AsMR4ustxgdw7d+9BNarAO7XzAoJTTmrB+VoQrLQEztPDG2YAnCZFTpkFBv8ggAm0P6qmoTMZXOjCrdYSsMA/MrAnzlpalRU+VDBVNh2S/GcaxM0PrBT2ArLcRUO0/O59h/78fYngbdXtnxOOy5cbBJVUcUoLYm1smeYb5NA=="
+  },
+  "memoCopyId": "Pr6o3sl2ttk_ggbX1byakscgHn8lcggkpo48KbAC6hs"
+}

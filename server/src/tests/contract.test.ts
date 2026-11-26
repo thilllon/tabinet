@@ -6,9 +6,10 @@ import { createApp } from '../app.js';
 import type { Deps } from '../context.js';
 import type { Store } from '../db/store.js';
 import { createServer } from '../production.js';
-import { createTestDeps, ORIGIN, request, sessionRecord } from './helpers.js';
+import { createTestDeps, ORIGIN, rec, request } from './helpers.js';
 
 const TOKEN = 'A'.repeat(43);
+const KEY_ID = 'AAAAAAAAAAAAAAAAAAAAAA';
 const JSON_TYPE = 'application/json; charset=utf-8';
 
 afterEach(() => {
@@ -18,9 +19,17 @@ afterEach(() => {
 /** An app over a store that knows every token and counts what it is asked. */
 function setUp(overrides: Partial<Store> = {}, depsOverrides: Partial<Deps> = {}) {
   const store = {
-    findUserByToken: vi.fn(async () => ({ id: '1', email: 'a@example.com', keySetup: null })),
-    applyRecord: vi.fn(async () => ({ status: 'applied', seq: 1 })),
-    listRecords: vi.fn(async () => []),
+    findAccountByToken: vi.fn(async () => ({
+      id: '1',
+      googleSub: 'sub',
+      email: 'a@example.com',
+      key: { keyId: KEY_ID, generation: 1 },
+      usage: { bytes: 0, screenshots: 0 },
+    })),
+    applyRecord: vi.fn(async () => ({ outcome: 'applied', seq: 1 })),
+    usage: vi.fn(async () => ({ bytes: 0, screenshots: 0 })),
+    streamStart: vi.fn(async () => ({ through: 0, usage: { bytes: 0, screenshots: 0 } })),
+    streamBatch: vi.fn(async () => ({ status: 'rows', records: [] })),
     ...overrides,
   };
   const { deps } = createTestDeps(store as unknown as Store, depsOverrides);
@@ -40,12 +49,13 @@ const JSON_HEADERS = {
 };
 
 const ALLOW = [
-  ['/v1/auth/google', 'POST'],
-  ['/v1/auth/logout', 'POST'],
-  ['/v1/me', 'GET'],
-  ['/v1/keys', 'PUT'],
-  ['/v1/records', 'GET, POST'],
-  ['/v1/account', 'DELETE'],
+  ['/v2/auth/google', 'POST'],
+  ['/v2/auth/logout', 'POST'],
+  ['/v2/me', 'GET'],
+  ['/v2/keys/open', 'POST'],
+  ['/v2/keys', 'PUT'],
+  ['/v2/records', 'GET, POST'],
+  ['/v2/account', 'DELETE'],
 ] as const;
 
 const WRONG = ALLOW.flatMap(([path, allow]) =>
@@ -61,16 +71,16 @@ describe('wrong method', () => {
     expect(res.status).toBe(405);
     expect(await res.text()).toBe('{"error":"method_not_allowed"}');
     expect(headersOf(res)).toEqual({ ...JSON_HEADERS, allow });
-    expect(store.findUserByToken).not.toHaveBeenCalled();
+    expect(store.findAccountByToken).not.toHaveBeenCalled();
   });
 
   it('is decided without a token', async () => {
-    const res = await setUp().app.fetch(request('PUT', '/v1/me'));
+    const res = await setUp().app.fetch(request('PUT', '/v2/me'));
     expect(res.status).toBe(405);
   });
 
   it('keeps a query out of it', async () => {
-    const res = await setUp().app.fetch(request('HEAD', '/v1/records?since=1'));
+    const res = await setUp().app.fetch(request('HEAD', '/v2/records?since=1'));
     expect(res.status).toBe(405);
     expect(res.headers.get('Allow')).toBe('GET, POST');
   });
@@ -79,19 +89,21 @@ describe('wrong method', () => {
 describe('paths', () => {
   it.each([
     '/',
-    '/v1',
-    '/v1/',
-    '/v1/me/',
-    '/v1//me',
-    '//v1/me',
-    '/v1/ME',
-    '/v1/%6De',
-    '/%761/me',
-    '/v1%2Fme',
-    '/v1/records%3Fsince=1',
-    '/v1/me%20',
-    '/v1/%',
-    '/v1/%E0%A4%A',
+    '/v2',
+    '/v2/',
+    '/v2/me/',
+    '/v2//me',
+    '//v2/me',
+    '/v2/ME',
+    '/v2/%6De',
+    '/%762/me',
+    '/v2%2Fme',
+    '/v2/records%3Fsince=1',
+    '/v2/me%20',
+    '/v2/%',
+    '/v2/%E0%A4%A',
+    '/v2/keys/open/',
+    '/v2/keys/',
     '/api/vercel.adaptor',
   ])('%s is 404 for any method, without looking at the token', async (path) => {
     const { app, store } = setUp();
@@ -101,11 +113,11 @@ describe('paths', () => {
       expect(await res.text()).toBe('{"error":"not_found"}');
       expect(headersOf(res)).toEqual(JSON_HEADERS);
     }
-    expect(store.findUserByToken).not.toHaveBeenCalled();
+    expect(store.findAccountByToken).not.toHaveBeenCalled();
   });
 
-  it.each(['/v1/./me', '/v1/x/../me', '/v1/%2e/me', '/v1/me?', '/v1/me?x=%zz', '/v1/me#part'])(
-    '%s is /v1/me, as URL reads it',
+  it.each(['/v2/./me', '/v2/x/../me', '/v2/%2e/me', '/v2/me?', '/v2/me?x=%zz', '/v2/me#part'])(
+    '%s is /v2/me, as URL reads it',
     async (path) => {
       expect((await setUp().app.fetch(request('GET', path, { token: TOKEN }))).status).toBe(200);
     },
@@ -113,7 +125,7 @@ describe('paths', () => {
 });
 
 describe('OPTIONS', () => {
-  it.each(['/', '/v1/me', '/v1/records?limit=x', '/v1/nowhere', '/v1/me/', '/v1/%6De'])(
+  it.each(['/', '/v2/me', '/v2/records?since=x', '/v2/nowhere', '/v2/me/', '/v2/%6De', '/v1/me'])(
     '%s is the same 204',
     async (path) => {
       const { app, store } = setUp();
@@ -121,14 +133,14 @@ describe('OPTIONS', () => {
       expect(res.status).toBe(204);
       expect(res.body).toBeNull();
       expect(headersOf(res)).toEqual({
-        'access-control-allow-headers': 'Authorization, Content-Type',
+        'access-control-allow-headers': 'Authorization, Content-Type, Tabinet-Key-Id',
         'access-control-allow-methods': 'GET, POST, PUT, DELETE',
         'access-control-allow-origin': ORIGIN,
         'access-control-max-age': '600',
         'cache-control': 'no-store',
         vary: 'Origin',
       });
-      expect(store.findUserByToken).not.toHaveBeenCalled();
+      expect(store.findAccountByToken).not.toHaveBeenCalled();
     },
   );
 });
@@ -151,11 +163,13 @@ describe('anything thrown', () => {
     const fail = async () => {
       throw thrown;
     };
-    for (const method of ['findUserByToken', 'listRecords'] as const) {
+    for (const method of ['findAccountByToken', 'streamStart'] as const) {
       const log = vi.spyOn(console, 'error').mockImplementation(() => {});
       log.mockClear();
       const { app } = setUp({ [method]: fail });
-      const res = await app.fetch(request('GET', '/v1/records', { token: TOKEN, origin: ORIGIN }));
+      const res = await app.fetch(
+        request('GET', '/v2/records', { token: TOKEN, keyId: KEY_ID, origin: ORIGIN }),
+      );
       expect(res.status).toBe(500);
       expect(await res.text()).toBe('{"error":"internal"}');
       expect(headersOf(res)).toEqual(JSON_HEADERS);
@@ -166,19 +180,19 @@ describe('anything thrown', () => {
   it('is caught when thrown before the first await', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const { app } = setUp({
-      findUserByToken: () => {
+      findAccountByToken: () => {
         throw 'secret';
       },
     });
-    expect((await app.fetch(request('GET', '/v1/me', { token: TOKEN }))).status).toBe(500);
+    expect((await app.fetch(request('GET', '/v2/me', { token: TOKEN }))).status).toBe(500);
   });
 
   it('covers a body that cannot be read', async () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     const body = new ReadableStream({ start: (controller) => controller.error('aborted') });
-    const req = new Request('https://x.test/v1/records', {
+    const req = new Request('https://x.test/v2/records', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${TOKEN}` },
+      headers: { Authorization: `Bearer ${TOKEN}`, 'Tabinet-Key-Id': KEY_ID },
       body,
       duplex: 'half',
     });
@@ -187,17 +201,32 @@ describe('anything thrown', () => {
   });
 });
 
+/** The body limit of a route (spec 4.1). */
+function limitOf(path: string): number {
+  return path === '/v2/records' ? POLICY.request.maxBodyBytes : POLICY.request.maxSmallBodyBytes;
+}
+
+function methodOf(path: string): string {
+  return path === '/v2/keys' ? 'PUT' : path === '/v2/account' ? 'DELETE' : 'POST';
+}
+
+const BODY_ROUTES = ['/v2/auth/google', '/v2/keys/open', '/v2/keys', '/v2/records', '/v2/account'];
+
 describe('body', () => {
   /** A request whose body records whether anything pulled on it. */
   function watched(path: string, headers: Record<string, string> = {}) {
     const pull = vi.fn((controller: ReadableStreamDefaultController) => controller.close());
     const body = new ReadableStream({ pull }, { highWaterMark: 0 });
-    const method = path === '/v1/keys' ? 'PUT' : 'POST';
-    const req = new Request(`https://x.test${path}`, { method, headers, body, duplex: 'half' });
+    const req = new Request(`https://x.test${path}`, {
+      method: methodOf(path),
+      headers,
+      body,
+      duplex: 'half',
+    });
     return { req, pull };
   }
 
-  it.each(['/v1/auth/logout', '/v1/keys', '/v1/records'])(
+  it.each(['/v2/auth/logout', '/v2/keys/open', '/v2/keys', '/v2/records', '/v2/account'])(
     '%s answers 401 before reading it, even over the limit',
     async (path) => {
       const { req, pull } = watched(path, {
@@ -209,12 +238,13 @@ describe('body', () => {
     },
   );
 
-  it.each(['/v1/auth/google', '/v1/keys', '/v1/records'])(
+  it.each(BODY_ROUTES)(
     '%s refuses a Content-Length over the limit before reading',
     async (path) => {
       const { req, pull } = watched(path, {
         Authorization: `Bearer ${TOKEN}`,
-        'Content-Length': String(POLICY.request.maxBodyBytes + 1),
+        'Tabinet-Key-Id': KEY_ID,
+        'Content-Length': String(limitOf(path) + 1),
         Origin: ORIGIN,
       });
       const res = await setUp().app.fetch(req);
@@ -225,7 +255,7 @@ describe('body', () => {
     },
   );
 
-  it.each(['/v1/auth/google', '/v1/keys', '/v1/records'])(
+  it.each(BODY_ROUTES)(
     '%s answers once a body is over the limit, then discards the rest',
     async (path) => {
       const chunk = new Uint8Array(64 * 1024).fill(32);
@@ -237,7 +267,7 @@ describe('body', () => {
             // As from a socket: each chunk is a turn of the event loop.
             await new Promise((resolve) => setImmediate(resolve));
             // Ends far over the limit, so a reader without one fails here instead of running out of memory.
-            if (sent > POLICY.request.maxBodyBytes * 4) {
+            if (sent > limitOf(path) * 4 + 4 * chunk.length) {
               controller.close();
               readToTheEnd = true;
               return;
@@ -249,13 +279,14 @@ describe('body', () => {
         { highWaterMark: 0 },
       );
       const req = new Request(`https://x.test${path}`, {
-        method: path === '/v1/keys' ? 'PUT' : 'POST',
-        headers: { Authorization: `Bearer ${TOKEN}` },
+        method: methodOf(path),
+        headers: { Authorization: `Bearer ${TOKEN}`, 'Tabinet-Key-Id': KEY_ID },
         body,
         duplex: 'half',
       });
       expect((await setUp().app.fetch(req)).status).toBe(413);
-      expect(sent).toBeLessThanOrEqual(POLICY.request.maxBodyBytes + 2 * chunk.length);
+      // Reading stopped within one chunk of the limit, whatever was still coming.
+      expect(sent).toBeLessThanOrEqual(limitOf(path) + 2 * chunk.length);
       // Left unread, it blocks the next request on the connection.
       await vi.waitFor(() => expect(readToTheEnd).toBe(true));
     },
@@ -273,9 +304,9 @@ describe('body', () => {
   ])('%s', async (_name, start, spaces, status) => {
     const bytes = new Uint8Array(start.length + spaces).fill(32);
     bytes.set(start);
-    const req = new Request('https://x.test/v1/records', {
+    const req = new Request('https://x.test/v2/records', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${TOKEN}` },
+      headers: { Authorization: `Bearer ${TOKEN}`, 'Tabinet-Key-Id': KEY_ID },
       body: bytes,
     });
     expect((await setUp().app.fetch(req)).status).toBe(status);
@@ -283,12 +314,16 @@ describe('body', () => {
 
   it('counts the bytes whatever Content-Length says', async () => {
     const { app } = setUp();
-    const json = JSON.stringify({ records: [sessionRecord('a', 1)] });
+    const json = JSON.stringify({ records: [rec('session', 'a', 1)] });
     for (const [size, status] of [
       [POLICY.request.maxBodyBytes, 200],
       [POLICY.request.maxBodyBytes + 1, 413],
     ] as const) {
-      const req = request('POST', '/v1/records', { token: TOKEN, rawBody: json.padEnd(size) });
+      const req = request('POST', '/v2/records', {
+        token: TOKEN,
+        keyId: KEY_ID,
+        rawBody: json.padEnd(size),
+      });
       req.headers.set('Content-Length', '2');
       expect((await app.fetch(req)).status).toBe(status);
     }
@@ -296,12 +331,14 @@ describe('body', () => {
 
   it('counts bytes, not characters', async () => {
     const rawBody = 'é'.repeat(POLICY.request.maxBodyBytes / 2 + 1);
-    const req = request('POST', '/v1/records', { token: TOKEN, rawBody });
+    const req = request('POST', '/v2/records', { token: TOKEN, keyId: KEY_ID, rawBody });
     expect((await setUp().app.fetch(req)).status).toBe(413);
   });
 
   it.each(['', '{', 'undefined', '\u0000'])('answers %j with 400', async (rawBody) => {
-    const res = await setUp().app.fetch(request('POST', '/v1/records', { token: TOKEN, rawBody }));
+    const res = await setUp().app.fetch(
+      request('POST', '/v2/records', { token: TOKEN, keyId: KEY_ID, rawBody }),
+    );
     expect(res.status).toBe(400);
     expect(res.headers.get('Content-Type')).toBe(JSON_TYPE);
   });
@@ -316,7 +353,7 @@ describe('a configuration failure', () => {
       },
       { ALLOWED_ORIGINS: ORIGIN },
     );
-    const res = await serve(request(method, '/v1/me', { origin: ORIGIN }));
+    const res = await serve(request(method, '/v2/me', { origin: ORIGIN }));
     expect(res.status).toBe(500);
     expect(await res.text()).toBe('{"error":"internal"}');
     expect(headersOf(res)).toEqual(JSON_HEADERS);

@@ -227,13 +227,13 @@ describe('sessionRepo.put / get / listSummaries', () => {
     expect(index?.sessions[0].bytes).toBeGreaterThan(utf16Length);
   });
 
-  it('writes the body before the index', async () => {
+  it('writes the body and the index in one set', async () => {
     const setSpy = vi.spyOn(chrome.storage.local, 'set');
 
     await sessionRepo.put(makeSession());
 
-    const writtenKeys = setSpy.mock.calls.map((call) => Object.keys(call[0]));
-    expect(writtenKeys).toEqual([[sessionKey('id-a')], [INDEX_KEY]]);
+    const writtenKeys = setSpy.mock.calls.map((call) => Object.keys(call[0]).sort());
+    expect(writtenKeys).toEqual([[INDEX_KEY, sessionKey('id-a')].sort()]);
   });
 
   it('returns the stored session from get and undefined for unknown ids', async () => {
@@ -460,15 +460,14 @@ describe('sessionRepo.update', () => {
     await expect(sessionRepo.getHistoryMeta()).resolves.toBeUndefined();
   });
 
-  it('writes the body before the index', async () => {
+  it('writes the body and the index in one set', async () => {
     await sessionRepo.put(makeSession({ id: 'id-a' }));
     const setSpy = vi.spyOn(chrome.storage.local, 'set');
 
     await sessionRepo.update('id-a', (session) => ({ ...session, name: 'Edited' }));
 
-    expect(setSpy.mock.calls.map(([items]) => Object.keys(items)[0])).toEqual([
-      sessionKey('id-a'),
-      INDEX_KEY,
+    expect(setSpy.mock.calls.map(([items]) => Object.keys(items).sort())).toEqual([
+      [INDEX_KEY, sessionKey('id-a')].sort(),
     ]);
   });
 
@@ -499,7 +498,7 @@ describe('sessionRepo.update', () => {
 });
 
 describe('sessionRepo.remove / removeAll', () => {
-  it('removes the body then the index entry', async () => {
+  it('removes the body and the index entry in one set, then cleans up', async () => {
     const fake = getChromeFake();
     await sessionRepo.put(makeSession({ id: 'id-a' }));
     await sessionRepo.put(makeSession({ id: 'id-b' }));
@@ -510,7 +509,29 @@ describe('sessionRepo.remove / removeAll', () => {
 
     expect(fake.state.local.has(sessionKey('id-a'))).toBe(false);
     expect((await sessionRepo.listSummaries()).map((s) => s.id)).toEqual(['id-b']);
-    expect(removeSpy.mock.invocationCallOrder[0]).toBeLessThan(setSpy.mock.invocationCallOrder[0]);
+    expect(setSpy).toHaveBeenCalledTimes(1);
+    expect(setSpy.mock.calls[0]![0]).toMatchObject({ [sessionKey('id-a')]: null });
+    expect(Object.keys(setSpy.mock.calls[0]![0])).toContain(INDEX_KEY);
+    expect(removeSpy).toHaveBeenCalledWith([sessionKey('id-a')]);
+    expect(setSpy.mock.invocationCallOrder[0]).toBeLessThan(removeSpy.mock.invocationCallOrder[0]!);
+  });
+
+  it('reads a body left as null by a cut cleanup as absent, and reconcile removes it', async () => {
+    const fake = getChromeFake();
+    await sessionRepo.put(makeSession({ id: 'id-a' }));
+    await sessionRepo.put(makeSession({ id: 'id-b' }));
+    fake.state.local.set(sessionKey('id-a'), null);
+    fake.state.local.set(INDEX_KEY, {
+      schemaVersion: SESSION_SCHEMA_VERSION,
+      sessions: (await readIndex())!.sessions.filter((entry) => entry.id !== 'id-a'),
+    });
+
+    await expect(sessionRepo.get('id-a')).resolves.toBeUndefined();
+    expect((await sessionRepo.getMany(['id-a'])).bodies.size).toBe(0);
+    await sessionRepo.reconcile();
+
+    expect(fake.state.local.has(sessionKey('id-a'))).toBe(false);
+    expect((await sessionRepo.listSummaries()).map((s) => s.id)).toEqual(['id-b']);
   });
 
   it('does not remove the body when the index cannot be read', async () => {
@@ -566,17 +587,20 @@ describe('sessionRepo.remove / removeAll', () => {
     expect([...fake.state.local.keys()].sort()).toEqual(['installedVersion', SETTINGS_KEY]);
   });
 
-  it('removeAll takes the lock and removes bodies before the index', async () => {
+  it('removeAll takes the lock and removes bodies and the index in one set', async () => {
     await sessionRepo.put(makeSession({ id: 'id-a' }));
     const requestSpy = vi.spyOn(navigator.locks, 'request');
-    const removeSpy = vi.spyOn(chrome.storage.local, 'remove');
+    const setSpy = vi.spyOn(chrome.storage.local, 'set');
 
     await sessionRepo.removeAll();
 
     expect(requestSpy.mock.calls[0][0]).toBe(LOCK_NAME);
-    // Bodies first, then the index + historyMeta (delete order).
-    expect(removeSpy.mock.calls[0][0]).toEqual([sessionKey('id-a')]);
-    expect(removeSpy.mock.calls[1][0]).toEqual([INDEX_KEY, HISTORY_META_KEY]);
+    expect(setSpy).toHaveBeenCalledTimes(1);
+    expect(setSpy.mock.calls[0]![0]).toEqual({
+      [sessionKey('id-a')]: null,
+      [INDEX_KEY]: null,
+      [HISTORY_META_KEY]: null,
+    });
   });
 
   it('removeAll removes every session body on a runtime without getKeys()', async () => {
@@ -1079,16 +1103,17 @@ describe('sessionRepo history', () => {
       expect(removeSpy).not.toHaveBeenCalled();
     });
 
-    it('removes bodies before rewriting the index, in one remove call', async () => {
+    it('removes bodies and rewrites the index in one set, then one cleanup', async () => {
       await seed(makeHistory({ id: 'h1', createdAt: 1_000 }), makeHistory({ id: 'h2' }));
       const removeSpy = vi.spyOn(chrome.storage.local, 'remove');
       const setSpy = vi.spyOn(chrome.storage.local, 'set');
 
       await sessionRepo.pruneHistory(0);
 
-      expect(removeSpy).toHaveBeenCalledWith([sessionKey('h1'), sessionKey('h2')]);
-      expect(removeSpy.mock.invocationCallOrder[0]).toBeLessThan(
-        setSpy.mock.invocationCallOrder[0],
+      expect(setSpy).toHaveBeenCalledTimes(1);
+      expect(removeSpy).toHaveBeenCalledTimes(1);
+      expect(removeSpy.mock.calls[0]![0]).toEqual(
+        expect.arrayContaining([sessionKey('h1'), sessionKey('h2')]),
       );
       expect(await readIndex()).toMatchObject({ sessions: [] });
     });
@@ -1329,5 +1354,21 @@ describe('sessionRepo history', () => {
       expect(setSpy).not.toHaveBeenCalled();
       expect(removeSpy).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('normalizeSettings clamps the snapshot limit (#270)', () => {
+  it('reads a stored or synced value over the maximum as the maximum', async () => {
+    const { normalizeSettings } = await import('@/lib/session-repo');
+    const { max, min } = POLICY.snapshots.keep;
+    expect(normalizeSettings({ historyMaxSnapshots: max + 1 }).historyMaxSnapshots).toBe(max);
+    expect(normalizeSettings({ historyMaxSnapshots: 1_000_000 }).historyMaxSnapshots).toBe(max);
+    expect(normalizeSettings({ historyMaxSnapshots: max }).historyMaxSnapshots).toBe(max);
+    expect(normalizeSettings({ historyMaxSnapshots: min - 1 }).historyMaxSnapshots).toBe(
+      POLICY.snapshots.keep.default,
+    );
+    expect(normalizeSettings({ historyMaxSnapshots: 2.5 }).historyMaxSnapshots).toBe(
+      POLICY.snapshots.keep.default,
+    );
   });
 });

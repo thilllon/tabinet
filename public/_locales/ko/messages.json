@@ -356,7 +356,7 @@
     "description": "Explanation under the Backup heading in Settings."
   },
   "settingsBackupDescriptionSynced": {
-    "message": "로그인하면 저장한 세션이 동기화되고, 스냅샷은 이 기기에만 남습니다. 내 사본을 따로 보관하려면 파일로 내보내세요.",
+    "message": "로그인하면 저장한 세션, 자유 메모와 YouTube 메모가 동기화되고, 스냅샷은 이 기기에만 남습니다. 여기서 내보내면 세션과 스냅샷이 저장됩니다.",
     "description": "Settings > Backup, section description shown instead of settingsBackupDescription when cloud sync is available in this build."
   },
   "settingsExportEverything": {
@@ -1012,7 +1012,7 @@
     "description": "Notice toast when the user opens a saved session while another one is still being opened (restored)."
   },
   "appSearchNothingFound": {
-    "message": "열린 탭이나 저장된 세션에 일치하는 항목이 없습니다.",
+    "message": "열린 탭, 저장된 세션, YouTube 메모, 자유 메모에 일치하는 항목이 없습니다.",
     "description": "Shown in the search results when nothing matches; a button offering to search automatic snapshots follows it."
   },
   "appSearchHistoryTitle": {
@@ -1396,11 +1396,11 @@
     "description": "Accessible name of the search box at the top of the app page. One word."
   },
   "searchInputTitle": {
-    "message": "열린 탭, 저장된 세션과 그 주소, 메모 검색",
+    "message": "열린 탭, 저장된 세션과 그 주소, YouTube 메모와 자유 메모 검색",
     "description": "Tooltip of the search box at the top of the app page."
   },
   "searchPlaceholder": {
-    "message": "탭 및 세션 검색 (/ 키)",
+    "message": "탭, 세션, 메모 검색 (/ 키)",
     "description": "Placeholder text inside the empty search box. The \"/\" is the keyboard key that focuses the box; keep it as is. Keep it short enough to fit a narrow box (about 40 characters)."
   },
   "searchClear": {
@@ -1760,7 +1760,7 @@
     "description": "Heading of the Settings section for signing in to cloud sync. One or two words."
   },
   "settingsAccountDescription": {
-    "message": "로그인하면 저장한 세션, YouTube 메모와 설정을 여러 기기에서 맞춰 둘 수 있습니다. 데이터는 나만 아는 암호 문구로 이 기기에서 암호화됩니다.",
+    "message": "로그인하면 저장한 세션, 자유 메모, YouTube 메모와 설정을 여러 기기에서 맞춰 둘 수 있습니다. 데이터는 이 기기에서 암호 문구가 보호하는 키로 암호화됩니다.",
     "description": "Explanation under the Account heading in Settings."
   },
   "settingsAccountGoogle": {
@@ -1784,8 +1784,8 @@
     "description": "Label of the Settings row where a new cloud sync passphrase is typed twice."
   },
   "settingsAccountCreatePassphraseHint": {
-    "message": "모든 데이터는 이 기기를 떠나기 전에 이 암호 문구로 암호화됩니다. 누구도 대신 찾아 줄 수 없으므로, 잊어버리면 클라우드에 있는 사본을 잃게 됩니다.",
-    "description": "Warning under \"Create a sync passphrase\" in Settings. It must say clearly that a forgotten passphrase cannot be recovered and the cloud copy is then lost."
+    "message": "이 암호 문구가 클라우드 데이터의 키를 보호합니다. 누구도 대신 찾아 줄 수 없습니다. 이미 잠금 해제된 기기에서는 새 암호 문구를 정할 수 있습니다. 그런 기기가 없으면 클라우드 사본을 잃습니다. 버전 10 이전의 동기화에 쓴 적 없는 암호 문구를 쓰세요.",
+    "description": "Warning under \"Create a sync passphrase\" in Settings. It must say clearly that nobody can recover it, how to reset it, and not to reuse a passphrase from before version 10."
   },
   "settingsAccountPassphrase": {
     "message": "암호 문구",
@@ -1808,8 +1808,8 @@
     "description": "Button that saves a new sync passphrase. Keep it short."
   },
   "settingsAccountPassphraseExists": {
-    "message": "이 계정에는 다른 기기에서 만든 동기화 암호 문구가 이미 있습니다. 아래에 입력하세요.",
-    "description": "Notice when the person tried to create a sync passphrase but another device had already created one."
+    "message": "이 계정에는 동기화 암호 문구가 이미 있습니다. 입력하세요.",
+    "description": "Notice when the person tried to create a sync passphrase but the account already has one."
   },
   "settingsAccountUnlock": {
     "message": "동기화 암호 문구 입력",
@@ -1836,7 +1836,7 @@
     "description": "Button in Settings that signs out of cloud sync on this device. Keep it short."
   },
   "settingsAccountSignedOut": {
-    "message": "로그아웃했습니다. 이 기기의 세션과 메모는 그대로 있습니다.",
+    "message": "로그아웃했습니다. 이 기기의 세션, 자유 메모와 YouTube 메모는 그대로 있습니다.",
     "description": "Toast after signing out of cloud sync."
   },
   "settingsAccountDelete": {
@@ -1848,7 +1848,7 @@
     "description": "Title of the dialog that asks before deleting the cloud sync account."
   },
   "settingsAccountDeleteBody": {
-    "message": "계정과 동기화 서버에 저장된 모든 데이터를 삭제합니다. 되돌릴 수 없습니다. 이 기기의 세션과 메모는 남아 있습니다.",
+    "message": "Chrome이 Google 계정을 확인한 뒤, 계정과 동기화 서버에 저장된 모든 데이터를 삭제합니다. 되돌릴 수 없습니다. 이 기기의 세션, 자유 메모와 YouTube 메모는 남아 있습니다.",
     "description": "Body of the dialog that asks before deleting the cloud sync account."
   },
   "settingsAccountDeleted": {
@@ -1920,8 +1920,8 @@
     "description": "Live sync status when nothing waits to be sent. $1 is the date and time of the last sync, already formatted."
   },
   "settingsAccountStatusHeld_other": {
-    "message": "한도를 넘은 스크린샷 $1개만 빼고 동기화했습니다. 마지막 동기화: $2",
-    "description": "Live sync status when all but screenshots over the account limit are synced. $1 is how many stay only on this device, $2 the date and time of the last sync."
+    "message": "한도를 넘은 항목 $1개만 빼고 동기화했습니다. 마지막 동기화: $2",
+    "description": "Live sync status when everything but items over a limit (storage or screenshots) is synced. $1 is how many stay only on this device, $2 the date and time of the last sync."
   },
   "settingsAccountNextCheck_other": {
     "message": "다른 기기의 변경 내용 다음 확인: $2 ($1분마다)",
@@ -1996,7 +1996,7 @@
     "description": "Heading in the sync explanation: what syncs."
   },
   "settingsAccountHelpWhatSynced_other": {
-    "message": "동기화됨: 저장한 세션, YouTube 메모와 스크린샷(계정당 최대 $1개), 언어를 포함한 설정",
+    "message": "동기화됨: 저장한 세션, 자유 메모, YouTube 메모와 스크린샷(계정당 스크린샷 최대 $1개), 언어를 포함한 설정",
     "description": "Sync explanation. $1 is the screenshot limit per account (100)."
   },
   "settingsAccountHelpWhatLocal": {
@@ -2012,12 +2012,12 @@
     "description": "Heading in the sync explanation: conflicting edits."
   },
   "settingsAccountHelpConflictNewer": {
-    "message": "각 기기의 시계를 기준으로 나중에 바꾼 쪽이 남고, 다른 쪽을 덮어씁니다. 삭제도 변경으로 칩니다.",
-    "description": "Sync explanation: last writer wins, by each device’s clock, deletions included."
+    "message": "세션, 설정, YouTube 메모 하나하나: 각 기기의 시계를 기준으로 나중에 바꾼 쪽이 남습니다. 삭제도 변경으로 칩니다.",
+    "description": "Sync explanation: last writer wins for sessions, settings and each YouTube note, by each device’s clock, deletions included."
   },
   "settingsAccountHelpConflictWhole": {
-    "message": "내용을 합치지 않습니다. 세션 하나, 동영상 하나의 메모 전체, 또는 설정 전체가 통째로 바뀝니다.",
-    "description": "Sync explanation: the unit that is replaced."
+    "message": "자유 메모: 양쪽에서 고쳤다면 두 내용을 모두 남기고, 하나는 “충돌 사본”이 됩니다. 수정은 삭제보다 우선합니다.",
+    "description": "Sync explanation: memos edited in two places keep both texts. Quotes the conflict badge (memoConflictBadge)."
   },
   "settingsAccountImagesHeld_other": {
     "message": "스크린샷 $1개를 동기화하지 못했습니다. 계정에 이미 최대치인 스크린샷 $2개가 있습니다. 이 기기에는 남아 있고, 스크린샷을 지우면 동기화됩니다.",
@@ -2050,14 +2050,6 @@
   "errorCloudBadResponse": {
     "message": "동기화 서버가 이 버전이 읽을 수 없는 응답을 보냈습니다.",
     "description": "Error when the sync server's answer has an unexpected shape."
-  },
-  "errorCloudRecordTooLarge": {
-    "message": "세션 하나가 너무 커서 동기화할 수 없습니다. 이 기기에만 남아 있습니다.",
-    "description": "Error when a saved session is too large for the sync server; it stays on this device only."
-  },
-  "errorCloudNoteTooLarge": {
-    "message": "메모나 스크린샷 하나가 너무 커서 동기화할 수 없습니다. 이 기기에만 남아 있습니다.",
-    "description": "Error when one video's notes, or one note screenshot, is too large for the sync server; it stays on this device only."
   },
   "commonTryAgain": {
     "message": "다시 시도",
@@ -2208,12 +2200,112 @@
     "description": "Error toast when a screenshot of the video failed for any other reason."
   },
   "appNavNotes": {
-    "message": "메모",
-    "description": "Sidebar section heading above the list of YouTube videos with notes. Shown in uppercase. Keep short."
+    "message": "YouTube 메모",
+    "description": "Sidebar section heading over the videos that have YouTube notes. Keep it distinct from the Memos section."
   },
   "appNavNoNotes": {
     "message": "YouTube 동영상에 남긴 메모가 여기에 표시됩니다.",
     "description": "Shown in the sidebar's Notes section when no YouTube video has notes yet."
+  },
+  "appNavMemos": {
+    "message": "자유 메모",
+    "description": "Sidebar section heading over the free-form memos the person writes on the Tabinet page. Not the YouTube notes: Korean and Japanese call those 메모 / メモ, so memos are 자유 메모 / 自由メモ."
+  },
+  "appNavNoMemos": {
+    "message": "직접 쓴 자유 메모가 여기에 표시됩니다.",
+    "description": "Shown in the sidebar's Memos section when there is no memo yet."
+  },
+  "memoNew": {
+    "message": "새 자유 메모",
+    "description": "Button on the sidebar's Memos heading that opens an empty memo. Button text, short."
+  },
+  "memoNewTitle": {
+    "message": "새 자유 메모 쓰기",
+    "description": "Tooltip of the New memo button."
+  },
+  "memoUntitled": {
+    "message": "제목 없는 메모",
+    "description": "The title shown for a memo whose text is empty or blank (a memo's title is its first line)."
+  },
+  "memoLabel": {
+    "message": "메모 내용",
+    "description": "Accessible label of the memo's text box."
+  },
+  "memoPlaceholder": {
+    "message": "무엇이든 쓰세요. 쓰는 대로 저장됩니다.",
+    "description": "Placeholder of an empty memo's text box."
+  },
+  "memoTextTitle": {
+    "message": "쓰는 대로 저장됩니다. $1 키를 누르면 바로 저장합니다.",
+    "description": "Tooltip of the memo's text box. $1 is the key that saves at once, such as Ctrl+Enter or ⌘+Enter."
+  },
+  "memoUpdatedAt": {
+    "message": "$1 수정",
+    "description": "Under a memo's title and in the sidebar: when it last changed. $1 is a date and time."
+  },
+  "memoExport": {
+    "message": "Markdown으로 내보내기",
+    "description": "Button on a memo's page that saves the memo as a Markdown file. Button text, short; the same wording as the notes page's export button."
+  },
+  "memoExportTitle": {
+    "message": "이 메모를 Markdown 파일로 저장",
+    "description": "Tooltip of the memo's Export Markdown button."
+  },
+  "memoDelete": {
+    "message": "삭제",
+    "description": "Button on a memo's page that deletes it (undo is offered in a toast). Button text, short."
+  },
+  "memoDeleteTitle": {
+    "message": "이 메모를 삭제합니다. 몇 초 동안 되돌릴 수 있습니다.",
+    "description": "Tooltip of the memo's Delete button."
+  },
+  "memoDeleted": {
+    "message": "메모를 삭제했습니다.",
+    "description": "Toast after a memo was deleted; it carries an Undo button."
+  },
+  "memoUndo": {
+    "message": "되돌리기",
+    "description": "Button in the toast after a memo was deleted. Button text, short."
+  },
+  "memoUndoTitle": {
+    "message": "삭제한 메모 되살리기",
+    "description": "Tooltip of the Undo button in the toast after a memo was deleted."
+  },
+  "memoConflictBadge": {
+    "message": "충돌 사본",
+    "description": "Badge on a memo kept as a copy because it was changed in two places at once. Short."
+  },
+  "memoConflictTitle": {
+    "message": "이 메모가 두 곳에서 바뀌어 두 버전을 모두 남겼습니다",
+    "description": "Tooltip of the Conflict copy badge."
+  },
+  "memoConflictHint": {
+    "message": "충돌 때문에 남긴 사본입니다. 필요하면 다른 메모에 합친 뒤 삭제하세요.",
+    "description": "One line above a conflict copy's text."
+  },
+  "memoConflictNotice": {
+    "message": "메모 하나가 두 곳에서 바뀌었습니다. 두 버전을 모두 남겼습니다.",
+    "description": "Toast when a memo conflict made a copy (from sync, or from an edit of a memo changed elsewhere)."
+  },
+  "memoSaveFailed": {
+    "message": "메모를 저장하지 못했습니다.",
+    "description": "Error toast when saving a memo failed; the text stays in the box."
+  },
+  "memoCopyText": {
+    "message": "내용 복사",
+    "description": "Button in the error toast shown when leaving a memo whose last save failed. Button text, short."
+  },
+  "memoCopyTextTitle": {
+    "message": "메모 내용을 클립보드에 복사",
+    "description": "Tooltip of the Copy text button."
+  },
+  "memoTextCopied": {
+    "message": "내용을 복사했습니다.",
+    "description": "Toast after Copy text put a memo's text on the clipboard."
+  },
+  "memoUnreadable": {
+    "message": "최신 버전의 Tabinet이 저장한 메모라 여기서 표시할 수 없습니다.",
+    "description": "Shown in place of a memo's text when its stored body cannot be read by this version."
   },
   "notesEntryCount_other": {
     "message": "메모 $1개",
@@ -2228,8 +2320,12 @@
     "description": "Stands in for the title of a YouTube video whose title was not known when its notes were taken."
   },
   "searchGroupNotes": {
-    "message": "메모",
-    "description": "Heading of the search results group listing matching YouTube notes. Shown in small capitals; short."
+    "message": "YouTube 메모",
+    "description": "Heading of the search results that are YouTube notes."
+  },
+  "searchGroupMemos": {
+    "message": "자유 메모",
+    "description": "Heading of the search results that are memos (the sidebar's Memos section)."
   },
   "notesOpenAt": {
     "message": "$1 위치에서 동영상 열기",
@@ -2271,6 +2367,10 @@
     "message": "“$2”의 메모 $1개가 스크린샷과 함께 이 기기에서 모두 삭제됩니다. 되돌릴 수 없습니다.",
     "description": "Text of the dialog that asks before every note on a video is deleted. $1 is how many notes, $2 the video's title."
   },
+  "notesDeleteAllBodySynced_other": {
+    "message": "“$2”의 메모 $1개가 스크린샷과 함께 이 기기에서 모두 삭제되며, 동기화를 쓰고 있다면 다른 기기에서도 삭제됩니다. 되돌릴 수 없습니다.",
+    "description": "Body of the dialog that deletes every note on a video, in a build with cloud sync. $1 is the number of notes, $2 the video's title."
+  },
   "notesPageHint": {
     "message": "메모는 동영상을 보면서 YouTube 메모 사이드 패널에서 작성합니다. 메모의 시간을 누르면 그 시점부터 동영상이 열립니다.",
     "description": "Grey line under a video's title on its notes page, saying where notes are written and what a note's time does."
@@ -2302,5 +2402,181 @@
   "treeShowMoreTabsTitle_other": {
     "message": "이 창에 숨겨진 탭 $1개",
     "description": "Tooltip of the \"Show N more tabs\" button under a long window. $1 is how many tabs are still hidden in that window, formatted."
+  },
+  "settingsAccountUpgradeHint": {
+    "message": "버전 10에서 동기화가 새로 만들어졌습니다. 로그인한 뒤 동기화 암호 문구를 다시 만드세요. 이 기기의 데이터는 모두 그대로 있습니다.",
+    "description": "Settings > Account, signed out, on a device that used sync before version 10."
+  },
+  "settingsAccountExpired": {
+    "message": "로그인이 만료되었습니다. 다시 로그인하면 동기화가 이어집니다. 키는 이 기기에 그대로 있습니다.",
+    "description": "Settings > Account when the sign-in ran out but the key is still on this device."
+  },
+  "settingsAccountSignInTitle": {
+    "message": "Chrome 창에서 Google 계정을 고르거나 확인합니다",
+    "description": "Tooltip of the Sign in with Google button."
+  },
+  "settingsAccountConfirm": {
+    "message": "이 기기의 데이터를 이 계정에 추가할까요?",
+    "description": "Question shown after signing in to another account than the one this device last synced with."
+  },
+  "settingsAccountConfirmBody": {
+    "message": "이 기기는 마지막으로 $1 또는 그 클라우드 데이터의 이전 사본과 동기화했습니다. $2에 추가하면, 암호 문구를 만들거나 입력한 뒤 여기 있는 저장한 세션, 자유 메모, YouTube 메모와 설정이 그 계정에 올라갑니다.",
+    "description": "Explains the account question. $1 is the email this device last synced with, $2 the email just signed in."
+  },
+  "settingsAccountKeepHere": {
+    "message": "아니요, 여기에만 둡니다",
+    "description": "Default button of the account question: cancel the sign-in and upload nothing."
+  },
+  "settingsAccountKeepHereTitle": {
+    "message": "이 로그인을 취소하고 아무것도 올리지 않습니다",
+    "description": "Tooltip of the \"No, keep it here\" button."
+  },
+  "settingsAccountAddData": {
+    "message": "이 계정에 추가",
+    "description": "Button of the account question: allow uploading this device’s data to the account just signed in."
+  },
+  "settingsAccountAddDataTitle": {
+    "message": "이 기기의 데이터를 이 계정에 올리도록 허용합니다",
+    "description": "Tooltip of the \"Add to this account\" button."
+  },
+  "settingsAccountCheckFailed": {
+    "message": "계정을 확인하지 못했습니다.",
+    "description": "Settings > Account when the sync server could not be asked about the account."
+  },
+  "settingsAccountCreateTitle": {
+    "message": "암호 문구를 정합니다. 먼저 Chrome이 Google 계정을 확인합니다.",
+    "description": "Tooltip of the Create passphrase button."
+  },
+  "settingsAccountPassphraseEmpty": {
+    "message": "암호 문구를 입력하세요.",
+    "description": "Field error when the passphrase field was left empty."
+  },
+  "settingsAccountUnlockTitle": {
+    "message": "이 기기에서 동기화 잠금을 해제합니다. 먼저 Chrome이 Google 계정을 확인합니다.",
+    "description": "Tooltip of the Unlock button."
+  },
+  "settingsAccountForgotHint": {
+    "message": "잊으셨나요? 동기화가 되는 기기에서 “암호 문구 변경”을 쓰세요. 그런 기기가 없으면 “클라우드 데이터 삭제”로 처음부터 다시 시작하세요.",
+    "description": "Hint under the passphrase field when unlocking. Quotes the labels of the Change passphrase and Delete cloud data buttons."
+  },
+  "settingsAccountChangePassphrase": {
+    "message": "암호 문구 변경",
+    "description": "Button in Settings > Account that sets a new sync passphrase from this device."
+  },
+  "settingsAccountChangeHint": {
+    "message": "잊어버린 암호 문구를 다시 정할 때도 씁니다.",
+    "description": "Grey hint beside the Change passphrase button."
+  },
+  "settingsAccountChangeTitle": {
+    "message": "이 기기에서 새 동기화 암호 문구를 정합니다",
+    "description": "Tooltip of the Change passphrase button."
+  },
+  "settingsAccountChangeDialogTitle": {
+    "message": "동기화 암호 문구를 바꿀까요?",
+    "description": "Title of the dialog that changes the sync passphrase."
+  },
+  "settingsAccountChangeBody": {
+    "message": "먼저 Chrome이 Google 계정을 확인합니다. 이전 암호 문구는 필요 없습니다. 이미 잠금 해제된 기기는 그대로 동작합니다. 데이터를 다시 올리지 않습니다.",
+    "description": "Body of the dialog that changes the sync passphrase."
+  },
+  "settingsAccountNewPassphrase": {
+    "message": "새 암호 문구",
+    "description": "Label of the new passphrase field in the Change passphrase dialog."
+  },
+  "settingsAccountChanged": {
+    "message": "동기화 암호 문구를 바꿨습니다.",
+    "description": "Toast after the sync passphrase was changed."
+  },
+  "settingsAccountKeyMismatch": {
+    "message": "클라우드 데이터의 키가 달라 동기화를 멈췄습니다. 이 기기에서는 아무것도 지우지 않았습니다. 로그아웃했다가 다시 로그인하거나 클라우드 데이터를 삭제하세요.",
+    "description": "Settings > Account when the cloud data has another key than this device."
+  },
+  "settingsAccountRollback": {
+    "message": "동기화 서버가 이 기기가 전에 본 것보다 오래된 암호 문구 기록을 보냈습니다. 예전 암호 문구가 다시 통할 수 있습니다. 암호 문구를 바꾸세요.",
+    "description": "Error toast when the sync server returned an older passphrase record than this device saw before."
+  },
+  "settingsAccountSignOutTitle": {
+    "message": "동기화에서 로그아웃할까요?",
+    "description": "Title of the dialog that asks before signing out of sync and removing the key."
+  },
+  "settingsAccountSignOutBody": {
+    "message": "이 기기에서 키를 지우므로, 여기서 다시 동기화하려면 암호 문구가 필요합니다. 잠금 해제된 마지막 기기인데 암호 문구를 잊었다면 클라우드 사본은 되찾을 수 없습니다. 이 기기의 데이터는 남아 있습니다.",
+    "description": "Body of the sign-out dialog, shown when the key will be removed."
+  },
+  "settingsAccountSignOutButtonTitle": {
+    "message": "동기화를 멈추고 이 기기에서 키를 지웁니다",
+    "description": "Tooltip of the Sign out button."
+  },
+  "settingsAccountDeleteTooltip": {
+    "message": "동기화 서버에 이 계정으로 저장된 것을 모두 삭제합니다",
+    "description": "Tooltip of the Delete cloud data button."
+  },
+  "settingsAccountUsage": {
+    "message": "클라우드 저장 공간",
+    "description": "Label of the row in Settings > Account that shows how much cloud storage the account uses."
+  },
+  "settingsAccountUsageValue": {
+    "message": "$1 / $2",
+    "description": "Value of the Cloud storage row. $1 is the amount used, $2 the limit, both with their unit (such as 12.3 MB and 50 MB)."
+  },
+  "settingsAccountUsageTitle": {
+    "message": "계정에 암호화되어 저장된 모든 것, 스크린샷과 삭제 표시 포함",
+    "description": "Tooltip of the Cloud storage row."
+  },
+  "settingsAccountTryAgainTitle": {
+    "message": "동기화 서버에 다시 물어봅니다",
+    "description": "Tooltip of the Try again button in Settings > Account."
+  },
+  "settingsAccountStorageHeld_other": {
+    "message": "항목 $1개를 동기화하지 못했습니다. 클라우드 저장 공간이 가득 찼습니다($2). 이 기기에는 남아 있고, 공간이 생기면 동기화됩니다.",
+    "description": "Toast when the sync server refused items because the account storage is full. $1 is how many items, $2 the limit with its unit (such as 50 MB)."
+  },
+  "settingsAccountHelpWhatLimit": {
+    "message": "계정 하나에 스크린샷과 삭제 표시를 포함해 최대 $1까지 저장됩니다. 넘는 것은 이 기기에 남고, 삭제는 언제나 됩니다.",
+    "description": "Sync explanation of the account storage limit. $1 is the limit with its unit (such as 50 MB)."
+  },
+  "errorCloudGoogleRefused": {
+    "message": "Google이 계정을 확인해 주지 않았습니다. 다시 시도하세요.",
+    "description": "Error when Google did not confirm the account."
+  },
+  "errorCloudGoogleAccount": {
+    "message": "Chrome이 동기화에 로그인한 계정과 다른 Google 계정을 골랐습니다. 다시 시도해서 그 계정을 고르세요.",
+    "description": "Error when Chrome picked another Google account than the one signed in to sync. Must not advise signing out."
+  },
+  "errorCloudGoogleUnavailable": {
+    "message": "계정을 확인하려 했지만 Google에 연결할 수 없었습니다. 다시 시도하세요.",
+    "description": "Error when Google could not be reached to confirm the account."
+  },
+  "errorCloudKeyChanged": {
+    "message": "클라우드 데이터의 키가 달라 동기화를 멈췄습니다. 설정 > 계정을 여세요.",
+    "description": "Error when sync is paused because the cloud data has another key."
+  },
+  "errorCloudKeyConflict": {
+    "message": "그사이 암호 문구 기록이 바뀌었습니다. 다시 시도하세요.",
+    "description": "Error when the passphrase record changed on the server while this device was changing it."
+  },
+  "errorCloudKeyUnavailable": {
+    "message": "서버가 암호 문구 기록을 열지 못했습니다. 동기화가 이미 되는 기기에서 암호 문구를 바꾸세요.",
+    "description": "Error when the server could not open the stored passphrase record."
+  },
+  "errorCloudUpgrade": {
+    "message": "이 버전의 Tabinet은 더 이상 동기화할 수 없습니다. 업데이트하세요.",
+    "description": "Error when the sync server no longer speaks this version’s protocol."
+  },
+  "errorCloudInterrupted": {
+    "message": "내려받기가 중간에 끊겼습니다. 멈춘 곳부터 동기화를 이어 갑니다.",
+    "description": "Error when the download from the sync server was cut off before its end."
+  },
+  "errorCloudNewerData": {
+    "message": "일부 항목은 더 새로운 버전의 Tabinet이 필요합니다. 아무것도 바꾸지 않았습니다.",
+    "description": "Error when some synced items need a newer version of the extension."
+  },
+  "errorCloudClock": {
+    "message": "일부 항목의 날짜가 하루 넘게 앞서 있습니다. 이 컴퓨터의 시계를 확인하세요.",
+    "description": "Error when items are dated more than a day ahead, so the server refused them."
+  },
+  "errorCloudItemTooLarge": {
+    "message": "항목 하나가 너무 커서 동기화할 수 없습니다. 이 기기에만 남습니다.",
+    "description": "Error when an item is too large to sync and stays on this device."
   }
 }

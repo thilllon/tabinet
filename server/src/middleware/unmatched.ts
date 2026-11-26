@@ -27,10 +27,13 @@ export function notFoundOrWrongMethod(routes: readonly RouterRoute[]): NotFoundH
   };
 }
 
+/** The method a HEAD is passed on as. */
+export const NO_AUTO_HEAD = 'HEAD-NOT-SERVED';
+
 /**
  * Hono runs a HEAD as the GET route, before any middleware could refuse it. This API has no HEAD,
  * so it is passed on as a method no route has, and ends as a 405 (or a 404) like any other.
  */
 export function withoutAutoHead(request: Request): Request {
-  return request.method === 'HEAD' ? new Request(request, { method: 'HEAD-NOT-SERVED' }) : request;
+  return request.method === 'HEAD' ? new Request(request, { method: NO_AUTO_HEAD }) : request;
 }

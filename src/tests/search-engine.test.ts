@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   entriesFromNotes,
+  entryFromMemo,
+  matchExcerpt,
   entriesFromOpenWindows,
   entriesFromSession,
   matchSessionName,
@@ -443,6 +445,7 @@ describe('search', () => {
           open: { entries: [], count: 0, hasMore: false },
           saved: { entries: [], count: 0, hasMore: false },
           notes: { entries: [], count: 0, hasMore: false },
+          memos: { entries: [], count: 0, hasMore: false },
           history: { entries: [], count: 0, hasMore: false },
         },
       });
@@ -758,5 +761,41 @@ describe('notes', () => {
     expect(result.bySource.notes.count).toBe(1);
     expect(result.bySource.history.count).toBe(1);
     expect(result.total).toBe(3);
+  });
+});
+
+describe('memos', () => {
+  const memo = {
+    schemaVersion: 1 as const,
+    id: 'm1',
+    text: 'Groceries\nmilk, eggs and the borrow checker book',
+    createdAt: 1,
+    updatedAt: 5,
+  };
+
+  it('finds a memo by its title and by any word of its text', () => {
+    const corpus = [entryFromMemo(memo, 'Groceries')];
+    expect(search(corpus, 'groceries').bySource.memos.count).toBe(1);
+    expect(search(corpus, 'borrow eggs').bySource.memos.entries[0]?.memoId).toBe('m1');
+    expect(search(corpus, 'nothing-like-this').total).toBe(0);
+  });
+
+  it('ranks memos after notes and before snapshots', () => {
+    const saved = entry({ title: 'Borrow guide' });
+    const history = entry({ source: 'history', title: 'Borrow guide' });
+    const result = search([history, entryFromMemo(memo, 'Groceries'), saved], 'borrow', {
+      includeHistory: true,
+    });
+    expect(result.bySource.memos.count).toBe(1);
+    expect(result.total).toBe(3);
+  });
+
+  it('cuts an excerpt around the first match', () => {
+    const long = 'a '.repeat(100) + 'needle' + ' b'.repeat(100);
+    const excerpt = matchExcerpt(long, ['needle'], 30);
+    expect(excerpt).toContain('needle');
+    expect(excerpt.startsWith('…')).toBe(true);
+    expect(excerpt.endsWith('…')).toBe(true);
+    expect(matchExcerpt('short\n text', ['x'])).toBe('short text');
   });
 });

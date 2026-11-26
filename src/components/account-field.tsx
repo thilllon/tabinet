@@ -1,9 +1,13 @@
 import { KeyRound, LogOut, RotateCw, Trash2 } from 'lucide-react';
-import { type FormEvent, useEffect, useRef, useState } from 'react';
+import { type FormEvent, useState } from 'react';
 
+import { ChangePassphraseDialog } from '@/components/change-passphrase-dialog';
+import { CloudUsageField } from '@/components/cloud-usage-field';
+import { ConfirmAccountField } from '@/components/confirm-account-field';
 import { DeleteCloudDataDialog } from '@/components/delete-cloud-data-dialog';
 import { GoogleLogo } from '@/components/google-logo';
 import { SettingsField } from '@/components/settings-field';
+import { SignOutDialog } from '@/components/sign-out-dialog';
 import { SyncStatusField } from '@/components/sync-status-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,236 +15,324 @@ import { Label } from '@/components/ui/label';
 import { POLICY } from '@/constants';
 import { useCloudAccount } from '@/hooks/use-cloud-account';
 import { useCloudSync } from '@/hooks/use-cloud-sync';
+import { useSyncNotices } from '@/hooks/use-sync-notices';
 import { useErrorToast } from '@/hooks/use-toasts';
 import {
+  cancelAccountSwitch,
+  changePassphrase,
+  confirmAccount,
+  createPassphrase,
   deleteCloudData,
   newPassphraseProblem,
-  setUpPassphrase,
   signIn,
   signOut,
   unlockWithPassphrase,
 } from '@/lib/cloud-auth';
 import { canSignInHere } from '@/lib/cloud-config';
-import { markHeldImagesNoticed } from '@/lib/cloud-sync';
+import { preferredUsage } from '@/lib/cloud-usage';
 import { reportError } from '@/lib/error-message';
-import { formatNumber, t, tp } from '@/lib/i18n';
-import type { CloudKeySetup } from '@/types';
+import { t, tp } from '@/lib/i18n';
 
 interface AccountFieldProps {
   onNotice(message: string): void;
   onError(message: string): void;
 }
 
+/** The text of a field of a submitted form, `''` when absent. */
+function formText(form: FormData, name: string): string {
+  const value = form.get(name);
+  return typeof value === 'string' ? value : '';
+}
+
 /**
- * Settings > Account: one row for each state of the cloud sync account (`accountState()` in
- * `src/lib/cloud-auth.ts`). Signed out, a Google sign-in button; signed in without a passphrase
- * on the server, a form creating one (typed twice, with the warning that it cannot be
- * recovered); with one on the server but not on this device, a form entering it; with the key
- * here (`showsSyncRow()`: ready, and also before the server answered or while it is out of
- * reach), the address with Sign out and Delete cloud data, then the Sync row (`SyncStatusField`:
- * the live status, the next check, the ? help, Sync now). Rendered only when cloud sync is
- * configured.
+ * Settings > Account: one row for each state of spec 9.3 (`accountState()`), every key action
+ * starting from its click. Buttons wait while an action runs, and a dialog does not close during
+ * its action. Passphrase fields are uncontrolled and checked on submit. Rendered only when cloud
+ * sync is configured.
  */
 export function AccountField({ onNotice, onError }: AccountFieldProps) {
   const cloud = useCloudAccount();
   const [busy, setBusy] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const syncing = useCloudSync(cloud.syncRow ? cloud.account?.token : undefined);
-  // Beside the Sync row a failed account check takes no line or button of its own, which would
-  // move the row: it is a toast, and Sync now is the way to try again. One toast with the sync's
-  // own error, as offline both say the same.
-  useErrorToast(syncing.facts.lastError ?? (cloud.syncRow ? cloud.error : undefined));
+  const [dialog, setDialog] = useState<'delete' | 'signOut' | 'change' | undefined>(undefined);
+  const ready = cloud.state === 'ready';
+  const syncing = useCloudSync(ready ? cloud.account?.token : undefined);
+  useErrorToast(syncing.facts.lastError ?? cloud.error);
+  useSyncNotices(syncing.facts, onNotice);
 
-  // Screenshots the server refused over its cap: said once, as a toast, and remembered as said.
-  const { heldImages, heldImagesNoticed } = syncing.facts;
-  const noticeRef = useRef(onNotice);
-  noticeRef.current = onNotice;
-  const heldShown = useRef(false);
-  useEffect(() => {
-    if (heldImages === 0) {
-      // Every picture went up: a later refusal is news again.
-      heldShown.current = false;
-      return;
-    }
-    if (heldImagesNoticed || heldShown.current) {
-      return;
-    }
-    heldShown.current = true;
-    noticeRef.current(
-      tp('settingsAccountImagesHeld', heldImages, formatNumber(POLICY.account.screenshots)),
-    );
-    markHeldImagesNoticed().catch((err: unknown) => reportError('held screenshots notice', err));
-  }, [heldImages, heldImagesNoticed]);
-
-  const startSync = () => {
-    void syncing.sync().then((synced) => {
-      if (synced) {
-        onNotice(t('settingsAccountSynced'));
-        if (cloud.error !== undefined) {
-          // The server answers again, so the account check that failed can be made.
-          cloud.refresh();
-        }
-      }
-    });
-  };
-
-  /** Runs one account action, keeping the buttons still meanwhile and reporting a failure. */
   const run = (context: string, action: () => Promise<void>) => {
     setBusy(true);
     action()
       .catch((err: unknown) => onError(reportError(context, err)))
       .finally(() => {
         setBusy(false);
+        setDialog(undefined);
         cloud.refresh();
       });
   };
-
-  const startSignIn = () => {
-    run('cloud sign-in failed', async () => {
-      const result = await signIn();
-      if (result.outcome === 'signedIn') {
-        cloud.setKeySetup(result.keySetup, result.account.token);
-      }
-    });
-  };
-
-  const startSignOut = () => {
-    run('cloud sign-out failed', async () => {
-      await signOut();
-      onNotice(t('settingsAccountSignedOut'));
-    });
-  };
-
-  const startDelete = () => {
-    run('cloud data not deleted', async () => {
-      try {
-        await deleteCloudData();
-        onNotice(t('settingsAccountDeleted'));
-      } finally {
-        setConfirmDelete(false);
-      }
-    });
-  };
-
-  const signOutButton = (
-    <Button variant="outline" size="sm" onClick={startSignOut} disabled={busy}>
-      <LogOut />
-      {t('settingsAccountSignOut')}
-    </Button>
-  );
 
   if (cloud.state === 'unconfigured') {
     return null;
   }
 
-  if (cloud.state === 'unknown' && !cloud.syncRow) {
-    return (
-      <SettingsField label={t('settingsAccountGoogle')} hint={cloud.error ?? t('commonLoading')}>
-        {cloud.error !== undefined && (
-          <Button variant="outline" size="sm" onClick={cloud.refresh}>
-            <RotateCw />
-            {t('commonTryAgain')}
-          </Button>
-        )}
-        {cloud.error !== undefined && cloud.account !== null && signOutButton}
-      </SettingsField>
-    );
-  }
-
-  if (cloud.state === 'signedOut') {
-    return (
-      <SettingsField
-        label={t('settingsAccountGoogle')}
-        hint={t(canSignInHere() ? 'settingsAccountSignedOutHint' : 'settingsAccountStoreOnlyHint')}
-      >
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={startSignIn}
-          disabled={busy || !canSignInHere()}
-        >
-          <GoogleLogo />
-          {t('settingsAccountSignIn')}
-        </Button>
-      </SettingsField>
-    );
-  }
-
+  const storeOnly = !canSignInHere();
+  const signInButton = (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => run('cloud sign-in failed', async () => void (await signIn()))}
+      disabled={busy || storeOnly}
+      title={t('settingsAccountSignInTitle')}
+    >
+      <GoogleLogo />
+      {t('settingsAccountSignIn')}
+    </Button>
+  );
+  const live = cloud.account !== null && cloud.account.expiresAt > Date.now();
+  const keyWillGo =
+    cloud.key !== null && (!live || cloud.key.accountId === cloud.account?.accountId);
+  const signOutNow = () =>
+    run('cloud sign-out failed', async () => {
+      await signOut();
+      onNotice(t('settingsAccountSignedOut'));
+    });
+  const signOutButton = (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => (keyWillGo ? setDialog('signOut') : signOutNow())}
+      disabled={busy}
+      title={t('settingsAccountSignOutButtonTitle')}
+    >
+      <LogOut />
+      {t('settingsAccountSignOut')}
+    </Button>
+  );
+  const deleteButton = (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => setDialog('delete')}
+      disabled={busy}
+      title={t('settingsAccountDeleteTooltip')}
+    >
+      <Trash2 />
+      {t('settingsAccountDelete')}
+    </Button>
+  );
+  const tryAgain = (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={cloud.refresh}
+      disabled={busy}
+      title={t('settingsAccountTryAgainTitle')}
+    >
+      <RotateCw />
+      {t('commonTryAgain')}
+    </Button>
+  );
+  const dialogs = (
+    <>
+      <DeleteCloudDataDialog
+        open={dialog === 'delete'}
+        busy={busy}
+        onOpenChange={(open) => setDialog(open ? 'delete' : undefined)}
+        onConfirm={() =>
+          run('cloud data not deleted', async () => {
+            if ((await deleteCloudData()).outcome === 'deleted') {
+              onNotice(t('settingsAccountDeleted'));
+            }
+          })
+        }
+      />
+      <SignOutDialog
+        open={dialog === 'signOut'}
+        busy={busy}
+        onOpenChange={(open) => setDialog(open ? 'signOut' : undefined)}
+        onConfirm={signOutNow}
+      />
+      <ChangePassphraseDialog
+        open={dialog === 'change'}
+        busy={busy}
+        onOpenChange={(open) => setDialog(open ? 'change' : undefined)}
+        onSubmit={(passphrase) =>
+          run('sync passphrase not changed', async () => {
+            const result = await changePassphrase(passphrase);
+            if (result.outcome === 'changed') {
+              onNotice(t('settingsAccountChanged'));
+            } else if (result.outcome === 'conflict') {
+              onError(t('errorCloudKeyConflict'));
+            }
+          })
+        }
+      />
+    </>
+  );
   const email = cloud.account?.email ?? '';
+  const signedInAs = t('settingsAccountSignedInAs', email);
 
-  if (cloud.syncRow) {
-    return (
-      <>
+  switch (cloud.state) {
+    case 'loading':
+      return (
+        <SettingsField label={t('settingsAccountGoogle')} hint={t('commonLoading')}>
+          {null}
+        </SettingsField>
+      );
+    case 'signedOut':
+      return (
         <SettingsField
           label={t('settingsAccountGoogle')}
-          hint={t('settingsAccountSignedInAs', email)}
-        >
-          <div className="flex flex-wrap items-center gap-2">
-            {signOutButton}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setConfirmDelete(true)}
-              disabled={busy}
-            >
-              <Trash2 />
-              {t('settingsAccountDelete')}
-            </Button>
-          </div>
-        </SettingsField>
-        <SyncStatusField view={syncing} disabled={busy} onSync={startSync} />
-        <DeleteCloudDataDialog
-          open={confirmDelete}
-          busy={busy}
-          onOpenChange={setConfirmDelete}
-          onConfirm={startDelete}
-        />
-      </>
-    );
-  }
-
-  return (
-    <>
-      <SettingsField
-        label={t('settingsAccountGoogle')}
-        hint={t('settingsAccountSignedInAs', email)}
-      >
-        {signOutButton}
-      </SettingsField>
-      {cloud.state === 'needsPassphrase' ? (
-        <CreatePassphraseForm
-          busy={busy}
-          onSubmit={(passphrase) =>
-            run('sync passphrase not created', async () => {
-              const result = await setUpPassphrase(passphrase);
-              if (result.outcome === 'ready') {
-                cloud.setKeySetup(result.setup, cloud.account?.token);
-                onNotice(t('settingsAccountReady'));
-              } else {
-                // Another device was first: its passphrase is the one to enter now.
-                cloud.setKeySetup(undefined, undefined);
-                onNotice(t('settingsAccountPassphraseExists'));
-              }
-            })
+          hint={
+            storeOnly
+              ? t('settingsAccountStoreOnlyHint')
+              : cloud.owner?.legacy === true
+                ? t('settingsAccountUpgradeHint')
+                : t('settingsAccountSignedOutHint')
           }
-        />
-      ) : (
-        cloud.keySetup !== undefined &&
-        cloud.keySetup !== null && (
-          <UnlockForm
-            setup={cloud.keySetup}
+        >
+          {signInButton}
+        </SettingsField>
+      );
+    case 'expired':
+      return (
+        <>
+          <SettingsField
+            label={t('settingsAccountGoogle')}
+            hint={storeOnly ? t('settingsAccountStoreOnlyHint') : t('settingsAccountExpired')}
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              {signInButton}
+              {signOutButton}
+            </div>
+          </SettingsField>
+          {dialogs}
+        </>
+      );
+    case 'confirmAccount':
+      return (
+        <>
+          <ConfirmAccountField
+            ownerEmail={cloud.owner?.email ?? ''}
+            email={email}
             busy={busy}
+            onKeep={() => run('cloud sign-in not cancelled', () => cancelAccountSwitch())}
+            onAdd={() => run('cloud account not confirmed', () => confirmAccount())}
+            onDelete={() => setDialog('delete')}
+          />
+          {dialogs}
+        </>
+      );
+    case 'unknown':
+    case 'keyMismatch':
+      return (
+        <>
+          <SettingsField
+            label={t('settingsAccountGoogle')}
+            hint={
+              cloud.state === 'keyMismatch'
+                ? t('settingsAccountKeyMismatch')
+                : cloud.error !== undefined
+                  ? t('settingsAccountCheckFailed')
+                  : t('commonLoading')
+            }
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              {tryAgain}
+              {signOutButton}
+              {deleteButton}
+            </div>
+          </SettingsField>
+          {cloud.state === 'keyMismatch' && <CloudUsageField usage={cloud.usage} />}
+          {dialogs}
+        </>
+      );
+    case 'needsCreate':
+      return (
+        <>
+          <SettingsField label={t('settingsAccountGoogle')} hint={signedInAs}>
+            <div className="flex flex-wrap items-center gap-2">
+              {signOutButton}
+              {deleteButton}
+            </div>
+          </SettingsField>
+          <CreatePassphraseForm
+            busy={busy}
+            onSubmit={(passphrase) =>
+              run('sync passphrase not created', async () => {
+                const result = await createPassphrase(passphrase);
+                if (result.outcome === 'created') {
+                  onNotice(t('settingsAccountReady'));
+                } else if (result.outcome === 'exists') {
+                  onNotice(t('settingsAccountPassphraseExists'));
+                }
+              })
+            }
+          />
+          {dialogs}
+        </>
+      );
+    case 'needsUnlock':
+      return (
+        <>
+          <SettingsField label={t('settingsAccountGoogle')} hint={signedInAs}>
+            <div className="flex flex-wrap items-center gap-2">
+              {signOutButton}
+              {deleteButton}
+            </div>
+          </SettingsField>
+          <UnlockForm
+            busy={busy}
+            setBusy={setBusy}
             onUnlocked={() => {
               onNotice(t('settingsAccountReady'));
               cloud.refresh();
             }}
             onError={(err) => onError(reportError('sync passphrase not checked', err))}
-            setBusy={setBusy}
           />
-        )
-      )}
-    </>
-  );
+          <CloudUsageField usage={cloud.usage} />
+          {dialogs}
+        </>
+      );
+    case 'ready':
+      return (
+        <>
+          <SettingsField label={t('settingsAccountGoogle')} hint={signedInAs}>
+            <div className="flex flex-wrap items-center gap-2">
+              {signOutButton}
+              {deleteButton}
+            </div>
+          </SettingsField>
+          <CloudUsageField usage={preferredUsage(syncing.facts.usage, cloud.usage)} />
+          <SettingsField
+            label={t('settingsAccountChangePassphrase')}
+            hint={t('settingsAccountChangeHint')}
+          >
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDialog('change')}
+              disabled={busy || cloud.server === undefined}
+              title={t('settingsAccountChangeTitle')}
+            >
+              <KeyRound />
+              {t('settingsAccountChangePassphrase')}
+            </Button>
+          </SettingsField>
+          <SyncStatusField
+            view={syncing}
+            disabled={busy}
+            onSync={() =>
+              void syncing.sync().then((synced) => {
+                if (synced) {
+                  onNotice(t('settingsAccountSynced'));
+                }
+              })
+            }
+          />
+          {dialogs}
+        </>
+      );
+  }
 }
 
 interface CreatePassphraseFormProps {
@@ -248,32 +340,26 @@ interface CreatePassphraseFormProps {
   onSubmit(passphrase: string): void;
 }
 
-/**
- * The new passphrase, typed twice; the problem with it is shown under the fields. The fields are
- * uncontrolled and read from the form on submit, so typing re-renders nothing; an error clears on
- * the first edit after it (a state change only then, never per keystroke).
- */
+/** The new passphrase, typed twice, checked on submit; an error clears on the next edit. */
 function CreatePassphraseForm({ busy, onSubmit }: CreatePassphraseFormProps) {
   const [problem, setProblem] = useState<string | undefined>(undefined);
-
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const passphrase = formText(form, 'passphrase');
     const found = newPassphraseProblem(passphrase, formText(form, 'repeated'));
-    if (found === 'tooShort') {
+    if (found === 'empty') {
+      setProblem(t('settingsAccountPassphraseEmpty'));
+    } else if (found === 'short') {
       setProblem(tp('settingsAccountPassphraseTooShort', POLICY.passphrase.minLength));
-      return;
-    }
-    if (found === 'mismatch') {
+    } else if (found === 'mismatch') {
       setProblem(t('settingsAccountPassphraseMismatch'));
-      return;
+    } else {
+      setProblem(undefined);
+      onSubmit(passphrase);
     }
-    setProblem(undefined);
-    onSubmit(passphrase);
   };
   const clearProblem = problem === undefined ? undefined : () => setProblem(undefined);
-
   return (
     <form className="space-y-3" onSubmit={submit} noValidate>
       <div>
@@ -304,7 +390,13 @@ function CreatePassphraseForm({ busy, onSubmit }: CreatePassphraseFormProps) {
         </p>
       )}
       <div className="flex justify-end">
-        <Button type="submit" variant="outline" size="sm" disabled={busy}>
+        <Button
+          type="submit"
+          variant="outline"
+          size="sm"
+          disabled={busy}
+          title={t('settingsAccountCreateTitle')}
+        >
           <KeyRound />
           {t('settingsAccountCreateButton')}
         </Button>
@@ -314,60 +406,63 @@ function CreatePassphraseForm({ busy, onSubmit }: CreatePassphraseFormProps) {
 }
 
 interface UnlockFormProps {
-  setup: CloudKeySetup;
   busy: boolean;
   setBusy(busy: boolean): void;
   onUnlocked(): void;
   onError(err: unknown): void;
 }
 
-/**
- * The existing passphrase on a new device; a wrong one is said under the field. Uncontrolled like
- * the create form: `empty` and `wrong` change only when they flip, so typing re-renders nothing.
- */
-function UnlockForm({ setup, busy, setBusy, onUnlocked, onError }: UnlockFormProps) {
-  const [empty, setEmpty] = useState(true);
-  const [wrong, setWrong] = useState(false);
-
+/** The existing passphrase on this device; no minimum. Empty and wrong are said on submit. */
+function UnlockForm({ busy, setBusy, onUnlocked, onError }: UnlockFormProps) {
+  const [problem, setProblem] = useState<'empty' | 'wrong' | undefined>(undefined);
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const passphrase = formText(new FormData(event.currentTarget), 'passphrase');
+    if (passphrase === '') {
+      setProblem('empty');
+      return;
+    }
     setBusy(true);
-    unlockWithPassphrase(setup, passphrase)
-      .then((ok) => {
-        setWrong(!ok);
-        if (ok) {
+    unlockWithPassphrase(passphrase)
+      .then((result) => {
+        if (result.outcome === 'wrongPassphrase') {
+          setProblem('wrong');
+        } else if (result.outcome === 'unlocked') {
           onUnlocked();
         }
       }, onError)
       .finally(() => setBusy(false));
   };
-
   return (
     <form className="space-y-3" onSubmit={submit} noValidate>
       <div>
         <p className="text-sm">{t('settingsAccountUnlock')}</p>
         <p className="text-xs text-muted-foreground">{t('settingsAccountUnlockHint')}</p>
+        <p className="text-xs text-muted-foreground">{t('settingsAccountForgotHint')}</p>
       </div>
       <PassphraseInput
         id="cloud-passphrase-unlock"
         name="passphrase"
         label={t('settingsAccountPassphrase')}
         autoComplete="current-password"
-        invalid={wrong}
-        onEdit={(value) => {
-          // React skips the render when the value is unchanged, so these cost nothing per keystroke.
-          setEmpty(value === '');
-          setWrong(false);
-        }}
+        invalid={problem !== undefined}
+        onEdit={problem === undefined ? undefined : () => setProblem(undefined)}
       />
-      {wrong && (
+      {problem !== undefined && (
         <p role="alert" className="text-xs text-destructive">
-          {t('settingsAccountWrongPassphrase')}
+          {problem === 'empty'
+            ? t('settingsAccountPassphraseEmpty')
+            : t('settingsAccountWrongPassphrase')}
         </p>
       )}
       <div className="flex justify-end">
-        <Button type="submit" variant="outline" size="sm" disabled={busy || empty}>
+        <Button
+          type="submit"
+          variant="outline"
+          size="sm"
+          disabled={busy}
+          title={t('settingsAccountUnlockTitle')}
+        >
           <KeyRound />
           {t('settingsAccountUnlockButton')}
         </Button>
@@ -376,20 +471,14 @@ function UnlockForm({ setup, busy, setBusy, onUnlocked, onError }: UnlockFormPro
   );
 }
 
-/** A text field of a submitted form, `''` when absent. */
-function formText(form: FormData, name: string): string {
-  const value = form.get(name);
-  return typeof value === 'string' ? value : '';
-}
-
 interface PassphraseInputProps {
   id: string;
   name: string;
   label: string;
   autoComplete: 'new-password' | 'current-password';
   invalid: boolean;
-  /** Called on each edit with the field's text; leave it out when nothing needs to know. */
-  onEdit?: (value: string) => void;
+  /** Called on an edit only while an error shows: one state change, never per keystroke. */
+  onEdit?: () => void;
 }
 
 function PassphraseInput({ id, name, label, autoComplete, invalid, onEdit }: PassphraseInputProps) {
@@ -403,8 +492,9 @@ function PassphraseInput({ id, name, label, autoComplete, invalid, onEdit }: Pas
         name={name}
         type="password"
         autoComplete={autoComplete}
+        title={label}
         aria-invalid={invalid}
-        onChange={onEdit === undefined ? undefined : (event) => onEdit(event.target.value)}
+        onChange={onEdit}
       />
     </div>
   );

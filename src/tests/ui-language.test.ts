@@ -144,7 +144,7 @@ describe('followUiLanguageChanges', () => {
     await chrome.storage.sync.set({ sortBy: 'title' });
     expect(reload).not.toHaveBeenCalled();
     await saveUiLanguage('ko');
-    expect(reload).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
 
     stop();
     await saveUiLanguage('es');

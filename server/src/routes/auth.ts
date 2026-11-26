@@ -4,6 +4,7 @@ import { error, json, noContent } from '../responses.js';
 import { hashToken, mintToken } from '../tokens.js';
 import { parseAccessToken } from '../validation.js';
 
+/** `POST /v2/auth/google`: a bearer for the Google account. Never an envelope, never the key encryption key. */
 export function signInWithGoogle(deps: Deps): AppHandler {
   return async (c) => {
     const accessToken = parseAccessToken(c.get('body'));
@@ -12,17 +13,29 @@ export function signInWithGoogle(deps: Deps): AppHandler {
     }
     const identity = await deps.verifyGoogleToken(accessToken);
     if (identity === null) {
-      return error(401, 'unauthorized');
+      return error(403, 'google_refused');
     }
-    const user = await deps.store.upsertUser(identity.sub, identity.email);
     const token = mintToken(deps.randomBytes);
     const now = deps.now();
     const expiresAt = now + POLICY.signIn.tokenLifetimeMs;
-    await deps.store.createToken(hashToken(token), user.id, expiresAt, now);
-    return json(200, { token, expiresAt, email: user.email, keySetup: user.keySetup });
+    const account = await deps.store.signIn(
+      identity.sub,
+      identity.email,
+      hashToken(token),
+      expiresAt,
+      now,
+    );
+    return json(200, {
+      token,
+      expiresAt,
+      accountId: account.id,
+      email: account.email,
+      key: account.key,
+    });
   };
 }
 
+/** `POST /v2/auth/logout`: forgets the presented bearer and no other. */
 export function logout(deps: Deps): AppHandler {
   return async (c) => {
     await deps.store.deleteToken(c.get('tokenHash'));

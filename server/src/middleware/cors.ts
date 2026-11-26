@@ -2,7 +2,7 @@ import type { AppMiddleware, Deps } from '../context.js';
 import { noContent } from '../responses.js';
 
 const ALLOWED_METHODS = 'GET, POST, PUT, DELETE';
-const ALLOWED_HEADERS = 'Authorization, Content-Type';
+const ALLOWED_HEADERS = 'Authorization, Content-Type, Tabinet-Key-Id';
 
 /** Whether a request's Origin is one we answer with CORS headers (exact match only). */
 function isAllowedOrigin(origin: string | null, allowed: readonly string[]): origin is string {

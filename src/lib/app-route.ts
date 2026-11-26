@@ -18,6 +18,8 @@ export type Route =
   | { view: 'saved'; id: string }
   | { view: 'auto'; id: string }
   | { view: 'notes'; videoId: string }
+  /** A memo; without an id, a new one (`#memo/new`), stored only once it has text. */
+  | { view: 'memo'; id?: string }
   | { view: 'search'; query: string };
 
 /** What an unknown, empty or malformed hash resolves to. */
@@ -65,6 +67,9 @@ export function parseRoute(hash: string): Route {
   if (head === 'notes') {
     return { view: 'notes', videoId: tail };
   }
+  if (head === 'memo') {
+    return tail === 'new' ? { view: 'memo' } : { view: 'memo', id: tail };
+  }
   return HOME;
 }
 
@@ -82,6 +87,8 @@ export function formatRoute(route: Route): string {
       return `#search/${encodeURIComponent(route.query)}`;
     case 'notes':
       return `#notes/${encodeURIComponent(route.videoId)}`;
+    case 'memo':
+      return route.id === undefined ? '#memo/new' : `#memo/${encodeURIComponent(route.id)}`;
   }
 }
 

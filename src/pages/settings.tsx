@@ -26,6 +26,7 @@ import {
   isMacPlatform,
   openShortcutSettings,
 } from '@/lib/keyboard-shortcuts';
+import { flushMemoEditors } from '@/lib/memo-editor-state';
 import {
   DEFAULT_SORT_SETTINGS,
   duplicateTabOptions,
@@ -144,7 +145,8 @@ export function SettingsPage({
     const previous = language;
     setLanguage(value);
     saveUiLanguage(value).then(
-      () => location.reload(),
+      // An open memo editor saves first, so the reload loses nothing typed.
+      () => flushMemoEditors().then(() => location.reload()),
       (err: unknown) => {
         console.error('[tabinet] language not saved', err);
         setLanguage(previous);

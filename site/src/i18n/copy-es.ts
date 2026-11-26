@@ -4,7 +4,7 @@ export const es: SiteCopy = {
   meta: {
     homeTitle: 'Tabinet - ordena, agrupa y guarda tus pestañas de Chrome',
     homeDescription:
-      'Una extensión de Chrome que ordena y agrupa todas tus pestañas con un clic, se ocupa de las duplicadas y guarda ventanas enteras como sesiones para recuperarlas después y toma notas con marca de tiempo en vídeos de YouTube. Gratis, sin rastreo y sin que nada salga de tu equipo salvo que actives la sincronización cifrada opcional.',
+      'Una extensión de Chrome que ordena y agrupa todas tus pestañas con un clic, se ocupa de las duplicadas y guarda ventanas enteras como sesiones para recuperarlas después, guarda apuntes y toma notas con marca de tiempo en vídeos de YouTube. Gratis, sin rastreo y sin que nada salga de tu equipo salvo que actives la sincronización cifrada opcional.',
     supportTitle: 'Ayuda - Tabinet',
     supportDescription:
       'Respuestas a las dudas más comunes sobre Tabinet y cómo avisar de un problema o proponer una mejora.',
@@ -32,7 +32,7 @@ export const es: SiteCopy = {
   hero: {
     eyebrow: 'Extensión para Chrome',
     title: 'Un clic y cada pestaña vuelve a su sitio.',
-    lead: 'Tabinet ordena y agrupa las pestañas de tu ventana, elimina las duplicadas y guarda ventanas completas como sesiones que puedes recuperar cuando quieras. ¿Ves un vídeo de YouTube? Toma notas con marca de tiempo a su lado. Todo se queda en tu equipo salvo que actives la sincronización.',
+    lead: 'Tabinet ordena y agrupa las pestañas de tu ventana, elimina las duplicadas y guarda ventanas completas como sesiones que puedes recuperar cuando quieras, con un sitio para tus apuntes. ¿Ves un vídeo de YouTube? Toma notas con marca de tiempo a su lado. Todo se queda en tu equipo salvo que actives la sincronización.',
     imageAlt:
       'La página de Tabinet: las sesiones guardadas en la columna izquierda y, a la derecha, una sesión de dos ventanas con sus pestañas fijadas y grupos de pestañas',
     languages:
@@ -95,7 +95,7 @@ export const es: SiteCopy = {
       shot: 'search',
       kicker: 'Búsqueda',
       title: 'Encuentra esa pestaña, esté donde esté',
-      body: 'Un único cuadro de búsqueda recorre tus ventanas abiertas y todas las sesiones guardadas por título, dirección o sitio, con los mejores resultados primero. Si lo pides, también busca en las instantáneas.',
+      body: 'Un único cuadro de búsqueda recorre tus ventanas abiertas, las sesiones guardadas, los apuntes y las notas de YouTube por título, dirección o sitio, con los mejores resultados primero. Si lo pides, también busca en las instantáneas.',
       points: [
         'Pulsa / para buscar desde cualquier parte de la página',
         'Flechas para moverte, Intro para abrir, Esc para borrar',
@@ -131,6 +131,11 @@ export const es: SiteCopy = {
         body: 'JSON que se vuelve a importar tal cual, Markdown, texto plano, CSV o marcadores HTML para Chrome. Importa un archivo o pega una lista de enlaces, con vista previa antes de guardar.',
       },
       {
+        icon: 'transfer',
+        title: 'Apuntes',
+        body: 'Texto libre en la página de Tabinet. Se guarda mientras escribes, se puede buscar, se exporta como Markdown y se sincroniza si activas la sincronización.',
+      },
+      {
         icon: 'keyboard',
         title: 'Combinaciones de teclas',
         body: 'En una instalación nueva, ordenar usa Alt+Mayús+S, ¡Reunir! Alt+Mayús+A y pausar todos los vídeos de YouTube Alt+Mayús+P (Opción en Mac); puedes asignarlas o cambiarlas en chrome://extensions/shortcuts. Guardar una sesión y abrir Tabinet pueden tener sus propias teclas.',
@@ -144,15 +149,15 @@ export const es: SiteCopy = {
   },
   promise: {
     title: 'Tus pestañas son solo tuyas',
-    lead: 'Sin sincronización, Tabinet no envía nada a ningún sitio y funciona igual sin conexión. Con ella, solo tú puedes leer lo que se envía.',
+    lead: 'Sin sincronización, Tabinet no envía nada a ningún sitio y funciona igual sin conexión. Con ella, lo que se envía se cifra en tu equipo.',
     points: [
       {
         title: 'Se queda en el equipo',
-        body: 'Las sesiones, las instantáneas y las notas de YouTube viven en el almacenamiento local de extensiones de Chrome. Las instantáneas nunca salen de ahí; las sesiones guardadas y las notas, solo si activas la sincronización.',
+        body: 'Las sesiones, las instantáneas, los apuntes y las notas de YouTube viven en el almacenamiento local de extensiones de Chrome. Las instantáneas nunca salen de ahí; las sesiones guardadas, los apuntes y las notas, solo si activas la sincronización.',
       },
       {
         title: 'Sin cuenta obligatoria',
-        body: 'Instala y haz clic. Iniciar sesión con Google solo hace falta para la sincronización opcional, y, antes de salir de tu equipo, tus sesiones se cifran en él con una frase de contraseña que solo tú conoces.',
+        body: 'Instala y haz clic. Iniciar sesión con Google solo hace falta para la sincronización opcional, y lo que se envía se cifra antes en tu equipo con una clave que protege tu frase de contraseña.',
       },
       {
         title: 'Sin rastreo',
@@ -200,11 +205,11 @@ export const es: SiteCopy = {
       },
       {
         q: '¿Envía mis datos de navegación a algún sitio?',
-        a: 'No, salvo que inicies sesión en la sincronización. Sin ella, Tabinet no hace ninguna petición de red y todo ocurre dentro de tu navegador. Con la sincronización activada, tus sesiones guardadas, tus notas de YouTube y tu configuración van cifradas al servidor de sincronización de Tabinet, así que solo tú puedes leerlas; las instantáneas automáticas nunca salen del equipo.',
+        a: 'No, salvo que inicies sesión en la sincronización. Sin ella, Tabinet no hace ninguna petición de red y todo ocurre dentro de tu navegador. Con la sincronización activada, tus sesiones guardadas, apuntes, notas de YouTube y ajustes se cifran en tu equipo antes de ir al servidor de sincronización de Tabinet, así que el servidor solo guarda contenido cifrado; las instantáneas automáticas nunca salen del equipo.',
       },
       {
         q: '¿Dónde se guardan mis sesiones?',
-        a: 'En el almacenamiento local de extensiones de Chrome de este equipo. Nunca se comparten con páginas web y solo se suben si activas la sincronización, cifradas de extremo a extremo. Puedes borrar una sesión, o todos los datos de sesiones, cuando quieras, y al desinstalar se elimina todo. Exporta a JSON si quieres tu propia copia de seguridad.',
+        a: 'En el almacenamiento local de extensiones de Chrome de este equipo. Nunca se comparten con páginas web y solo se suben si activas la sincronización, cifradas de extremo a extremo. Los apuntes y las notas de YouTube también se guardan ahí. Puedes borrar una sesión, o todos los datos de sesiones, cuando quieras; al desinstalar se elimina la copia de este equipo, no la de la nube. Exporta a JSON si quieres tu propia copia de seguridad.',
       },
       {
         q: '¿Qué guardan las instantáneas automáticas? ¿Puedo desactivarlas?',
@@ -216,11 +221,11 @@ export const es: SiteCopy = {
       },
       {
         q: '¿Puedo llevar mis sesiones a otro equipo?',
-        a: 'Sí. Activa la sincronización en los dos equipos y tus sesiones guardadas y tus notas de YouTube te acompañan. También puedes exportar todo como JSON e importarlo en el otro equipo, o exportar como HTML e importarlo en los marcadores de Chrome.',
+        a: 'Sí. Activa la sincronización en los dos equipos y tus sesiones guardadas, apuntes y notas de YouTube te acompañan. También puedes exportar todo como JSON e importarlo en el otro equipo, o exportar como HTML e importarlo en los marcadores de Chrome.',
       },
       {
         q: '¿Cómo funciona la sincronización? ¿Puede el servidor leer mis pestañas?',
-        a: 'La sincronización es opcional y está desactivada hasta que haces clic en Iniciar sesión con Google en Configuración, Cuenta. Luego creas una frase de contraseña de sincronización: tus sesiones guardadas, tus notas de YouTube (con sus capturas) y tu configuración se cifran con ella en tu equipo antes de enviarse, y la frase nunca se envía, así que el servidor solo guarda datos que no puede leer. Las instantáneas nunca se sincronizan. El servidor guarda hasta 100 capturas por cuenta; las demás se quedan en el equipo donde las hiciste. Si olvidas la frase, nadie puede recuperar la copia de la nube, pero las sesiones y notas de tus equipos se conservan. Eliminar datos de la nube, en el mismo sitio, borra todo del servidor. El inicio de sesión usa el de Google integrado en Chrome, así que puede no funcionar en otros navegadores Chromium.',
+        a: 'La sincronización es opcional y está desactivada hasta que haces clic en Iniciar sesión con Google en Configuración, Cuenta. Tu primer equipo crea una clave de datos aleatoria que lo cifra todo antes de enviarlo, y proteges esa clave con una frase de contraseña de sincronización de al menos 8 caracteres, nueva, no una que usaras con la versión 9. Ninguna de las dos se envía nunca, y Google vuelve a confirmar tu cuenta cuando pones, escribes o cambias la frase. Se sincronizan las sesiones guardadas, los apuntes, las notas de YouTube (cada nota por separado, con su captura) y los ajustes; las instantáneas nunca. Una cuenta admite hasta 50 MB y 100 capturas; lo que no cabe se queda en el equipo. Si un apunte se edita en dos equipos a la vez, se conservan los dos textos, uno como copia por conflicto. Los cambios salen unos segundos después de hacerlos y los demás equipos comprueban cada 15 minutos. ¿Olvidaste la frase? Usa Cambiar frase de contraseña en un equipo donde la sincronización aún funcione. Las versiones anteriores a la 10 ya no pueden sincronizar. Con una conexión lenta, los elementos más grandes solo se sincronizan con la página de Tabinet abierta. Eliminar datos de la nube, en el mismo sitio, borra todo del servidor. El inicio de sesión usa el de Google integrado en Chrome, así que puede no funcionar en otros navegadores Chromium.',
       },
       {
         q: '¿Y si no me gusta cómo queda?',
@@ -232,7 +237,11 @@ export const es: SiteCopy = {
       },
       {
         q: '¿Cómo funcionan las notas de YouTube?',
-        a: 'Abre un vídeo de YouTube, haz clic con el botón derecho en el icono de Tabinet y elige Notas de YouTube (o usa el botón de la página de Tabinet, o una combinación de teclas que definas en chrome://extensions/shortcuts). Las notas se abren en el panel lateral de Chrome. La primera vez, activa allí Acceso a YouTube. Añadir nota guarda una nota en el momento actual, Captura guarda además lo que se ve en pantalla, y un clic en la marca de tiempo de una nota lleva el vídeo a ese punto. Las notas se quedan en tu equipo y solo se sincronizan, cifradas de extremo a extremo, si activas la sincronización. En la página de Tabinet encontrarás las notas de todos tus vídeos, con búsqueda y exportación a Markdown.',
+        a: 'Abre un vídeo de YouTube, haz clic con el botón derecho en el icono de Tabinet y elige Notas de YouTube (o usa el botón de la página de Tabinet, o una combinación de teclas que definas en chrome://extensions/shortcuts). Las notas se abren en el panel lateral de Chrome. La primera vez, activa allí Acceso a YouTube. Añadir nota guarda una nota en el momento actual, Captura guarda además lo que se ve en pantalla, y un clic en la marca de tiempo de una nota lleva el vídeo a ese punto. Las notas se quedan en tu equipo y, con la sincronización activada, cada nota se sincroniza por separado, cifrada de extremo a extremo. En la página de Tabinet encontrarás las notas de todos tus vídeos, con búsqueda y exportación a Markdown.',
+      },
+      {
+        q: '¿Cómo funcionan los apuntes?',
+        a: 'Haz clic en Nuevo apunte en la página de Tabinet y escribe. Se guarda mientras escribes, la búsqueda lo encuentra y puedes exportarlo como Markdown. Una eliminación se puede deshacer durante unos segundos. Con la sincronización, si editas a la vez en dos dispositivos, se conservan las dos versiones.',
       },
       {
         q: '¿Funciona en otros navegadores Chromium?',
