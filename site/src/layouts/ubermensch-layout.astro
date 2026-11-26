@@ -1,0 +1,159 @@
+---
+// The Übermensch pages' frame: the site's colours and type (global.css), with a header and footer
+// of their own, so Tabinet's pages and this extension's never share a menu.
+import logoUrl from '../../../apps/ubermensch/public/img/logo.svg?url';
+import favicon32 from '../../../apps/ubermensch/public/img/logo-32.png?url';
+import touchIcon from '../../../apps/ubermensch/public/img/logo-128.png?url';
+import { DEFAULT_LOCALE, LOCALE_NAMES, LOCALES, OG_LOCALES, pageUrl, type Locale } from '../i18n/locales';
+import { ubermenschCopy } from '../i18n/ubermensch-copy';
+import { absoluteUbermenschUrl, ubermenschUrl, type UbermenschPage } from '../i18n/ubermensch-pages';
+import '../styles/global.css';
+
+interface Props {
+  locale: Locale;
+  page: UbermenschPage;
+  title: string;
+  description: string;
+}
+
+const { locale, page, title, description } = Astro.props;
+const copy = ubermenschCopy(locale);
+const canonical = absoluteUbermenschUrl(locale, page);
+const links: { page: UbermenschPage; label: string }[] = [
+  { page: 'support', label: copy.nav.support },
+  { page: 'privacy', label: copy.nav.privacy },
+];
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    {LOCALES.map((alternate) => <link rel="alternate" hreflang={alternate} href={absoluteUbermenschUrl(alternate, page)} />)}
+    <link rel="alternate" hreflang="x-default" href={absoluteUbermenschUrl(DEFAULT_LOCALE, page)} />
+    <link rel="icon" href={logoUrl} type="image/svg+xml" />
+    <link rel="icon" href={favicon32} type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href={touchIcon} />
+    <meta name="color-scheme" content="light dark" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Übermensch" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:locale" content={OG_LOCALES[locale]} />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">{copy.nav.skip}</a>
+    <header class="u-header">
+      <div class="container u-header-inner">
+        <a class="u-brand" href={ubermenschUrl(locale, 'home')} aria-current={page === 'home' ? 'page' : undefined}>
+          <img src={logoUrl} alt="" width="28" height="28" />
+          <span>Übermensch</span>
+        </a>
+        <nav aria-label="Übermensch">
+          <ul class="u-nav">
+            {
+              links.map((link) => (
+                <li>
+                  <a href={ubermenschUrl(locale, link.page)} aria-current={page === link.page ? 'page' : undefined}>
+                    {link.label}
+                  </a>
+                </li>
+              ))
+            }
+          </ul>
+        </nav>
+      </div>
+    </header>
+    <main id="main">
+      <slot />
+    </main>
+    <footer class="u-footer">
+      <div class="container u-footer-inner">
+        <a href={pageUrl(locale, 'home')}>{copy.nav.tabinet}</a>
+        <nav aria-label={copy.nav.languages}>
+          <ul class="u-langs">
+            {
+              LOCALES.map((target) => (
+                <li>
+                  <a
+                    href={ubermenschUrl(target, page)}
+                    hreflang={target}
+                    lang={target}
+                    aria-current={target === locale ? 'page' : undefined}
+                  >
+                    {LOCALE_NAMES[target]}
+                  </a>
+                </li>
+              ))
+            }
+          </ul>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>
+
+<style>
+  .u-header {
+    border-bottom: 1px solid var(--border);
+    background: var(--background);
+  }
+
+  .u-header-inner,
+  .u-footer-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .u-header-inner {
+    min-height: 3.75rem;
+  }
+
+  .u-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    color: var(--foreground);
+    font-weight: 650;
+    text-decoration: none;
+  }
+
+  .u-nav,
+  .u-langs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .u-nav a,
+  .u-langs a {
+    color: var(--muted-foreground);
+    text-decoration: none;
+  }
+
+  .u-nav a:hover,
+  .u-langs a:hover,
+  .u-nav a[aria-current='page'],
+  .u-langs a[aria-current='page'] {
+    color: var(--foreground);
+  }
+
+  .u-footer {
+    margin-top: 3rem;
+    padding-block: 2rem;
+    border-top: 1px solid var(--border);
+    background: var(--muted);
+    font-size: 0.9375rem;
+  }
+</style>
