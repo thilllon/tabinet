@@ -1,0 +1,72 @@
+{
+  "extName": { "message": "Übermensch" },
+  "extDescription": {
+    "message": "Herramientas pequeñas para el día a día. Primero: los archivos de Documentos, Hojas y Presentaciones muestran su carpeta de Drive."
+  },
+  "actionTitle": { "message": "Übermensch: abrir la configuración" },
+  "localeCode": { "message": "es" },
+  "commonFactJoin": { "message": "$1 · $2" },
+  "pathMyDrive": { "message": "Mi unidad" },
+  "pathSharedDrive": { "message": "Unidad compartida" },
+  "pathUntitled": { "message": "Carpeta sin nombre" },
+  "pathHidden": { "message": "Ubicación no visible" },
+  "pathOwner": { "message": "propietario: $1" },
+  "pathHiddenTitle": {
+    "message": "El archivo no está en una carpeta que tu cuenta pueda abrir, por ejemplo porque te lo compartieron."
+  },
+  "pathShowButton": { "message": "Ver carpeta" },
+  "pathShowTitle": {
+    "message": "Inicia sesión con Google para ver la carpeta de Drive de este archivo. Übermensch solo lee nombres de archivos y carpetas."
+  },
+  "pathNotConfigured": { "message": "Ruta de carpeta: inicio de sesión no configurado" },
+  "pathNotConfiguredTitle": {
+    "message": "Esta copia de Übermensch no tiene un cliente de inicio de sesión de Google, así que no puede leer la carpeta de Drive."
+  },
+  "pathLoading": { "message": "Buscando la carpeta..." },
+  "pathError": { "message": "Carpeta no disponible" },
+  "pathErrorTitle": {
+    "message": "No se pudo leer la carpeta: $1. Haz clic para intentarlo de nuevo."
+  },
+  "pathWrongAccount": { "message": "Sesión iniciada con otra cuenta" },
+  "pathWrongAccountTitle": {
+    "message": "Elige la cuenta con la que está abierto este documento. Haz clic para iniciar sesión de nuevo."
+  },
+  "pathFullTitle": { "message": "Carpeta de Drive: $1" },
+  "pathPartialTitle": {
+    "message": "Las carpetas por encima de la primera que se muestra no son visibles para tu cuenta."
+  },
+  "pathOpenInDrive": { "message": "Abrir $1 en Google Drive" },
+  "errorNetwork": { "message": "no se pudo conectar con Google Drive" },
+  "errorUnknown": { "message": "algo salió mal" },
+  "optionsTitle": { "message": "Configuración de Übermensch" },
+  "optionsDrivePathHeading": { "message": "Ruta de Drive en Documentos de Google" },
+  "optionsDrivePathLead": {
+    "message": "Muestra la carpeta de Drive del archivo abierto de Documentos, Hojas o Presentaciones junto a su título, con un enlace en cada carpeta. Solo se leen nombres de archivos y carpetas, nunca el contenido."
+  },
+  "optionsDocsAccess": { "message": "Acceso a Documentos de Google" },
+  "optionsDocsAccessTitle": {
+    "message": "Permite que Übermensch añada la ruta de la carpeta en las páginas de docs.google.com. Chrome te lo pregunta antes."
+  },
+  "optionsDocsAccessOn": {
+    "message": "Activado: la ruta aparece junto al título de los archivos de Documentos, Hojas y Presentaciones."
+  },
+  "optionsDocsAccessOff": { "message": "Desactivado: nada se ejecuta en Documentos de Google." },
+  "optionsAccessRefused": { "message": "Chrome no concedió el acceso a Documentos de Google." },
+  "optionsNotConfigured": {
+    "message": "El inicio de sesión de Google no está configurado en esta copia de Übermensch, así que aún no se puede leer la ruta de la carpeta."
+  },
+  "optionsAccountsHeading": { "message": "Cuentas con sesión iniciada" },
+  "optionsAccountsNone": {
+    "message": "No hay ninguna cuenta con sesión iniciada. Haz clic en Ver carpeta junto al título de un documento para iniciar sesión."
+  },
+  "optionsAccountUntil": { "message": "Sesión iniciada hasta las $1, o hasta que cierres Chrome" },
+  "optionsSignOut": { "message": "Cerrar sesión" },
+  "optionsSignOutTitle": { "message": "Olvidar el inicio de sesión de $1 en este dispositivo" },
+  "optionsClearCache": { "message": "Borrar los nombres de carpetas guardados" },
+  "optionsClearCacheTitle": {
+    "message": "Los nombres de carpetas se guardan en memoria unos minutos; bórralos para volver a leerlos de Drive"
+  },
+  "optionsCacheCleared": { "message": "Borrado." },
+  "optionsPrivacyLink": { "message": "Política de privacidad" },
+  "optionsSupportLink": { "message": "Ayuda" }
+}

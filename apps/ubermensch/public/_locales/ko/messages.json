@@ -1,0 +1,68 @@
+{
+  "extName": { "message": "Übermensch" },
+  "extDescription": {
+    "message": "일상 업무를 위한 작은 도구 모음. 첫 번째 기능: Google 문서, 스프레드시트, 프레젠테이션 제목 옆에 Drive 폴더 경로를 보여 줍니다."
+  },
+  "actionTitle": { "message": "Übermensch: 설정 열기" },
+  "localeCode": { "message": "ko" },
+  "commonFactJoin": { "message": "$1 · $2" },
+  "pathMyDrive": { "message": "내 드라이브" },
+  "pathSharedDrive": { "message": "공유 드라이브" },
+  "pathUntitled": { "message": "이름 없는 폴더" },
+  "pathHidden": { "message": "위치를 볼 수 없음" },
+  "pathOwner": { "message": "소유자: $1" },
+  "pathHiddenTitle": {
+    "message": "이 파일은 내 계정으로 열 수 있는 폴더에 있지 않습니다. 예를 들어 다른 사람이 공유한 파일입니다."
+  },
+  "pathShowButton": { "message": "폴더 보기" },
+  "pathShowTitle": {
+    "message": "Google로 로그인하면 이 파일의 Drive 폴더를 보여 줍니다. Übermensch는 파일과 폴더 이름만 읽습니다."
+  },
+  "pathNotConfigured": { "message": "폴더 경로: 로그인이 설정되지 않음" },
+  "pathNotConfiguredTitle": {
+    "message": "이 Übermensch에는 Google 로그인 클라이언트가 없어서 Drive 폴더를 읽을 수 없습니다."
+  },
+  "pathLoading": { "message": "폴더 찾는 중..." },
+  "pathError": { "message": "폴더를 읽을 수 없음" },
+  "pathErrorTitle": { "message": "폴더를 읽지 못했습니다: $1. 클릭하면 다시 시도합니다." },
+  "pathWrongAccount": { "message": "다른 계정으로 로그인됨" },
+  "pathWrongAccountTitle": {
+    "message": "이 문서를 연 계정을 선택하세요. 클릭하면 다시 로그인합니다."
+  },
+  "pathFullTitle": { "message": "Drive 폴더: $1" },
+  "pathPartialTitle": { "message": "표시된 첫 폴더보다 위의 폴더는 내 계정으로 볼 수 없습니다." },
+  "pathOpenInDrive": { "message": "Google Drive에서 $1 열기" },
+  "errorNetwork": { "message": "Google Drive에 연결할 수 없습니다" },
+  "errorUnknown": { "message": "문제가 발생했습니다" },
+  "optionsTitle": { "message": "Übermensch 설정" },
+  "optionsDrivePathHeading": { "message": "Google 문서의 Drive 경로" },
+  "optionsDrivePathLead": {
+    "message": "열려 있는 문서, 스프레드시트, 프레젠테이션 파일의 제목 옆에 Drive 폴더를 보여 주고, 폴더마다 링크를 겁니다. 파일과 폴더 이름만 읽고 내용은 읽지 않습니다."
+  },
+  "optionsDocsAccess": { "message": "Google 문서 접근" },
+  "optionsDocsAccessTitle": {
+    "message": "Übermensch가 docs.google.com 페이지에 폴더 경로를 추가하도록 허용합니다. Chrome이 먼저 묻습니다."
+  },
+  "optionsDocsAccessOn": {
+    "message": "켜짐: 문서, 스프레드시트, 프레젠테이션 파일 제목 옆에 경로가 표시됩니다."
+  },
+  "optionsDocsAccessOff": { "message": "꺼짐: Google 문서에서는 아무것도 실행되지 않습니다." },
+  "optionsAccessRefused": { "message": "Chrome이 Google 문서 접근을 허용하지 않았습니다." },
+  "optionsNotConfigured": {
+    "message": "이 Übermensch에는 Google 로그인이 설정되어 있지 않아 아직 폴더 경로를 읽을 수 없습니다."
+  },
+  "optionsAccountsHeading": { "message": "로그인한 계정" },
+  "optionsAccountsNone": {
+    "message": "로그인한 계정이 없습니다. 문서 제목 옆의 폴더 보기를 클릭해 로그인하세요."
+  },
+  "optionsAccountUntil": { "message": "$1까지 또는 Chrome을 닫을 때까지 로그인 유지" },
+  "optionsSignOut": { "message": "로그아웃" },
+  "optionsSignOutTitle": { "message": "이 기기에서 $1의 로그인 정보를 지웁니다" },
+  "optionsClearCache": { "message": "저장된 폴더 이름 지우기" },
+  "optionsClearCacheTitle": {
+    "message": "폴더 이름은 몇 분 동안 메모리에 보관됩니다. 지우면 Drive에서 다시 읽습니다"
+  },
+  "optionsCacheCleared": { "message": "지웠습니다." },
+  "optionsPrivacyLink": { "message": "개인정보처리방침" },
+  "optionsSupportLink": { "message": "지원" }
+}

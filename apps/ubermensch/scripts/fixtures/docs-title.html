@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Fixture: an editor title bar</title>
+    <!-- A stand-in for a Docs, Sheets or Slides title bar with fixture names only. The class
+         names copy the ones src/lib/docs-dom.ts looks for. -->
+    <style>
+      body {
+        margin: 0;
+        background: #f9fbfd;
+        font-family: 'Google Sans', Roboto, Arial, sans-serif;
+        color: #1f1f1f;
+      }
+      #docs-header {
+        display: flex;
+        align-items: flex-start;
+        height: 64px;
+        padding: 0 16px 0 0;
+      }
+      .logo {
+        width: 40px;
+        height: 40px;
+        margin: 12px 8px 0 12px;
+        border-radius: 6px;
+      }
+      .titles {
+        flex: 1;
+        padding-top: 8px;
+        min-width: 0;
+      }
+      .docs-title-outer {
+        display: flex;
+        align-items: center;
+        white-space: nowrap;
+      }
+      #docs-title-widget {
+        font-size: 18px;
+        padding: 2px 7px;
+      }
+      .docs-titlebar-badges {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: #444746;
+      }
+      .badge {
+        width: 18px;
+        height: 18px;
+        border: 2px solid #444746;
+        border-radius: 50%;
+        box-sizing: border-box;
+      }
+      .menus {
+        display: flex;
+        gap: 14px;
+        font-size: 14px;
+        padding: 2px 7px;
+        color: #1f1f1f;
+      }
+      .share {
+        margin-top: 12px;
+        padding: 9px 20px;
+        border-radius: 20px;
+        background: #c2e7ff;
+        font-size: 14px;
+        font-weight: 500;
+      }
+      .toolbar {
+        height: 40px;
+        margin: 0 16px;
+        border-radius: 20px;
+        background: #edf2fa;
+      }
+      .canvas {
+        display: flex;
+        justify-content: center;
+        padding-top: 24px;
+      }
+      .page {
+        width: 440px;
+        height: 520px;
+        background: #fff;
+        border: 1px solid #e3e3e3;
+        padding: 48px 56px;
+        box-sizing: border-box;
+      }
+      .line {
+        height: 9px;
+        margin-bottom: 14px;
+        border-radius: 4px;
+        background: #e8eaed;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 1px;
+        background: #e3e3e3;
+        border: 1px solid #e3e3e3;
+        width: 560px;
+        height: 330px;
+      }
+      .grid div {
+        background: #fff;
+      }
+      .caption {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 18px 24px;
+        background: #2f2380;
+        color: #fff;
+        font-size: 18px;
+        font-weight: 500;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="docs-header">
+      <svg class="logo" viewBox="0 0 40 40" aria-hidden="true">
+        <rect width="40" height="40" rx="6" id="logo-fill" fill="#4285f4" />
+        <rect x="10" y="12" width="20" height="3" fill="#fff" />
+        <rect x="10" y="19" width="20" height="3" fill="#fff" />
+        <rect x="10" y="26" width="13" height="3" fill="#fff" />
+      </svg>
+      <div class="titles">
+        <div class="docs-title-outer">
+          <div id="docs-title-widget">Quarterly plan</div>
+          <div class="docs-titlebar-badges">
+            <span class="badge"></span>
+          </div>
+        </div>
+        <div class="menus" id="menus"></div>
+      </div>
+      <div class="share" id="share">Share</div>
+    </div>
+    <div class="toolbar"></div>
+    <div class="canvas" id="canvas"></div>
+    <div class="caption" id="caption"></div>
+  </body>
+</html>

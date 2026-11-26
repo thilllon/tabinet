@@ -1,0 +1,74 @@
+{
+  "extName": { "message": "Übermensch" },
+  "extDescription": {
+    "message": "毎日の仕事のための小さなツール集。最初の機能: Google ドキュメント、スプレッドシート、スライドのタイトルの横に Drive のフォルダパスを表示します。"
+  },
+  "actionTitle": { "message": "Übermensch: 設定を開く" },
+  "localeCode": { "message": "ja" },
+  "commonFactJoin": { "message": "$1 · $2" },
+  "pathMyDrive": { "message": "マイドライブ" },
+  "pathSharedDrive": { "message": "共有ドライブ" },
+  "pathUntitled": { "message": "名前のないフォルダ" },
+  "pathHidden": { "message": "場所を表示できません" },
+  "pathOwner": { "message": "オーナー: $1" },
+  "pathHiddenTitle": {
+    "message": "このファイルは、あなたのアカウントで開けるフォルダにありません。たとえば共有されたファイルです。"
+  },
+  "pathShowButton": { "message": "フォルダを表示" },
+  "pathShowTitle": {
+    "message": "Google でログインすると、このファイルの Drive フォルダを表示します。Übermensch が読むのはファイル名とフォルダ名だけです。"
+  },
+  "pathNotConfigured": { "message": "フォルダパス: ログインが未設定" },
+  "pathNotConfiguredTitle": {
+    "message": "この Übermensch には Google ログインのクライアントがないため、Drive フォルダを読めません。"
+  },
+  "pathLoading": { "message": "フォルダを探しています..." },
+  "pathError": { "message": "フォルダを読めません" },
+  "pathErrorTitle": {
+    "message": "フォルダを読めませんでした: $1。クリックするともう一度試します。"
+  },
+  "pathWrongAccount": { "message": "別のアカウントでログイン中" },
+  "pathWrongAccountTitle": {
+    "message": "このドキュメントを開いているアカウントを選んでください。クリックするともう一度ログインします。"
+  },
+  "pathFullTitle": { "message": "Drive フォルダ: $1" },
+  "pathPartialTitle": {
+    "message": "表示されている最初のフォルダより上は、あなたのアカウントでは見えません。"
+  },
+  "pathOpenInDrive": { "message": "Google Drive で $1 を開く" },
+  "errorNetwork": { "message": "Google Drive に接続できません" },
+  "errorUnknown": { "message": "問題が発生しました" },
+  "optionsTitle": { "message": "Übermensch の設定" },
+  "optionsDrivePathHeading": { "message": "Google ドキュメントの Drive パス" },
+  "optionsDrivePathLead": {
+    "message": "開いているドキュメント、スプレッドシート、スライドのファイルのタイトルの横に Drive フォルダを表示し、フォルダごとにリンクを付けます。読むのはファイル名とフォルダ名だけで、内容は読みません。"
+  },
+  "optionsDocsAccess": { "message": "Google ドキュメントへのアクセス" },
+  "optionsDocsAccessTitle": {
+    "message": "Übermensch が docs.google.com のページにフォルダパスを追加できるようにします。Chrome が先に確認します。"
+  },
+  "optionsDocsAccessOn": {
+    "message": "オン: ドキュメント、スプレッドシート、スライドのファイルのタイトルの横にパスが表示されます。"
+  },
+  "optionsDocsAccessOff": { "message": "オフ: Google ドキュメントでは何も動きません。" },
+  "optionsAccessRefused": {
+    "message": "Chrome が Google ドキュメントへのアクセスを許可しませんでした。"
+  },
+  "optionsNotConfigured": {
+    "message": "この Übermensch では Google ログインが設定されていないため、まだフォルダパスを読めません。"
+  },
+  "optionsAccountsHeading": { "message": "ログイン中のアカウント" },
+  "optionsAccountsNone": {
+    "message": "ログイン中のアカウントはありません。ドキュメントのタイトルの横の「フォルダを表示」をクリックしてログインしてください。"
+  },
+  "optionsAccountUntil": { "message": "$1 まで、または Chrome を閉じるまでログイン中" },
+  "optionsSignOut": { "message": "ログアウト" },
+  "optionsSignOutTitle": { "message": "このデバイスで $1 のログインを消去します" },
+  "optionsClearCache": { "message": "保存したフォルダ名を消去" },
+  "optionsClearCacheTitle": {
+    "message": "フォルダ名は数分間メモリに保存されます。消去すると Drive からもう一度読みます"
+  },
+  "optionsCacheCleared": { "message": "消去しました。" },
+  "optionsPrivacyLink": { "message": "プライバシーポリシー" },
+  "optionsSupportLink": { "message": "サポート" }
+}

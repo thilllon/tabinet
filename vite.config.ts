@@ -181,9 +181,10 @@ export default defineConfig(() => {
       // Tests resolve their paths from the repository root, as they did before the root moved.
       root: import.meta.dirname,
       setupFiles: ['src/tests/setup.ts'],
-      // Only this tree's suites: Claude Code worktrees under .claude/ carry their own copies, and
-      // the sync server (server/) runs its own vitest (`pnpm server:test`).
-      exclude: [...configDefaults.exclude, '.claude/**', 'server/**'],
+      // Only this tree's suites: Claude Code worktrees under .claude/ carry their own copies, the
+      // sync server (server/) runs its own vitest (`pnpm server:test`) and so does every app under
+      // apps/ (`pnpm --filter <app> test`).
+      exclude: [...configDefaults.exclude, '.claude/**', 'server/**', 'apps/**'],
     },
   };
 });

@@ -1,0 +1,5 @@
+# Übermensch: dependencies, build output, the upload zip and the store bundle
+node_modules
+dist
+release
+*.tsbuildinfo
