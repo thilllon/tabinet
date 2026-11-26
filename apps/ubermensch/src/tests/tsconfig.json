@@ -1,0 +1,11 @@
+{
+  // The tests and scripts, type-checked on their own: they may use Node APIs (fs, path) that the
+  // extension code must not, so `node` types are added here and never in the root config.
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "types": ["chrome", "node"],
+    "allowImportingTsExtensions": true
+  },
+  "include": [".", "..", "../../scripts"],
+  "exclude": []
+}

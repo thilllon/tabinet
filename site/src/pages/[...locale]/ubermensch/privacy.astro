@@ -1,0 +1,44 @@
+---
+// The policy is apps/ubermensch/PRIVACY_POLICY.md, rendered as it is, so the page and the file
+// can never disagree. Other languages show it in English with a note that English governs.
+import { Content as Policy } from '../../../../../apps/ubermensch/PRIVACY_POLICY.md';
+import { localePaths, type Locale } from '../../../i18n/locales';
+import { ubermenschCopy } from '../../../i18n/ubermensch-copy';
+import UbermenschLayout from '../../../layouts/ubermensch-layout.astro';
+
+export function getStaticPaths() {
+  return localePaths();
+}
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const copy = ubermenschCopy(locale);
+---
+
+<UbermenschLayout locale={locale} page="privacy" title={copy.meta.privacyTitle} description={copy.meta.privacyDescription}>
+  <div class="container narrow page">
+    <p class="notice">{copy.privacyNotice}</p>
+    <article class="prose" lang="en">
+      <Policy />
+    </article>
+  </div>
+</UbermenschLayout>
+
+<style>
+  .page {
+    padding-block: 3rem;
+  }
+
+  .notice {
+    margin-bottom: 2rem;
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--primary);
+    border-radius: var(--radius);
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
+</style>

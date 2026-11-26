@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "useDefineForClassFields": true,
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "types": ["chrome"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "paths": {
+      "@/*": ["./src/*"],
+      "cn": ["./src/lib/utils.ts"]
+    }
+  },
+  "include": ["src"],
+  // The tests use Node types; src/tests/tsconfig.json checks them (the second pass of typecheck).
+  "exclude": ["src/tests"],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}

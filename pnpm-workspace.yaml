@@ -1,6 +1,7 @@
 packages:
   - site
   - server
+  - apps/*
 allowBuilds:
   esbuild: true
 minimumReleaseAge: 10080

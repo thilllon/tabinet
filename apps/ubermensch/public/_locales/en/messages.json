@@ -1,0 +1,178 @@
+{
+  "extName": {
+    "message": "Übermensch",
+    "description": "The extension's name. Keep it as it is in every language."
+  },
+  "extDescription": {
+    "message": "Small tools for everyday work. First: each Google Docs, Sheets or Slides file shows its Drive folder path next to the title.",
+    "description": "The Chrome Web Store summary and the chrome://extensions description. At most 132 characters."
+  },
+  "actionTitle": {
+    "message": "Übermensch: open settings",
+    "description": "Tooltip of the toolbar icon; clicking it opens the options page."
+  },
+  "localeCode": {
+    "message": "en",
+    "description": "The code of this language (en, es, ko, ja). Do not translate: the extension reads it back."
+  },
+  "commonFactJoin": {
+    "message": "$1 · $2",
+    "description": "Puts two short facts side by side on one line. $1 and $2 are the facts."
+  },
+  "pathMyDrive": {
+    "message": "My Drive",
+    "description": "The first step of a folder path for a file in the person's own Drive. Use Google Drive's own name for it."
+  },
+  "pathSharedDrive": {
+    "message": "Shared drive",
+    "description": "Stands in for a shared drive whose name could not be read. Use Google Drive's own term."
+  },
+  "pathUntitled": {
+    "message": "Untitled folder",
+    "description": "Stands in for a folder whose name is empty."
+  },
+  "pathHidden": {
+    "message": "Location not visible",
+    "description": "Shown next to a document's title when its Drive folder cannot be seen by the signed-in account."
+  },
+  "pathOwner": {
+    "message": "owner: $1",
+    "description": "Follows pathHidden on the same line. $1 is the file owner's display name. Lowercase in English because it follows a dot separator."
+  },
+  "pathHiddenTitle": {
+    "message": "The file is not in a folder your account can open, for example because it was shared with you.",
+    "description": "Tooltip explaining pathHidden."
+  },
+  "pathShowButton": {
+    "message": "Show folder",
+    "description": "Button next to a document's title. Clicking it opens Google sign-in, then shows the file's Drive folder path. Keep it short."
+  },
+  "pathShowTitle": {
+    "message": "Sign in with Google to show this file's Drive folder. Übermensch reads file and folder names only.",
+    "description": "Tooltip of the pathShowButton button."
+  },
+  "pathNotConfigured": {
+    "message": "Folder path: sign-in not configured",
+    "description": "Shown next to a document's title in a build without a Google sign-in client. Keep it short."
+  },
+  "pathNotConfiguredTitle": {
+    "message": "This copy of Übermensch has no Google sign-in client, so the Drive folder cannot be read.",
+    "description": "Tooltip explaining pathNotConfigured."
+  },
+  "pathLoading": {
+    "message": "Finding folder...",
+    "description": "Shown briefly while the folder path is being read."
+  },
+  "pathError": {
+    "message": "Folder unavailable",
+    "description": "Button shown when the folder path could not be read; clicking it tries again. Keep it short."
+  },
+  "pathErrorTitle": {
+    "message": "The folder could not be read: $1. Click to try again.",
+    "description": "Tooltip of pathError. $1 is the reason, one of the error* messages."
+  },
+  "pathWrongAccount": {
+    "message": "Signed in with another account",
+    "description": "Button shown when the account chosen in Google sign-in is not the one the open document uses; clicking it opens sign-in again. Keep it short."
+  },
+  "pathWrongAccountTitle": {
+    "message": "Choose the account this document is open in. Click to sign in again.",
+    "description": "Tooltip of pathWrongAccount."
+  },
+  "pathFullTitle": {
+    "message": "Drive folder: $1",
+    "description": "Tooltip of the whole folder path. $1 is the full path, folder names separated by ›."
+  },
+  "pathPartialTitle": {
+    "message": "Folders above the first one shown are not visible to your account.",
+    "description": "Added to the tooltip, and the tooltip of the leading …, when the top of the path cannot be seen."
+  },
+  "pathOpenInDrive": {
+    "message": "Open $1 in Google Drive",
+    "description": "Tooltip of one folder in the path. $1 is the folder's name."
+  },
+  "errorNetwork": {
+    "message": "Google Drive could not be reached",
+    "description": "Reason inside pathErrorTitle when there is no connection or Drive did not answer."
+  },
+  "errorUnknown": {
+    "message": "something went wrong",
+    "description": "Reason inside pathErrorTitle for any other failure. Lowercase in English because it follows a colon."
+  },
+  "optionsTitle": {
+    "message": "Übermensch settings",
+    "description": "Heading and tab title of the options page."
+  },
+  "optionsDrivePathHeading": {
+    "message": "Drive path in Google Docs",
+    "description": "Heading of the options page section about the folder path feature."
+  },
+  "optionsDrivePathLead": {
+    "message": "Shows the Drive folder of the open Docs, Sheets or Slides file next to its title, each folder a link. Only file and folder names are read, never the content.",
+    "description": "Explains the folder path feature under its heading."
+  },
+  "optionsDocsAccess": {
+    "message": "Access to Google Docs",
+    "description": "Label of the switch that grants the extension access to docs.google.com."
+  },
+  "optionsDocsAccessTitle": {
+    "message": "Lets Übermensch add the folder path to docs.google.com pages. Chrome asks you first.",
+    "description": "Tooltip of the optionsDocsAccess switch."
+  },
+  "optionsDocsAccessOn": {
+    "message": "On: the path shows next to the title of Docs, Sheets and Slides files.",
+    "description": "State line under the switch while access is granted."
+  },
+  "optionsDocsAccessOff": {
+    "message": "Off: nothing runs on Google Docs.",
+    "description": "State line under the switch while access is not granted."
+  },
+  "optionsAccessRefused": {
+    "message": "Chrome did not grant access to Google Docs.",
+    "description": "Shown when the person declined Chrome's permission prompt."
+  },
+  "optionsNotConfigured": {
+    "message": "Google sign-in is not configured in this copy of Übermensch, so the folder path cannot be read yet.",
+    "description": "Shown on the options page in a build without a Google sign-in client."
+  },
+  "optionsAccountsHeading": {
+    "message": "Signed-in accounts",
+    "description": "Heading of the list of Google accounts signed in for the folder path."
+  },
+  "optionsAccountsNone": {
+    "message": "No account is signed in. Click Show folder next to a document's title to sign in.",
+    "description": "Shown when no account is signed in. Quote the pathShowButton text as it is in this language."
+  },
+  "optionsAccountUntil": {
+    "message": "Signed in until $1, or until Chrome closes",
+    "description": "Under an account's address. $1 is a time of day."
+  },
+  "optionsSignOut": {
+    "message": "Sign out",
+    "description": "Button that forgets one account's sign-in on this device."
+  },
+  "optionsSignOutTitle": {
+    "message": "Forget the sign-in of $1 on this device",
+    "description": "Tooltip of optionsSignOut. $1 is the account's e-mail address."
+  },
+  "optionsClearCache": {
+    "message": "Clear cached folder names",
+    "description": "Button that forgets the folder names kept for a few minutes."
+  },
+  "optionsClearCacheTitle": {
+    "message": "Folder names are kept in memory for a few minutes; clear them to read them from Drive again",
+    "description": "Tooltip of optionsClearCache."
+  },
+  "optionsCacheCleared": {
+    "message": "Cleared.",
+    "description": "Confirmation after optionsClearCache."
+  },
+  "optionsPrivacyLink": {
+    "message": "Privacy policy",
+    "description": "Footer link to the privacy policy."
+  },
+  "optionsSupportLink": {
+    "message": "Support",
+    "description": "Footer link to the support page."
+  }
+}

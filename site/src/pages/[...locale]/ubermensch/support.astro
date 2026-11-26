@@ -1,0 +1,89 @@
+---
+import { localePaths, type Locale } from '../../../i18n/locales';
+import { ubermenschCopy } from '../../../i18n/ubermensch-copy';
+import { UBERMENSCH_ISSUES_URL } from '../../../i18n/ubermensch-pages';
+import UbermenschLayout from '../../../layouts/ubermensch-layout.astro';
+
+export function getStaticPaths() {
+  return localePaths();
+}
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const copy = ubermenschCopy(locale);
+const support = copy.support;
+---
+
+<UbermenschLayout locale={locale} page="support" title={copy.meta.supportTitle} description={support.lead}>
+  <div class="container narrow page">
+    <h1>{support.title}</h1>
+    <p class="section-lead">{support.lead}</p>
+
+    <section class="panel" aria-labelledby="faq">
+      <h2 id="faq">{support.faqTitle}</h2>
+      {
+        support.faq.map((item) => (
+          <details>
+            <summary>{item.q}</summary>
+            <p>{item.a}</p>
+          </details>
+        ))
+      }
+    </section>
+
+    <section class="panel" aria-labelledby="report">
+      <h2 id="report">{support.reportTitle}</h2>
+      <p>{support.reportLead}</p>
+      <p class="actions">
+        <a class="button button-primary" href={UBERMENSCH_ISSUES_URL} rel="noopener">{support.reportButton}</a>
+      </p>
+    </section>
+  </div>
+</UbermenschLayout>
+
+<style>
+  .page {
+    padding-block: 3rem;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 1.5rem + 2vw, 2.75rem);
+    font-weight: 750;
+  }
+
+  .panel {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--card);
+  }
+
+  .panel h2 {
+    font-size: 1.25rem;
+    font-weight: 650;
+    margin-bottom: 0.75rem;
+  }
+
+  details {
+    border-top: 1px solid var(--border);
+    padding-block: 0.875rem;
+  }
+
+  summary {
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  details p {
+    margin-top: 0.5rem;
+    color: var(--muted-foreground);
+  }
+
+  .actions {
+    margin-top: 1rem;
+  }
+</style>
