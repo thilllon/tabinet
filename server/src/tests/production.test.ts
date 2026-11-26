@@ -35,9 +35,10 @@ describe('listFromEnv', () => {
 });
 
 describe('the production check', () => {
-  it('ships with no pinned key encryption key, so no build runs v2 until the cutover pins one', () => {
-    expect(PINNED_KEY_ENCRYPTION_KEY_ID).toBe('');
-    expect(() => readEnv(GOOD)).toThrow('no key encryption key id is pinned');
+  it('pins a production id that is never the test vectors one', () => {
+    expect(PINNED_KEY_ENCRYPTION_KEY_ID).toMatch(/^[0-9a-f]{16}$/);
+    expect(PINNED_KEY_ENCRYPTION_KEY_ID).not.toBe('2e8440d4467793dd');
+    expect(() => readEnv(GOOD)).toThrow('not the pinned key encryption key');
   });
 
   it('passes for Vercel Production with the pinned key encryption key', async () => {
